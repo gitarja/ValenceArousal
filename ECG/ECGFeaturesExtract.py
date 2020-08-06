@@ -1,15 +1,13 @@
 from ECG.ECGFeatures import ECGFeatures
-from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
-from Libs.Utils import Utils
+from Libs.Utils import timeToInt
 from scipy import stats
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
+from Conf import Settings as set
 import matplotlib
 matplotlib.use('TkAgg')
 
-ut = Utils()
+
 
 path = "F:\\data\\EEG\\Pictures\\Mukaeda.csv"
 
@@ -20,7 +18,7 @@ data = pd.read_csv(path)
 # data = data.loc[(data.timestamp >= start) & (data.timestamp <= end)]
 
 # convert timestamp to int
-data["timestamp"] = data["timestamp"].apply(ut.timeToInt)
+data["timestamp"] = data["timestamp"].apply(timeToInt)
 
 # normalize the data
 data["timestamp"] = data["timestamp"] - data.iloc[0].timestamp
@@ -30,14 +28,14 @@ groups = data.groupby(data["timestamp"].values // 13.)
 
 
 # features extrator
-featuresExct = ECGFeatures()
+featuresExct = ECGFeatures(set.FS_ECG)
 featuresEachMin = []
 fs = 250
 for i, g in groups:
     if (len(g.ecg.values) >= 3250):
-        time_domain = featuresExct.extractTimeDomain(g.ecg.values, fs)
-        freq_domain = featuresExct.extractFrequencyDomain(g.ecg.values, fs)
-        nonlinear_domain = featuresExct.extractNonLinearDomain(g.ecg.values, fs)
+        time_domain = featuresExct.extractTimeDomain(g.ecg.values)
+        freq_domain = featuresExct.extractFrequencyDomain(g.ecg.values)
+        nonlinear_domain = featuresExct.extractNonLinearDomain(g.ecg.values)
 
         featuresEachMin.append(np.concatenate([time_domain, freq_domain, nonlinear_domain]))
 

@@ -1,17 +1,16 @@
 import pandas as pd
-from Libs.Utils import Utils
+from Libs.Utils import timeToInt, butterBandpassFilter
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from EEG.EEGFeatures import EEGFeatures
+from Conf import Settings as set
 import numpy as np
 from scipy import stats
 from sklearn.decomposition import PCA
 
-ut = Utils()
 path = "F:\\data\\EEG+ECG\\Terui\\TeruiFiltered.csv"
 data = pd.read_csv(path)
 # convert timestamp to int
-data["Time"] = data["Time"].apply(ut.timeToInt)
+data["Time"] = data["Time"].apply(timeToInt)
 
 # normalize the data
 data["Time"] = data["Time"] - data.loc[0].Time
@@ -29,13 +28,13 @@ fs = 1000
 bands = [4,8,16,32]
 
 for i, g in groups:
-    ch1Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH1.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch2Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH2.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch3Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH3.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch4Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH4.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch5Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH5.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch6Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH6.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
-    ch7Features = timeExct.frequencyDomainFeatures(ut.butterBandpassFilter(g.CH7.values, lowcut=lc, highcut=hc, fs=fs), bands=bands, fs=fs)
+    ch1Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH1.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch2Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH2.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch3Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH3.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch4Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH4.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch5Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH5.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch6Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH6.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    ch7Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH7.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
 
     featuresEachMin.append(
         np.concatenate([ch1Features, ch2Features, ch3Features, ch4Features, ch5Features, ch6Features, ch7Features]))

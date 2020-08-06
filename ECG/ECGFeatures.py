@@ -8,18 +8,23 @@ import pyhrv
 from biosppy import utils
 class ECGFeatures:
 
+    def __init__(self, fs):
+        self.fs = fs
 
-    def extractRR(self, x, fs):
-        X, r = biosppy.signals.ecg.ecg(x, sampling_rate=fs, show=False)[1:3]
-        r = biosppy.signals.ecg.correct_rpeaks(signal=X, rpeaks=r, sampling_rate=fs)[0]
+    def extractRR(self, x):
+        X, r = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[1:3]
+        r = biosppy.signals.ecg.correct_rpeaks(signal=X, rpeaks=r, sampling_rate=self.fs)[0]
         r = r.astype(float)
         # Compute NNI or RR
         nni = tools.nn_intervals(r)
+
         return nni
+    def computeHeartBeat(self, x):
+        ts, hb = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[5:]
+        return ts, hb
 
-
-    def extractTimeDomain(self, x, fs):
-        nni = self.extractRR(x, fs)
+    def extractTimeDomain(self, x):
+        nni = self.extractRR(x)
         nniParams = td.nni_parameters(nni=nni)
         nniSD = td.sdnn(nni=nni)
         nniDiff = td.nni_differences_parameters(nni=nni)
@@ -33,8 +38,8 @@ class ECGFeatures:
                nniDiffSD["sdsd"],\
                hrParams["hr_mean"], hrParams["hr_std"]
 
-    def extractFrequencyDomain(self, x, fs):
-        nni = self.extractRR(x, fs)
+    def extractFrequencyDomain(self, x):
+        nni = self.extractRR(x)
         #the bands was decided by refering to Revealing Real-Time Emotional Responses
         psd = fd.welch_psd(nni=nni, show=False,
                            fbands={'ulf': (0.00, 0.01), 'vlf': (0.01, 0.05), 'lf': (0.05, 0.15), 'hf': (0.15, 0.5)},
@@ -42,8 +47,8 @@ class ECGFeatures:
 
         return psd["fft_norm"][0], psd["fft_norm"][1], psd["fft_ratio"]
 
-    def extractNonLinearDomain(self, x, fs):
-        nni = self.extractRR(x, fs)
+    def extractNonLinearDomain(self, x):
+        nni = self.extractRR(x)
         sampEntro = nn.sample_entropy(nni=nni, dim=1)
         lyapEx = self.lyapunov_exponent(nni=nni, emb_dim=3, matrix_dim=2)
 

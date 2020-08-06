@@ -1,0 +1,7 @@
+
+
+#ECG Const
+FS_ECG = 250
+FS_EEG = 1000
+FS_GSR = 15
+FS_RESP = 256

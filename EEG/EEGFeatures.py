@@ -1,19 +1,19 @@
 import pyeeg
 import numpy as np
 import pywt
-from Libs.Utils import Utils
+from Conf import Settings as set
+from Libs.Utils import butterBandpassFilter, avgSlidingWindow
 
 class EEGFeatures:
 
     def __init__(self, fs = 1000):
-        self.utils = Utils()
         self.fs = fs
 
     def preProcessing(self, x, n=50):
         lc = 4
         hc = 55
-        filtered = self.utils.butterBandpassFilter(x, lowcut=lc, highcut=hc, fs=self.fs)
-        smoothed = self.utils.avgSlidingWindow(filtered, n=50)
+        filtered = butterBandpassFilter(x, lowcut=lc, highcut=hc, fs=self.fs)
+        smoothed = avgSlidingWindow(filtered, n=50)
 
         return smoothed
 
@@ -23,9 +23,9 @@ class EEGFeatures:
         :param x: eeg signal
         :return: theta, alpha, and beta of the signal
         '''
-        theta = self.utils.butterBandpassFilter(x, lowcut=4, highcut=7, fs=self.fs)
-        alpha = self.utils.butterBandpassFilter(x, lowcut=8, highcut=15, fs=self.fs)
-        beta = self.utils.butterBandpassFilter(x, lowcut=16, highcut=31, fs=self.fs)
+        theta = butterBandpassFilter(x, lowcut=4, highcut=7, fs=set.FS_EEG)
+        alpha = butterBandpassFilter(x, lowcut=8, highcut=15, fs=set.FS_EEG)
+        beta = butterBandpassFilter(x, lowcut=16, highcut=31, fs=set.FS_EEG)
 
         return theta, alpha, beta
 
