@@ -9,7 +9,7 @@ matplotlib.use('TkAgg')
 
 
 
-path = "F:\\data\\EEG\\Pictures\\Mukaeda.csv"
+path = "D:\\usr\\pras\\project\\TensorFlowProject\\ValenceArousal\\Data\\Dummy\\hb_data.csv"
 
 data = pd.read_csv(path)
 # start = "2020-04-29 15:40:21"
