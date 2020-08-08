@@ -5,11 +5,13 @@ from scipy import stats
 import numpy as np
 from Conf import Settings as set
 import matplotlib
+
+
 matplotlib.use('TkAgg')
 
 
 
-path = "F:\\data\\EEG\\Pictures\\Mukaeda.csv"
+path = "20200505_130107_379_HB_PW.csv"
 
 data = pd.read_csv(path)
 # start = "2020-04-29 15:40:21"
@@ -39,12 +41,13 @@ for i, g in groups:
 
         featuresEachMin.append(np.concatenate([time_domain, freq_domain, nonlinear_domain]))
 
-#normalized features
-featuresEachMin= np.where(np.isnan(featuresEachMin), 0, featuresEachMin)
-featuresEachMin= np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
+
+# normalized features
+featuresEachMin = np.where(np.isnan(featuresEachMin), 0, featuresEachMin)
+featuresEachMin = np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
 
 normalizedFeatures = stats.zscore(featuresEachMin, 0)
 
 
+np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
 
-np.savetxt('F:\\data\\EEG\\pictures\\normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')

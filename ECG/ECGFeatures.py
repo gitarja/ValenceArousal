@@ -18,7 +18,9 @@ class ECGFeatures:
         # Compute NNI or RR
         nni = tools.nn_intervals(r)
 
+
         return nni
+
     def computeHeartBeat(self, x):
         ts, hb = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[5:]
         return ts, hb
