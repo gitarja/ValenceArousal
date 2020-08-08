@@ -5,13 +5,12 @@ from scipy import stats
 import numpy as np
 from Conf import Settings as set
 import matplotlib
+import matplotlib.pyplot as plt
 
 
 matplotlib.use('TkAgg')
 
-
-
-path = "20200505_130107_379_HB_PW.csv"
+path = 'C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\20200611\\ECG\\20200505_130107_379_HB_PW.csv'
 
 data = pd.read_csv(path)
 # start = "2020-04-29 15:40:21"
@@ -49,5 +48,23 @@ featuresEachMin = np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
 normalizedFeatures = stats.zscore(featuresEachMin, 0)
 
 
-np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
+# plot
+normalizedFeatures_T = normalizedFeatures.T
+num_plot = 9
+if normalizedFeatures_T.shape[0] % num_plot == 0:
+    num_figure = normalizedFeatures_T.shape[0] // num_plot
+else:
+    num_figure = normalizedFeatures_T.shape[0] // num_plot + 1
+
+for i in range(num_figure):
+    plt.figure(figsize=(12, 9))
+    for j in range(num_plot):
+        if num_plot*i+j >= normalizedFeatures_T.shape[0]:
+            break
+        plt.subplot(3, 3, j + 1)
+        plt.plot(normalizedFeatures_T[num_plot*i+j])
+plt.show()
+
+
+# np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
 
