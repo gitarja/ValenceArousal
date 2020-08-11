@@ -1,7 +1,6 @@
-import pyeeg
+from Libs import pyeeg
 import numpy as np
 import pywt
-from Conf import Settings as set
 from Libs.Utils import butterBandpassFilter, avgSlidingWindow
 
 class EEGFeatures:
@@ -13,7 +12,7 @@ class EEGFeatures:
         lc = 4
         hc = 55
         filtered = butterBandpassFilter(x, lowcut=lc, highcut=hc, fs=self.fs)
-        smoothed = avgSlidingWindow(filtered, n=50)
+        smoothed = avgSlidingWindow(filtered, n=n)
 
         return smoothed
 
@@ -23,9 +22,10 @@ class EEGFeatures:
         :param x: eeg signal
         :return: theta, alpha, and beta of the signal
         '''
-        theta = butterBandpassFilter(x, lowcut=4, highcut=7, fs=set.FS_EEG)
-        alpha = butterBandpassFilter(x, lowcut=8, highcut=15, fs=set.FS_EEG)
-        beta = butterBandpassFilter(x, lowcut=16, highcut=31, fs=set.FS_EEG)
+        filtered = self.preProcessing(x)
+        theta = butterBandpassFilter(filtered, lowcut=4, highcut=7, fs=self.fs, order=2)
+        alpha = butterBandpassFilter(filtered, lowcut=8, highcut=15, fs=self.fs, order=2)
+        beta = butterBandpassFilter(filtered, lowcut=16, highcut=31, fs=self.fs, order=2)
 
         return theta, alpha, beta
 
@@ -52,20 +52,41 @@ class EEGFeatures:
 
         return resp.real
 
-    def timeDomainFeatures(self, x):
+    def extractTimeDomainFeatures(self, x):
         '''
         :param x: eeg signal
         :return: time-domain features of theta, alpha, and beta
         '''
         t, a, b = self.extractThetaAlphaBeta(x)
 
-        features_t = self.timeDomain(t)
-        features_a = self.timeDomain(a)
-        features_b = self.timeDomain(b)
+        features_t = self.extractTimeDomain(t)
+        features_a = self.extractTimeDomain(a)
+        features_b = self.extractTimeDomain(b)
 
-        return features_t, features_a, features_b
+        return np.concatenate([features_t, features_a, features_b])
 
-    def timeDomain(self, x):
+    def extractTimeDomainAll(self, x):
+        features = []
+        for i in range(x.shape[1]):
+            features.append(self.extractTimeDomainFeatures(x[:, i]))
+
+        return np.concatenate(features)
+
+    def extractFreqTimeDomainAll(self, x):
+        features = []
+        for i in range(x.shape[1]):
+            features.append(self.extractFreqTimeFeatures(x[:, i]))
+
+        return np.concatenate(features)
+
+    def extractFrequencyDomainAll(self, x):
+        features = []
+        for i in range(x.shape[1]):
+            features.append(self.extractFrequencyDomainFeatures(x[:, i]))
+
+        return np.concatenate(features)
+
+    def extractTimeDomain(self, x):
         '''
         :param x: a signal
         :return: time-domain features
@@ -76,27 +97,25 @@ class EEGFeatures:
         hjrot = self.hjort(x)
         maxPsd = self.maxPSD(x)
         power = self.power(x)
-        return np.concatenate([m, std, rms, hjrot[0], hjrot[1], maxPsd, power])
+        return np.array([m, std, rms, hjrot[0], hjrot[1], maxPsd, power])
 
 
     def bandPower(self, x, bands, fs):
        return pyeeg.bin_power(x, bands, fs)
 
-    def frequencyDomainFeatures(self, x, bands):
+    def extractFrequencyDomainFeatures(self, x, bands=[4, 8, 16, 32]):
         '''
         :param x: eeg signal
-        :param bands: ranges of frequencies
+        :param bands: ranges of frequencies (theta: 4-7, alpha:8-15, beta: 16-32)
         :return: power spectrum of theta, alpha, and beta
         '''
-        t,a,b = self.extractThetaAlphaBeta(x)
+        filtered = self.preProcessing(x)
+        _, pwr_t = self.bandPower(filtered, bands, self.fs)
 
-        _, pwr_t = self.bandPower(t, bands, self.fs)
-        _, pwr_a = self.bandPower(a, bands, self.fs)
-        _, pwr_b = self.bandPower(b, bands, self.fs)
 
-        return pwr_t, pwr_a, pwr_b
+        return np.array(pwr_t)
 
-    def freqTimeFeatures(self, x, level=8):
+    def extractFreqTimeFeatures(self, x, level=8):
         '''
         compute the frequency-time domain features using bior3.3 wavelet
         :param x: eeg signal
