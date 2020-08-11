@@ -50,6 +50,9 @@ normalizedFeatures = stats.zscore(featuresEachMin, 0)
 
 # plot
 normalizedFeatures_T = normalizedFeatures.T
+title = ['Mean NNI', 'Number of NNI', 'SDNN', 'Mean NNI difference', 'RMSSD', 'SDSD', 'Mean heart rate',
+         'Std of the heart rate series', 'Normalized powers of LF', 'Normalized powers of HF', 'LF/HF ratio',
+         'Sample entropy', 'Lyapunov exponent']
 num_plot = 9
 if normalizedFeatures_T.shape[0] % num_plot == 0:
     num_figure = normalizedFeatures_T.shape[0] // num_plot
@@ -63,8 +66,10 @@ for i in range(num_figure):
             break
         plt.subplot(3, 3, j + 1)
         plt.plot(normalizedFeatures_T[num_plot*i+j])
+        plt.title(title[num_plot*i+j])
+    plt.tight_layout()
 plt.show()
 
 
-# np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
+np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
 

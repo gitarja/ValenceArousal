@@ -6,6 +6,8 @@ import pyhrv.nonlinear as nn
 import pyhrv.tools as tools
 import pyhrv
 from biosppy import utils
+
+
 class ECGFeatures:
 
     def __init__(self, fs):
@@ -17,7 +19,6 @@ class ECGFeatures:
         r = r.astype(float)
         # Compute NNI or RR
         nni = tools.nn_intervals(r)
-
 
         return nni
 
