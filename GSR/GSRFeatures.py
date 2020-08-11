@@ -4,7 +4,7 @@ import numpy as np
 import biosppy
 from scipy import signal
 import nolds
-from GSR.cvxEDA import cvxEDA
+from Libs.cvxEDA.cvxEDA import cvxEDA
 
 
 class PPGFeatures:
