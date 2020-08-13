@@ -5,6 +5,7 @@ import biosppy
 from scipy import signal
 import nolds
 from Libs.cvxEDA.cvxEDA import cvxEDA
+from scipy import interpolate
 
 
 class PPGFeatures:
@@ -60,9 +61,17 @@ class PPGFeatures:
         '''
         onsets = biosppy.signals.bvp.bvp(x, sampling_rate=self.fs, show=False)[2]
         onsets_diff = np.insert(np.diff(onsets), 0, onsets[0]).astype(np.float)
+
+        # interpolate zeros_diff
+        f = interpolate.interp1d(np.arange(0, len(onsets_diff)), onsets_diff)
+        xnew = np.arange(0, len(onsets_diff) - 1, 0.5)
+        onsets_diff_new = f(xnew)
+
         # nonlinear
-        sample_ent = nolds.sampen(onsets_diff, emb_dim=1)
-        lypanov_exp = nolds.lyap_e(onsets_diff, emb_dim=2, matrix_dim=2)[0]
+        sample_ent = nolds.sampen(onsets_diff_new, emb_dim=1)
+
+
+        lypanov_exp = nolds.lyap_e(onsets_diff_new, emb_dim=2, matrix_dim=2)[0]
 
         return np.array([sample_ent, lypanov_exp])
 

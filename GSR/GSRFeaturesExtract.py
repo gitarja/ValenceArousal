@@ -52,11 +52,14 @@ for i in range(len(experiment_results)):
                 [ppg_time, ppg_features_exct.extractFrequencyDomain(ppg),
                  ppg_features_exct.extractNonLinear(ppg)])
 
-            # print(eda_features.shape)
-            # save features
-            np.save(path_results + "eda_" + str(start) + ".npy", eda_features)
-            np.save(path_results + "ppg_" + str(start) + ".npy", ppg_features)
-            status = 1
+            if (np.sum(np.isinf(ppg_features))== 0 | np.sum(np.isnan(ppg_features)) == 0):
+                # print(eda_features.shape)
+                # save features
+                np.save(path_results + "eda_" + str(idx) + ".npy", eda_features)
+                np.save(path_results + "ppg_" + str(idx) + ".npy", ppg_features)
+                status = 1
+            else:
+                status = 0
         else:
             status = 0
 

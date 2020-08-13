@@ -2,6 +2,7 @@ import biosppy
 import numpy as np
 from Libs.Utils import butterBandpassFilter
 from scipy import signal
+from scipy import interpolate
 import nolds
 
 
@@ -23,8 +24,6 @@ class RespFeatures:
             resp_max = np.max(resp_rate)
             resp_min = np.min(resp_rate)
             resp_std = np.std(resp_rate)
-
-
             return np.array([resp_mean, resp_max, resp_min, resp_std])
         except:
             return np.array([])
@@ -36,9 +35,14 @@ class RespFeatures:
         '''
         zeros = biosppy.resp.resp(signal=x, sampling_rate=self.fs, show=False)[2]
         zeros_diff = np.insert(np.diff(zeros), 0, zeros[0]).astype(np.float)
+
+        # interpolate zeros_diff
+        f = interpolate.interp1d(np.arange(0, len(zeros_diff)), zeros_diff)
+        xnew = np.arange(0, len(zeros_diff) - 1, 0.5)
+        zeros_diff_new = f(xnew)
         # nonlinear
-        sample_ent = nolds.sampen(zeros_diff, emb_dim=1)
-        lypanov_exp = nolds.lyap_e(zeros_diff, emb_dim=2, matrix_dim=2)[0]
+        sample_ent = nolds.sampen(zeros_diff_new, emb_dim=1)
+        lypanov_exp = nolds.lyap_e(zeros_diff_new, emb_dim=2, matrix_dim=2)[0]
 
         return np.array([sample_ent, lypanov_exp])
 

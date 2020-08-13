@@ -46,7 +46,7 @@ for i in range(len(experiment_results)):
 
         if (time_domain_features.shape[0] != 0) & (freq_domain_features.shape[0] != 0):
             eeg_features = np.concatenate([time_domain_features, freq_domain_features])
-            np.save(path_results + "eeg_" + str(start) + ".npy", eeg_features)
+            np.save(path_results + "eeg_" + str(idx) + ".npy", eeg_features)
             status = 1
 
         # add object to dataframes

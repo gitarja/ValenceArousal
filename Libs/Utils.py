@@ -4,6 +4,13 @@ from datetime import datetime
 from scipy import signal
 
 
+def valArLevelToLabels(y):
+    if (y <= 4):
+        return 0
+    else:
+        return 1
+
+
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
     b = signal.firwin(numtaps, cutoff, fs=fs, window='hamming', pass_zero='lowpass')
     y = lfilter(b, [1.0], x)

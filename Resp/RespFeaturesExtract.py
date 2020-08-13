@@ -40,8 +40,11 @@ for i in range(len(experiment_results)):
         resp_time_features = resp_features_exct.extractTimeDomain(resp)
         if (resp_time_features.shape[0] !=0):
             resp_features = np.concatenate([resp_time_features, resp_features_exct.extractFrequencyDomain(resp), resp_features_exct.extractNonLinear(resp)])
-            np.save(path_results + "resp_" + str(start) + ".npy", resp_features)
-            status = 1
+            if (np.sum(np.isinf(resp_features)) == 0 | np.sum(np.isnan(resp_features)) == 0):
+                np.save(path_results + "resp_" + str(idx) + ".npy", resp_features)
+                status = 1
+            else:
+                status = 0
 
         # add object to dataframes
         gsr_features = gsr_features.append(
