@@ -44,7 +44,7 @@ class SpaceLapFilter:
                               [17]# O2, 19
                               ]
         filetered_signal = np.zeros_like(eeg)
-        print(len(surronds_elc4))
+
         if mode == 4:
             for i in range(len(surronds_elc4)):
                 ave = np.average(eeg[:, surronds_elc4[i]], axis=1)

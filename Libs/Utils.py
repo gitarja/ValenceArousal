@@ -4,10 +4,12 @@ from datetime import datetime
 from scipy import signal
 
 
-def windowFilter(x, numtaps=120, cutoff = 2.0, fs=256.):
+def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
     b = signal.firwin(numtaps, cutoff, fs=fs, window='hamming', pass_zero='lowpass')
     y = lfilter(b, [1.0], x)
     return y
+
+
 def utcToTimeStamp(x):
     utc = datetime.fromtimestamp(x / 1000).strftime('%Y-%m-%d %H:%M:%S.%f')
     return timeToInt(utc)

@@ -1,63 +1,62 @@
-import pandas as pd
-from Libs.Utils import timeToInt, butterBandpassFilter
-import matplotlib.pyplot as plt
 from EEG.EEGFeatures import EEGFeatures
-from Conf import Settings as set
+import pandas as pd
+
+from Libs.Utils import timeToInt
+from Conf.Settings import FS_EEG
+from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
-from scipy import stats
-from sklearn.decomposition import PCA
 
-path = "F:\\data\\EEG+ECG\\Terui\\TeruiFiltered.csv"
-data = pd.read_csv(path)
-# convert timestamp to int
-data["Time"] = data["Time"].apply(timeToInt)
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path_results = path + "results\\EEG\\"
+experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
 
-# normalize the data
-data["Time"] = data["Time"] - data.loc[0].Time
+experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
+experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
+
+format = '%H:%M:%S'
+split_time = 45
 
 
-# group for every 1 minute
-groups = data.groupby(data["Time"].values // 60.)
+eeg_features_list = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
+idx = 0
+eeg_filter = SpaceLapFilter()
+eeg_features_exct = EEGFeatures(FS_EEG)
+for i in range(len(experiment_results)):
+    tdelta = experiment_results.iloc[i]["Time_End"] - experiment_results.iloc[i]["Time_Start"]
+    time_end = experiment_results.iloc[i]["Time_End"]
+    valence = experiment_results.iloc[i]["Valence"]
+    arousal = experiment_results.iloc[i]["Arousal"]
+    emotion = experiment_results.iloc[i]["Emotion"]
+    eeg_data = pd.read_csv(path+"eeg\\eeg"+str(i)+".csv")
+    print(i)
+    eeg_data["Timestamp_Unix_CAL"] = eeg_data["Timestamp_Unix_CAL"].apply(timeToInt)
 
-# features extrator
-timeExct = EEGFeatures()
-featuresEachMin = []
-lc = 4
-hc = 55
-fs = 1000
-bands = [4,8,16,32]
+    eeg_data.loc[:, "CH1":"CH19"] = eeg_filter.FilterEEG(eeg_data.loc[:, "CH1":"CH19"].values, mode=4)
 
-for i, g in groups:
-    ch1Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH1.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch2Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH2.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch3Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH3.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch4Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH4.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch5Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH5.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch6Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH6.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
-    ch7Features = timeExct.frequencyDomainFeatures(butterBandpassFilter(g.CH7.values, lowcut=lc, highcut=hc, fs=fs), bands=bands)
+    for j in np.arange(0, (tdelta // split_time), 0.1):
+        end = time_end - (j * split_time)
+        start = time_end - ((j + 1) * split_time)
+        eeg_split = eeg_data[(eeg_data["Timestamp_Unix_CAL"].values >= start) & (
+                eeg_data["Timestamp_Unix_CAL"].values <= end)]
+        eeg_filtered = eeg_split.loc[:, "CH1":"CH19"].values
+        # eeg_filtered = eeg_filter.FilterEEG(eeg, mode=4)
+        time_domain_features = eeg_features_exct.extractTimeDomainAll(eeg_filtered)
+        freq_domain_features = eeg_features_exct.extractTimeDomainAll(eeg_filtered)
 
-    featuresEachMin.append(
-        np.concatenate([ch1Features, ch2Features, ch3Features, ch4Features, ch5Features, ch6Features, ch7Features]))
 
-#normalized features
-normalizedFeatures = stats.zscore(featuresEachMin, 0)
+        if (time_domain_features.shape[0] != 0) & (freq_domain_features.shape[0] != 0):
+            eeg_features = np.concatenate([time_domain_features, freq_domain_features])
+            np.save(path_results + "eeg_" + str(start) + ".npy", eeg_features)
+            status = 1
 
-#PCA
-pca = PCA(n_components=2)
-pcaComponents = pca.fit_transform(normalizedFeatures)
+        # add object to dataframes
+        eeg_features_list = eeg_features_list.append(
+                {"Idx": str(idx), "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
+                 "Emotion": emotion, "Status": status},
+                ignore_index=True)
+        idx += 1
 
-#plotting
-fig = plt.figure()
-ax = fig.add_subplot(111)
-colors = ['b', 'g', 'r', 'y', 'k', 'm', 'k']
-for i in range(10):
+eeg_features_list.to_csv(path + "EEG_features_list.csv")
 
-    ax.scatter(pcaComponents[i, 0], pcaComponents[i, 1], c=colors[i//2], marker='o')
 
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-# ax.set_zlabel('Z Label')
 
-plt.show()
-
-np.savetxt('F:\\data\\EEG+ECG\\Terui\\normalizedFeaturesEEGFreq_2.csv', normalizedFeatures, delimiter=',')

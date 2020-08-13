@@ -5,12 +5,11 @@ from scipy import stats
 import numpy as np
 from Conf import Settings as set
 import matplotlib
-import matplotlib.pyplot as plt
-
-
 matplotlib.use('TkAgg')
 
-path = 'C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\20200611\\ECG\\20200505_130107_379_HB_PW.csv'
+
+
+path = "D:\\usr\\pras\\project\\TensorFlowProject\\ValenceArousal\\Data\\Dummy\\hb_data.csv"
 
 data = pd.read_csv(path)
 # start = "2020-04-29 15:40:21"
@@ -40,36 +39,12 @@ for i, g in groups:
 
         featuresEachMin.append(np.concatenate([time_domain, freq_domain, nonlinear_domain]))
 
-
-# normalized features
-featuresEachMin = np.where(np.isnan(featuresEachMin), 0, featuresEachMin)
-featuresEachMin = np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
+#normalized features
+featuresEachMin= np.where(np.isnan(featuresEachMin), 0, featuresEachMin)
+featuresEachMin= np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
 
 normalizedFeatures = stats.zscore(featuresEachMin, 0)
 
 
-# plot
-normalizedFeatures_T = normalizedFeatures.T
-title = ['Mean NNI', 'Number of NNI', 'SDNN', 'Mean NNI difference', 'RMSSD', 'SDSD', 'Mean heart rate',
-         'Std of the heart rate series', 'Normalized powers of LF', 'Normalized powers of HF', 'LF/HF ratio',
-         'Sample entropy', 'Lyapunov exponent']
-num_plot = 9
-if normalizedFeatures_T.shape[0] % num_plot == 0:
-    num_figure = normalizedFeatures_T.shape[0] // num_plot
-else:
-    num_figure = normalizedFeatures_T.shape[0] // num_plot + 1
 
-for i in range(num_figure):
-    plt.figure(figsize=(12, 9))
-    for j in range(num_plot):
-        if num_plot*i+j >= normalizedFeatures_T.shape[0]:
-            break
-        plt.subplot(3, 3, j + 1)
-        plt.plot(normalizedFeatures_T[num_plot*i+j])
-        plt.title(title[num_plot*i+j])
-    plt.tight_layout()
-plt.show()
-
-
-np.savetxt('normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
-
+np.savetxt('F:\\data\\EEG\\pictures\\normalizedFeaturesECG.csv', normalizedFeatures, delimiter=',')
