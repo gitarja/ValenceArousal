@@ -6,6 +6,8 @@ import pyhrv.nonlinear as nn
 import pyhrv.tools as tools
 import pyhrv
 from biosppy import utils
+
+
 class ECGFeatures:
 
     def __init__(self, fs):
@@ -19,6 +21,7 @@ class ECGFeatures:
         nni = tools.nn_intervals(r)
 
         return nni
+
     def computeHeartBeat(self, x):
         ts, hb = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[5:]
         return ts, hb

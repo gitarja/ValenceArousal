@@ -5,11 +5,11 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_GSR
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTest\\"
 path_results = path + "results\\GSR\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
-gsr_data = pd.read_csv(path + "Komiya_GSR.csv", header=[0, 1])
-gsr_data["GSR_Timestamp_Unix_CAL"] = gsr_data["GSR_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
+experiment_results = pd.read_csv(path + "Nishiwaki_M_2020_7_30_11_55_4_gameResults.csv")
+gsr_data = pd.read_csv(path + "2020-07-30_11.10.22_EmotionTest_MultiSession\\EmotionTest_Session1_GSR_Calibrated_SD.csv", header=1, skiprows=[2])
+gsr_data["GSR_Timestamp_Unix_CAL"] = gsr_data["GSR_Timestamp_Unix_CAL"].apply(utcToTimeStamp)
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
 
@@ -62,9 +62,9 @@ for i in range(len(experiment_results)):
 
         # add object to dataframes
         gsr_features = gsr_features.append(
-            {"Idx": str(idx), "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+            {"Idx": str(idx), "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
             ignore_index=True)
-        idx+=1
+        idx += 1
 
 
 gsr_features.to_csv(path+"GSR_features_list.csv")
