@@ -5,10 +5,10 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_GSR
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
 path_results = path + "results\\GSR\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
-gsr_data = pd.read_csv(path + "Komiya_GSR.csv", header=[0, 1])
+experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
+gsr_data = pd.read_csv(path + "Okada_GSR.csv", header=[0, 1])
 gsr_data["GSR_Timestamp_Unix_CAL"] = gsr_data["GSR_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)

@@ -6,9 +6,9 @@ from Conf.Settings import FS_EEG
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
 path_results = path + "results\\EEG\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
+experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
 
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)

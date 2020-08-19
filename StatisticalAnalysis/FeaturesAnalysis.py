@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
 eeg_path = path +"results\\EEG\\"
 gsr_path = path +"results\\GSR\\"
 resp_path = path +"results\\Resp\\"
@@ -46,7 +46,7 @@ eeg_length = eeg_features.shape[0]
 forest_ar = ExtraTreesClassifier(n_estimators=250,
                               random_state=0)
 
-X_ar_train, X_ar_test, y_ar_train, y_ar_test = train_test_split(X_norm, y_ar, test_size=0.4, random_state=42)
+X_ar_train, X_ar_test, y_ar_train, y_ar_test = train_test_split(X_norm, y_ar, test_size=0.5, random_state=42)
 forest_ar.fit(X_ar_train, y_ar_train)
 print(forest_ar.score(X_ar_test, y_ar_test))
 
@@ -64,7 +64,7 @@ plt.show()
 forest_val = ExtraTreesClassifier(n_estimators=250,
                               random_state=0)
 
-X_val_train, X_val_test, y_val_train, y_val_test = train_test_split(X_norm, y_val, test_size=0.4, random_state=42)
+X_val_train, X_val_test, y_val_train, y_val_test = train_test_split(X_norm, y_val, test_size=0.5, random_state=42)
 forest_val.fit(X_val_train, y_val_train)
 print(forest_val.score(X_val_test, y_val_test))
 

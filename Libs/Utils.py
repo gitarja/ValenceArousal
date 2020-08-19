@@ -5,7 +5,7 @@ from scipy import signal
 
 
 def valArLevelToLabels(y):
-    if (y <= 4):
+    if (y < 3):
         return 0
     else:
         return 1

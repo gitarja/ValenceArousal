@@ -1,6 +1,6 @@
 import pandas as pd
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
 
 eeg_features_list = pd.read_csv(path+"EEG_features_list.csv").set_index('Idx')
 GSR_features_list = pd.read_csv(path+"GSR_features_list.csv").set_index('Idx')
