@@ -1,1 +1,14 @@
 .idea/
+Classification/__pycache__
+Conf/__pycache__
+ECG/__pycache__
+EEG/__pycache__
+Exercise/__pycache__
+GSR/__pycache__
+KnowledgeDistillation/__pycache__
+Libs/__pycache__
+Plotting/__pycache__
+pyeeg/__pycache__
+Resp/__pycache__
+StatisticalAnalysis/__pycache__
+Testing/__pycache__
