@@ -6,6 +6,9 @@ import pyhrv.nonlinear as nn
 import pyhrv.tools as tools
 import pyhrv
 from biosppy import utils
+import numpy as np
+
+
 class ECGFeatures:
 
     def __init__(self, fs):
@@ -19,40 +22,49 @@ class ECGFeatures:
         nni = tools.nn_intervals(r)
 
         return nni
+
     def computeHeartBeat(self, x):
         ts, hb = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[5:]
         return ts, hb
 
     def extractTimeDomain(self, x):
-        nni = self.extractRR(x)
-        nniParams = td.nni_parameters(nni=nni)
-        nniSD = td.sdnn(nni=nni)
-        nniDiff = td.nni_differences_parameters(nni=nni)
-        nniDiffRM = td.rmssd(nni=nni)
-        nniDiffSD = td.sdsd(nni=nni)
-        hrParams = td.hr_parameters(nni=nni)
+        try:
+            nni = self.extractRR(x)
+            nniParams = td.nni_parameters(nni=nni)
+            nniSD = td.sdnn(nni=nni)
+            nniDiff = td.nni_differences_parameters(nni=nni)
+            nniDiffRM = td.rmssd(nni=nni)
+            nniDiffSD = td.sdsd(nni=nni)
+            hrParams = td.hr_parameters(nni=nni)
+            return np.array([nniParams["nni_mean"], nniParams["nni_counter"], nniSD["sdnn"],
+                   nniDiff["nni_diff_mean"], nniDiffRM["rmssd"], nniDiffSD["sdsd"],
+                   hrParams["hr_mean"], hrParams["hr_std"]])
 
-        return nniParams["nni_mean"], nniParams["nni_counter"],\
-               nniSD["sdnn"],\
-               nniDiff["nni_diff_mean"],  nniDiffRM["rmssd"],\
-               nniDiffSD["sdsd"],\
-               hrParams["hr_mean"], hrParams["hr_std"]
+        except:
+            return np.array([])
 
     def extractFrequencyDomain(self, x):
-        nni = self.extractRR(x)
-        #the bands was decided by refering to Revealing Real-Time Emotional Responses
-        psd = fd.welch_psd(nni=nni, show=False,
-                           fbands={'ulf': (0.00, 0.01), 'vlf': (0.01, 0.05), 'lf': (0.05, 0.15), 'hf': (0.15, 0.5)},
-                           nfft=2 ** 12, legend=False, mode="dev")[0]
+        try:
+            nni = self.extractRR(x)
+            # the bands was decided by refering to Revealing Real-Time Emotional Responses
+            psd = fd.welch_psd(nni=nni, show=False,
+                               fbands={'ulf': (0.00, 0.01), 'vlf': (0.01, 0.05), 'lf': (0.05, 0.15), 'hf': (0.15, 0.5)},
+                               nfft=2 ** 12, legend=False, mode="dev")[0]
+            return np.array([psd["fft_norm"][0], psd["fft_norm"][1], psd["fft_ratio"]])
 
-        return psd["fft_norm"][0], psd["fft_norm"][1], psd["fft_ratio"]
+        except:
+            return np.array([])
 
     def extractNonLinearDomain(self, x):
-        nni = self.extractRR(x)
-        sampEntro = nn.sample_entropy(nni=nni, dim=1)
-        lyapEx = self.lyapunov_exponent(nni=nni, emb_dim=3, matrix_dim=2)
+        try:
+            nni = self.extractRR(x)
+            sampEntro = nn.sample_entropy(nni=nni, dim=1)
+            lyapEx = self.lyapunov_exponent(nni=nni, emb_dim=3, matrix_dim=2)
+            return np.array([sampEntro["sampen"], lyapEx["lyapex"]])
 
-        return sampEntro["sampen"], lyapEx["lyapex"]
+        except:
+            return np.array([])
+
 
     def lyapunov_exponent(self, nni=None, rpeaks=None, emb_dim=10, matrix_dim=4):
             """
