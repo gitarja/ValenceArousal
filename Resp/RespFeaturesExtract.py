@@ -5,10 +5,10 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_RESP
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
 path_results = path + "results\\Resp\\"
-experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
-resp_data = pd.read_csv(path + "Okada_Resp.csv", header=[0, 1])
+experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
+resp_data = pd.read_csv(path + "Komiya_Resp.csv", header=[0, 1])
 resp_data["RESP_Timestamp_Unix_CAL"] = resp_data["RESP_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
@@ -28,7 +28,7 @@ for i in range(len(experiment_results)):
     arousal = experiment_results.iloc[i]["Arousal"]
     emotion = experiment_results.iloc[i]["Emotion"]
 
-    for j in np.arange(0, (tdelta // split_time), 0.1):
+    for j in np.arange(0, (tdelta // split_time), 0.4):
         end = time_end - (j * split_time)
         start = time_end - ((j + 1) * split_time)
         resp_split = resp_data[(resp_data["RESP_Timestamp_Unix_CAL"].values >= start) & (

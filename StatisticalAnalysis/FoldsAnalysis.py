@@ -9,26 +9,40 @@ from sklearn.metrics import confusion_matrix
 
 
 #training data
-path_train = "D:\\usr\\pras\\data\\EmotionTestVR\\Okada\\"
-eeg_path_train = path_train +"results\\EEG\\"
-gsr_path_train = path_train +"results\\GSR\\"
-resp_path_train = path_train +"results\\Resp\\"
-
-
-
-features_list_train = pd.read_csv(path_train+"features_list.csv")
-
+subjects = {"Okada", "Nishiwaki"}
 features_train = []
-features_list_train["Valence"] = features_list_train["Valence"].apply(valArLevelToLabels)
-features_list_train["Arousal"] = features_list_train["Arousal"].apply(valArLevelToLabels)
-for i in range(len(features_list_train)):
-    filename = features_list_train.iloc[i]["Idx"]
-    eda_features = np.load(gsr_path_train+"eda_"+str(filename)+".npy")
-    ppg_features = np.load(gsr_path_train + "ppg_" + str(filename) + ".npy")
-    resp_features = np.load(resp_path_train + "resp_" + str(filename) + ".npy")
-    eeg_features = np.load(eeg_path_train+ "eeg_" + str(filename) + ".npy")
+y_ar_train = []
+y_val_train = []
+for s in subjects:
+    path_train = "D:\\usr\\pras\\data\\EmotionTestVR\\"+s+"\\"
+    eeg_path_train = path_train +"results\\EEG\\"
+    gsr_path_train = path_train +"results\\GSR\\"
+    resp_path_train = path_train +"results\\Resp\\"
 
-    features_train.append(np.concatenate([eda_features, ppg_features, resp_features, eeg_features]))
+
+
+    features_list_train = pd.read_csv(path_train+"features_list.csv")
+
+
+    features_list_train["Valence"] = features_list_train["Valence"].apply(valArLevelToLabels)
+    features_list_train["Arousal"] = features_list_train["Arousal"].apply(valArLevelToLabels)
+    for i in range(len(features_list_train)):
+        filename = features_list_train.iloc[i]["Idx"]
+        eda_features = np.load(gsr_path_train+"eda_"+str(filename)+".npy")
+        ppg_features = np.load(gsr_path_train + "ppg_" + str(filename) + ".npy")
+        resp_features = np.load(resp_path_train + "resp_" + str(filename) + ".npy")
+        eeg_features = np.load(eeg_path_train+ "eeg_" + str(filename) + ".npy")
+
+        features_train.append(np.concatenate([eeg_features]))
+
+    # label train
+    y_ar_train.append(features_list_train["Arousal"].values)
+    y_val_train.append(features_list_train["Valence"].values)
+
+y_ar_train = np.concatenate(y_ar_train)
+y_val_train = np.concatenate(y_val_train)
+
+
 
 
 #testing data
@@ -51,7 +65,7 @@ for i in range(len(features_list_test)):
     resp_features = np.load(resp_path_test  + "resp_" + str(filename) + ".npy")
     eeg_features = np.load(eeg_path_test + "eeg_" + str(filename) + ".npy")
 
-    features_test.append(np.concatenate([eda_features, ppg_features, resp_features, eeg_features]))
+    features_test.append(np.concatenate([eeg_features]))
 
 #concatenate features and normalize them
 scaler = StandardScaler()
@@ -63,9 +77,7 @@ X_norm_test = scaler.transform(X_test)
 
 X = np.concatenate([X_norm_train, X_norm_test])
 
-# label train
-y_ar_train = features_list_train["Arousal"].values
-y_val_train = features_list_train["Valence"].values
+
 
 # label test
 y_ar_test = features_list_test["Arousal"].values
@@ -88,7 +100,7 @@ forest_ar = ExtraTreesClassifier( random_state=0)
 clf_ar = GridSearchCV(forest_ar, parameters)
 clf_ar.fit(X_ar_train, y_ar_train)
 print(clf_ar.score(X_ar_test, y_ar_test))
-print(confusion_matrix(y_ar_test, clf_ar.predict(X_ar_test), normalize='all'))
+print(confusion_matrix(y_ar_test, clf_ar.predict(X_ar_test), normalize='all') * 100)
 
 
 #Analyze valence
@@ -97,4 +109,4 @@ forest_val = ExtraTreesClassifier(random_state=0)
 clf_val = GridSearchCV(forest_val, parameters)
 clf_val.fit(X_val_train, y_val_train)
 print(clf_val.score(X_val_test, y_val_test))
-print(confusion_matrix(y_val_test, clf_val.predict(X_val_test), normalize='all'))
+print(confusion_matrix(y_val_test, clf_val.predict(X_val_test), normalize='all') * 100)
