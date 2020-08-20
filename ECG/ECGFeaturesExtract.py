@@ -27,71 +27,46 @@ data.loc[:, 'timestamp'] = data.loc[:, 'timestamp'].apply(timeToInt)
 data_EmotionTest.loc[:, 'Time_Start'] = data_EmotionTest.loc[:, 'Time_Start'].apply(timeToInt)
 data_EmotionTest.loc[:, 'Time_End'] = data_EmotionTest.loc[:, 'Time_End'].apply(timeToInt)
 
-data_valid = []
-for i in list(data_EmotionTest.index):
-    tmp = data.loc[(data.loc[:, 'timestamp'] >= data_EmotionTest.at[i, 'Time_Start']) & (data.loc[:, 'timestamp'] <= data_EmotionTest.at[i, 'Time_End'])]
-    if not tmp.empty:
-        data_valid.append(tmp)
-
 # features extractor
 featuresExct = ECGFeatures(set.FS_ECG)
-time = []
 emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
-ecgFeatures = []
-windowsize = 45
-slide = 18
+split_time = 45
 idx = 0
-itr = 0
+for i in range(len(data_EmotionTest)):
+    tdelta = data_EmotionTest.iloc[i]["Time_End"] - data_EmotionTest.iloc[i]["Time_Start"]
+    time_end = data_EmotionTest.iloc[i]["Time_End"]
+    valence = data_EmotionTest.iloc[i]["Valence"]
+    arousal = data_EmotionTest.iloc[i]["Arousal"]
+    emotion = data_EmotionTest.iloc[i]["Emotion"]
 
-for df in data_valid:
-    # normalize time data
-    normalizedTime = df.loc[:, 'timestamp'].values - df.iat[0, 0]
+    for j in np.arange(0, (tdelta // split_time), 0.4):
+        end = time_end - (j * split_time)
+        start = time_end - ((j + 1) * split_time)
+        ecg = data[(data["timestamp"].values >= start) & (data["timestamp"].values <= end)]
+        status = 0
 
-    featuresEachMin = []
-    t0 = 0
-    tf = windowsize
-    idx0 = 0
-    idxf = np.where(np.array([int(n) for n in normalizedTime]) == tf)[0][0]
-    while tf <= normalizedTime[-1]:
-        time_start = df.iat[idx0, 0]
-        time_end = df.iat[idxf, 0]
-        time_domain = featuresExct.extractTimeDomain(df.loc[:, 'ecg'].values[idx0:idxf])
-        freq_domain = featuresExct.extractFrequencyDomain(df.loc[:, 'ecg'].values[idx0:idxf])
-        nonlinear_domain = featuresExct.extractNonLinearDomain(df.loc[:, 'ecg'].values[idx0:idxf])
+        # extract ecg features
+        time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
+        freq_domain = featuresExct.extractFrequencyDomain(ecg['ecg'].values)
+        nonlinear_domain = featuresExct.extractNonLinearDomain(ecg['ecg'].values)
         if time_domain.shape[0] != 0 and freq_domain.shape[0] != 0 and nonlinear_domain.shape[0] != 0:
-            featuresEachMin.append(np.concatenate([time_domain, freq_domain, nonlinear_domain]))
-            time.append(np.average(normalizedTime[idx0:idxf]))
-            t0 += slide
-            tf += slide
-            if tf > normalizedTime[-1]:
-                break
+            featuresEachMin = np.concatenate([time_domain, freq_domain, nonlinear_domain])
+            if np.sum(np.isinf(featuresEachMin)) == 0 | np.sum(np.isnan(featuresEachMin)) == 0:
+                np.save(path_results + "ecg_" + str(idx) + ".npy", featuresEachMin)
+                status = 1
             else:
-                idx0 = np.where(np.array([int(n) for n in normalizedTime]) == t0)[0][0]
-                idxf = np.where(np.array([int(n) for n in normalizedTime]) == tf)[0][0]
-            np.save(path_results + "ecg_" + str(idx) + ".npy", featuresEachMin)
-            status = 1
-        else:
-            status = 0
+                status = 0
 
+        # add object to dataframes
         emotionTestResult = emotionTestResult.append(
-            {'Idx': idx, 'Start': time_start, 'End': time_end,
-             "Valence": data_EmotionTest.iat[itr, 4], "Arousal": data_EmotionTest.iat[itr, 5],
-             "Emotion": data_EmotionTest.iat[itr, 6], "Status": status}, ignore_index=True)
+            {"Idx": str(idx), "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+            ignore_index=True)
         idx += 1
 
-    featuresEachMin = np.where(np.isnan(featuresEachMin), 0, featuresEachMin)
-    featuresEachMin = np.where(np.isinf(featuresEachMin), 0, featuresEachMin)
-    if itr == 0:
-        ecgFeatures = featuresEachMin
-    else:
-        ecgFeatures = np.concatenate([ecgFeatures, featuresEachMin])
-
-    itr += 1
-
 # save to csv
-emotionTestResult.to_csv(path + 'Komiyama_ECG.csv')
+emotionTestResult.to_csv(path + 'ECG_features_list.csv')
 
-
+'''
 # plot
 title = ['Mean NNI', 'Number of NNI', 'SDNN', 'Mean NNI difference', 'RMSSD', 'SDSD', 'Mean heart rate',
          'Std of the heart rate series', 'Normalized powers of LF', 'Normalized powers of HF', 'LF/HF ratio',
@@ -114,4 +89,4 @@ for i in range(num_figure):
         plt.title(title[num_plot*i+j])
     plt.tight_layout()
 plt.show()
-
+'''
