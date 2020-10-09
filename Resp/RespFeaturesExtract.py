@@ -5,7 +5,8 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_RESP
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+subject = "Komiya"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + "results\\Resp\\"
 experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
 resp_data = pd.read_csv(path + "Komiya_Resp.csv", header=[0, 1])
@@ -19,7 +20,7 @@ split_time = 45
 resp_features_exct = RespFeatures(FS_RESP)
 min_len = FS_RESP * (split_time + 1)
 
-gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
+gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
 idx = 0
 for i in range(len(experiment_results)):
     tdelta = experiment_results.iloc[i]["Time_End"] - experiment_results.iloc[i]["Time_Start"]
@@ -38,8 +39,9 @@ for i in range(len(experiment_results)):
         status = 0
         # extract resp features
         resp_time_features = resp_features_exct.extractTimeDomain(resp)
-        if (resp_time_features.shape[0] !=0):
-            resp_features = np.concatenate([resp_time_features, resp_features_exct.extractFrequencyDomain(resp), resp_features_exct.extractNonLinear(resp)])
+        if (resp_time_features.shape[0] != 0):
+            resp_features = np.concatenate([resp_time_features, resp_features_exct.extractFrequencyDomain(resp),
+                                            resp_features_exct.extractNonLinear(resp)])
             if (np.sum(np.isinf(resp_features)) == 0 | np.sum(np.isnan(resp_features)) == 0):
                 np.save(path_results + "resp_" + str(idx) + ".npy", resp_features)
                 status = 1
@@ -48,9 +50,9 @@ for i in range(len(experiment_results)):
 
         # add object to dataframes
         gsr_features = gsr_features.append(
-            {"Idx": str(idx), "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+            {"Idx": str(idx), "Subject": subject, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
+             "Emotion": emotion, "Status": status},
             ignore_index=True)
-        idx+=1
+        idx += 1
 
-
-gsr_features.to_csv(path+"Resp_features_list.csv")
+gsr_features.to_csv(path + "Resp_features_list.csv")

@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
 from Libs.Utils import valArLevelToLabels
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import confusion_matrix
+from sklearn.tree import ExtraTreeClassifier
+from sklearn.metrics import classification_report
 
 
 #training data
@@ -18,6 +19,7 @@ for s in subjects:
     eeg_path_train = path_train +"results\\EEG\\"
     gsr_path_train = path_train +"results\\GSR\\"
     resp_path_train = path_train +"results\\Resp\\"
+    ecg_path_train = path_train + "results\\ECG\\"
 
 
 
@@ -32,8 +34,9 @@ for s in subjects:
         ppg_features = np.load(gsr_path_train + "ppg_" + str(filename) + ".npy")
         resp_features = np.load(resp_path_train + "resp_" + str(filename) + ".npy")
         eeg_features = np.load(eeg_path_train+ "eeg_" + str(filename) + ".npy")
+        ecg_features = np.load(ecg_path_train + "ecg_" + str(filename) + ".npy")
 
-        features_train.append(np.concatenate([eda_features, ppg_features, resp_features, eeg_features]))
+        features_train.append(np.concatenate([eda_features,ppg_features, resp_features, eeg_features, ecg_features]))
 
     # label train
     y_ar_train.append(features_list_train["Arousal"].values)
@@ -50,6 +53,7 @@ path_test = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
 eeg_path_test  = path_test +"results\\EEG\\"
 gsr_path_test  = path_test +"results\\GSR\\"
 resp_path_test  = path_test +"results\\Resp\\"
+ecg_path_test = path_test +"results\\ECG\\"
 
 
 
@@ -64,18 +68,17 @@ for i in range(len(features_list_test)):
     ppg_features = np.load(gsr_path_test  + "ppg_" + str(filename) + ".npy")
     resp_features = np.load(resp_path_test  + "resp_" + str(filename) + ".npy")
     eeg_features = np.load(eeg_path_test + "eeg_" + str(filename) + ".npy")
+    ecg_features = np.load(ecg_path_test + "ecg_" + str(filename) + ".npy")
 
-    features_test.append(np.concatenate([eda_features, ppg_features, resp_features, eeg_features]))
+    features_test.append(np.concatenate([eda_features,ppg_features, resp_features, eeg_features, ecg_features]))
 
 #concatenate features and normalize them
 scaler = StandardScaler()
-X_train = np.concatenate([features_train])
-X_test = np.concatenate([features_test])
+X = np.concatenate([features_train, features_test])
 
-X_norm_train = scaler.fit_transform(X_train)
-X_norm_test = scaler.transform(X_test)
+X = scaler.fit_transform(X)
 
-X = np.concatenate([X_norm_train, X_norm_test])
+
 
 
 
@@ -89,26 +92,52 @@ y_ar = np.concatenate([y_ar_train, y_ar_test])
 y_val = np.concatenate([y_val_train, y_val_test])
 
 #hyperparameters
-parameters = {"n_estimators": [50, 150, 200, 250], "max_depth": [3, 5, 7], 'class_weight':[{0:0.75, 1:1.}, {0:1. ,1:1.}]}
+# parameters = {"n_estimators": [25, 50, 75, 100], "max_depth": [2, 3, 5], 'class_weight':[{0:0.75, 1:1.}, {0:1. ,1:1.}]}
+parameters = {"n_estimators": [25, 50, 75, 100]}
 
 #Analyze arousal
 # Build a forest and compute the impurity-based feature importances
-
-X_ar_train, X_ar_test, y_ar_train, y_ar_test = train_test_split(X, y_ar, test_size=0.3, random_state=42)
-
-forest_ar = ExtraTreesClassifier( random_state=0)
-clf_ar = GridSearchCV(forest_ar, parameters)
-clf_ar.fit(X_ar_train, y_ar_train)
-print(clf_ar.best_params_)
-print(clf_ar.score(X_ar_test, y_ar_test))
-print(confusion_matrix(y_ar_test, clf_ar.predict(X_ar_test), normalize='all') * 100)
+ar_predicts = []
+ar_truth = []
+kf = StratifiedKFold(n_splits=5, shuffle=True)
+target_names = ["L-M", "M-H"]
+for train_index, test_index in kf.split(X, y_ar):
+    X_train = X[train_index]
+    X_test = X[test_index]
 
 
+    y_ar_train = y_ar[train_index]
+    y_ar_test = y_ar[test_index]
+
+    forest_ar = AdaBoostClassifier(base_estimator=ExtraTreeClassifier(max_depth=3, max_features=0.5), random_state=0)
+    clf_ar = GridSearchCV(forest_ar, parameters)
+    clf_ar.fit(X_train, y_ar_train)
+    print(clf_ar.best_params_)
+    print(clf_ar.score(X_test, y_ar_test))
+    ar_predicts.append(clf_ar.predict(X_test))
+    ar_truth.append(y_ar_test)
+
+print(classification_report(np.concatenate(ar_truth), np.concatenate(ar_predicts), target_names=target_names))
+print("-----------------------------------------------------------------------------------------")
 #Analyze valence
-X_val_train, X_val_test, y_val_train, y_val_test = train_test_split(X, y_val, test_size=0.3, random_state=42)
-forest_val = ExtraTreesClassifier(random_state=0)
-clf_val = GridSearchCV(forest_val, parameters)
-clf_val.fit(X_val_train, y_val_train)
-print(clf_ar.best_params_)
-print(clf_val.score(X_val_test, y_val_test))
-print(confusion_matrix(y_val_test, clf_val.predict(X_val_test), normalize='all') * 100)
+val_predicts = []
+val_truth = []
+for train_index, test_index in kf.split(X, y_val):
+
+    X_train = X[train_index]
+    X_test = X[test_index]
+
+
+    y_val_train = y_val[train_index]
+    y_val_test = y_val[test_index]
+
+
+    forest_val = AdaBoostClassifier(base_estimator=ExtraTreeClassifier(max_depth=3, max_features=0.5), random_state=0)
+    clf_val = GridSearchCV(forest_val, parameters)
+    clf_val.fit(X_train, y_val_train)
+    print(clf_val.best_params_)
+    print(clf_val.score(X_test, y_val_test))
+    val_predicts.append(clf_val.predict(X_test))
+    val_truth.append(y_val_test)
+
+print(classification_report(np.concatenate(val_truth), np.concatenate(val_predicts), target_names=target_names))

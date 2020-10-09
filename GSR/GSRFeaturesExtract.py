@@ -5,7 +5,8 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_GSR
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+subject = "Komiya"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
 path_results = path + "results\\GSR\\"
 experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
 gsr_data = pd.read_csv(path + "Komiya_GSR.csv", header=[0, 1])
@@ -20,7 +21,7 @@ eda_features_exct = EDAFeatures(FS_GSR)
 ppg_features_exct = PPGFeatures(FS_GSR)
 min_len = FS_GSR * (split_time + 1)
 
-gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
+gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
 idx = 0
 for i in range(len(experiment_results)):
     tdelta = experiment_results.iloc[i]["Time_End"] - experiment_results.iloc[i]["Time_Start"]
@@ -65,7 +66,7 @@ for i in range(len(experiment_results)):
 
         # add object to dataframes
         gsr_features = gsr_features.append(
-            {"Idx": str(idx), "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+            {"Idx": str(idx), "Subject": subject, "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
             ignore_index=True)
         idx+=1
 

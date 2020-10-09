@@ -8,12 +8,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-matplotlib.use('TkAgg')
-
-path = 'C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\20200709\\Komiyama\\'
-path_ECGdata = path + '20200709_152213_165_HB_PW.csv'
-path_EmotionTest = path + 'Komiya_M_2020_7_9_15_22_44_gameResults.csv'
+subject = "Komiya"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
 path_results = path + 'results\\ECG\\'
+path_raw = path + 'results\\ECG_raw\\'
+path_ECGdata = path + 'Komiya_ECG.csv'
+path_EmotionTest = path + 'Komiya_M_2020_7_9_15_22_44_gameResults.csv'
+
 
 data = pd.read_csv(path_ECGdata)
 data_EmotionTest = pd.read_csv(path_EmotionTest)
@@ -29,7 +30,7 @@ data_EmotionTest.loc[:, 'Time_End'] = data_EmotionTest.loc[:, 'Time_End'].apply(
 
 # features extractor
 featuresExct = ECGFeatures(set.FS_ECG)
-emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
+emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
 split_time = 45
 idx = 0
 for i in range(len(data_EmotionTest)):
@@ -45,6 +46,8 @@ for i in range(len(data_EmotionTest)):
         ecg = data[(data["timestamp"].values >= start) & (data["timestamp"].values <= end)]
         status = 0
 
+        #save raw ecg data
+        np.save(path_raw + "ecg_raw_" + str(idx) + ".npy", ecg)
         # extract ecg features
         time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
         freq_domain = featuresExct.extractFrequencyDomain(ecg['ecg'].values)
@@ -59,7 +62,7 @@ for i in range(len(data_EmotionTest)):
 
         # add object to dataframes
         emotionTestResult = emotionTestResult.append(
-            {"Idx": str(idx), "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+            {"Idx": str(idx), "Subject": subject, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
             ignore_index=True)
         idx += 1
 

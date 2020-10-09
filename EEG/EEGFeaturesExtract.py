@@ -6,7 +6,8 @@ from Conf.Settings import FS_EEG
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\Komiya\\"
+subject = "Komiya"
+path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
 path_results = path + "results\\EEG\\"
 experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
 
@@ -17,7 +18,7 @@ format = '%H:%M:%S'
 split_time = 45
 
 
-eeg_features_list = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status"])
+eeg_features_list = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status",  "Subject"])
 idx = 0
 eeg_filter = SpaceLapFilter()
 eeg_features_exct = EEGFeatures(FS_EEG)
@@ -51,7 +52,7 @@ for i in range(len(experiment_results)):
 
         # add object to dataframes
         eeg_features_list = eeg_features_list.append(
-                {"Idx": str(idx), "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
+                {"Idx": str(idx), "Subject": subject, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
                  "Emotion": emotion, "Status": status},
                 ignore_index=True)
         idx += 1
