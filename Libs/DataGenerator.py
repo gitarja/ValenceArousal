@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 class DataGenerator():
 
-    def __init__(self, teacher_features_path, student_features_path, features_list_file, val_th=3, ar_th=3):
+    def __init__(self, teacher_features_path, student_features_path, features_list_file, val_th=3, ar_th=3, ecg_length=10000):
         '''
         :param teacher_features_path: directory path for teacher's features
         :param student_features_path: directory path for student's features
@@ -19,6 +19,7 @@ class DataGenerator():
         self.ecg_path = self.teacher_features_path + "ECG\\"
 
         self.ecg_raw_path = self.student_features_path + "ECG_raw\\"
+        self.ecg_length = ecg_length
 
         self.features_list = pd.read_csv(features_list_file)
 
@@ -39,9 +40,9 @@ class DataGenerator():
             ecg_raw = np.load(self.ecg_raw_path + "ecg_raw_" + str(filename) + ".npy")
 
             X_teacher = np.expand_dims(np.concatenate([eda_features, ppg_features, resp_features, eeg_features, ecg_features]), 0)
-            X_student = np.expand_dims(ecg_raw, 0)
+            X_student = np.expand_dims(ecg_raw[:self.ecg_length], 0)
 
-            yield X_teacher, X_student, val_label, ar_label
+            return X_teacher, X_student, val_label, ar_label
 
 
     def convertLabel(self, val, ar):

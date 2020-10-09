@@ -47,7 +47,7 @@ for i in range(len(data_EmotionTest)):
         status = 0
 
         #save raw ecg data
-        np.save(path_raw + "ecg_raw_" + str(idx) + ".npy", ecg)
+        np.save(path_raw + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
         # extract ecg features
         time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
         freq_domain = featuresExct.extractFrequencyDomain(ecg['ecg'].values)
