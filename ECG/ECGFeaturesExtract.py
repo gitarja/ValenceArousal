@@ -8,12 +8,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-subject = "Komiya"
+subject = "Okada"
 path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
 path_results = path + 'results\\ECG\\'
 path_raw = path + 'results\\ECG_raw\\'
-path_ECGdata = path + 'Komiya_ECG.csv'
-path_EmotionTest = path + 'Komiya_M_2020_7_9_15_22_44_gameResults.csv'
+path_ECGdata = path + 'Okada_ECG.csv'
+path_EmotionTest = path + 'Okada_M_2020_7_30_17_5_5_gameResults.csv'
 
 
 data = pd.read_csv(path_ECGdata)

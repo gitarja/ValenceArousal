@@ -1,1 +1,3 @@
-{}
+{
+  "DataGeneratorTesting.py::MyTestCase::test_dimension": true
+}

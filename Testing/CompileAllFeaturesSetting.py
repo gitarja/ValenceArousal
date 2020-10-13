@@ -1,7 +1,7 @@
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
-
-subject = "Komiya"
+subject = "Okada"
 
 path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
 
@@ -13,3 +13,7 @@ Resp_features_list = pd.read_csv(path+"Resp_features_list.csv").set_index('Idx')
 features_list = eeg_features_list[(eeg_features_list["Status"]==1) & (GSR_features_list["Status"]==1) & (Resp_features_list["Status"]==1) & (ecg_features_list["Status"]==1)]
 
 features_list.to_csv(path+"features_list.csv")
+
+
+
+
