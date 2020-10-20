@@ -75,13 +75,13 @@ for epoch in range(EPOCH_NUM):
     for step, inputs in enumerate(train_data):
         X, _, y_val, y_ar = inputs
         with tf.GradientTape() as tape_ensemble:
-            z_ensemble_val, z_ensemble_ar = model_ensemble(X, training=False)
+            z_ensemble_val, z_ensemble_ar = model_ensemble(X, training=True)
             loss_ensemble = 0.5 * (cross_loss(y_val, z_ensemble_val) + cross_loss(y_ar, z_ensemble_ar))
         grads_ensemble = tape_ensemble.gradient(loss_ensemble, model_ensemble.trainable_weights)
         optimizer_ensemble.apply_gradients(zip(grads_ensemble, model_ensemble.trainable_weights))
 
         with tf.GradientTape() as tape_baseline:
-            z_baseline_val, z_baseline_ar = model_baseline(X, training=False)
+            z_baseline_val, z_baseline_ar = model_baseline(X, training=True)
             loss_baseline = 0.5 * (cross_loss(y_val, z_baseline_val) + cross_loss(y_ar, z_baseline_ar))
         grads_baseline = tape_baseline.gradient(loss_baseline, model_baseline.trainable_weights)
         optimizer_baseline.apply_gradients(zip(grads_baseline, model_baseline.trainable_weights))
