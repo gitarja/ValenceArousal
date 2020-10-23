@@ -8,12 +8,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-subject = "Okada"
+subject = "Komiyama"
 path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + 'results\\ECG\\'
 path_raw = path + 'results\\ECG_raw\\'
-path_ECGdata = path + 'Okada_ECG.csv'
-path_EmotionTest = path + 'Okada_M_2020_7_30_17_5_5_gameResults.csv'
+path_ECGdata = path + 'Komiya_ECG.csv'
+path_EmotionTest = path + 'Komiya_M_2020_7_9_15_22_44_gameResults.csv'
 
 
 data = pd.read_csv(path_ECGdata)
@@ -34,6 +34,7 @@ emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Aro
 split_time = 45
 idx = 0
 for i in range(len(data_EmotionTest)):
+    print('{}/{}'.format(i + 1, len(data_EmotionTest)))
     tdelta = data_EmotionTest.iloc[i]["Time_End"] - data_EmotionTest.iloc[i]["Time_Start"]
     time_end = data_EmotionTest.iloc[i]["Time_End"]
     valence = data_EmotionTest.iloc[i]["Valence"]

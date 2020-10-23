@@ -6,10 +6,10 @@ from Conf.Settings import FS_EEG
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 
-subject = "Okada"
+subject = "Komiyama"
 path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + "results\\EEG\\"
-experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
+experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
 
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
@@ -29,7 +29,7 @@ for i in range(len(experiment_results)):
     arousal = experiment_results.iloc[i]["Arousal"]
     emotion = experiment_results.iloc[i]["Emotion"]
     eeg_data = pd.read_csv(path+"eeg\\eeg"+str(i)+".csv")
-    print(i)
+    print('{}/{}'.format(i + 1, len(experiment_results)))
     eeg_data["Timestamp_Unix_CAL"] = eeg_data["Timestamp_Unix_CAL"].apply(timeToInt)
 
     eeg_data.loc[:, "CH1":"CH19"] = eeg_filter.FilterEEG(eeg_data.loc[:, "CH1":"CH19"].values, mode=4)
