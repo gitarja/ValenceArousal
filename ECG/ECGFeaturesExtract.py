@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 subject = "Okada"
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
+path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + 'results\\ECG\\'
 path_raw = path + 'results\\ECG_raw\\'
 path_ECGdata = path + 'Okada_ECG.csv'

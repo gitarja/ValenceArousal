@@ -17,6 +17,7 @@ class PPGFeatures:
         :param x: raw ppg
         :return: time domain features of heart beat
         '''
+
         try:
             hb = biosppy.signals.bvp.bvp(x, sampling_rate=self.fs, show=False)[4]
             hb_mean = np.mean(hb)

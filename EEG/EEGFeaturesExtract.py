@@ -7,7 +7,7 @@ from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 
 subject = "Okada"
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
+path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + "results\\EEG\\"
 experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
 

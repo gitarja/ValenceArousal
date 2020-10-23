@@ -5,11 +5,11 @@ from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_RESP
 import numpy as np
 
-subject = "Komiya"
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\" + subject + "\\"
+subject = "Okada"
+path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
 path_results = path + "results\\Resp\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
-resp_data = pd.read_csv(path + "Komiya_Resp.csv", header=[0, 1])
+experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
+resp_data = pd.read_csv(path + "Okada_Resp.csv", header=[0, 1])
 resp_data["RESP_Timestamp_Unix_CAL"] = resp_data["RESP_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
