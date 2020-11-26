@@ -1,58 +1,84 @@
 from Resp.RespFeatures import RespFeatures
+from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
-from datetime import datetime
-from Libs.Utils import timeToInt, utcToTimeStamp
-from Conf.Settings import FS_RESP
+import glob
+from Libs.Utils import timeToInt
+from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME
 import numpy as np
 
-subject = "Komiya"
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\" + subject + "\\"
-path_results = path + "results\\Resp\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
-resp_data = pd.read_csv(path + "Komiya_Resp.csv", header=[0, 1])
-resp_data["RESP_Timestamp_Unix_CAL"] = resp_data["RESP_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
-experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
-experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
 
-format = '%H:%M:%S'
-split_time = 45
+
+data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+resp_file = "\\Resp\\"
+game_result = "\\*_gameResults.csv"
+path_result_resp = "\\results\\resp\\"
+path_result_ecg = "\\results\\ecg_resp\\"
 
 resp_features_exct = RespFeatures(FS_RESP)
-min_len = FS_RESP * (split_time + 1)
+ecg_features_exct = ECGFeatures(FS_RESP)
+min_len = FS_RESP * (SPLIT_TIME + 1)
 
-gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
-idx = 0
-for i in range(len(experiment_results)):
-    tdelta = experiment_results.iloc[i]["Time_End"] - experiment_results.iloc[i]["Time_Start"]
-    time_end = experiment_results.iloc[i]["Time_End"]
-    valence = experiment_results.iloc[i]["Valence"]
-    arousal = experiment_results.iloc[i]["Arousal"]
-    emotion = experiment_results.iloc[i]["Emotion"]
+for folder in glob.glob(data_path):
+    for subject in glob.glob(folder + "\\*-2020-*"):
+        print(subject)
+        try:
+            data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
+            resp_data = pd.read_csv(subject + resp_file + "filtered_resp.csv")
+            ecg_resp_data = pd.read_csv(subject + resp_file + "filtered_ecg_resp.csv")
+            resp_data.iloc[:, 0] = resp_data.iloc[:, 0].apply(timeToInt)
+            ecg_resp_data.iloc[:, 0] = ecg_resp_data.iloc[:, 0].apply(timeToInt)
+            data_EmotionTest["Time_Start"] = data_EmotionTest["Time_Start"].apply(timeToInt)
+            data_EmotionTest["Time_End"] = data_EmotionTest["Time_End"].apply(timeToInt)
 
-    for j in np.arange(0, (tdelta // split_time), 0.4):
-        end = time_end - (j * split_time)
-        start = time_end - ((j + 1) * split_time)
-        resp_split = resp_data[(resp_data["RESP_Timestamp_Unix_CAL"].values >= start) & (
-                resp_data["RESP_Timestamp_Unix_CAL"].values <= end)]
-        resp = resp_split["RESP_ECG_RESP_24BIT_CAL"].values.flatten()
+            gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
+            idx = 0
+            for i in range(len(data_EmotionTest)):
+                tdelta = data_EmotionTest.iloc[i]["Time_End"] - data_EmotionTest.iloc[i]["Time_Start"]
+                time_end = data_EmotionTest.iloc[i]["Time_End"]
+                valence = data_EmotionTest.iloc[i]["Valence"]
+                arousal = data_EmotionTest.iloc[i]["Arousal"]
+                emotion = data_EmotionTest.iloc[i]["Emotion"]
 
-        status = 0
-        # extract resp features
-        resp_time_features = resp_features_exct.extractTimeDomain(resp)
-        if (resp_time_features.shape[0] != 0):
-            resp_features = np.concatenate([resp_time_features, resp_features_exct.extractFrequencyDomain(resp),
-                                            resp_features_exct.extractNonLinear(resp)])
-            if (np.sum(np.isinf(resp_features)) == 0 | np.sum(np.isnan(resp_features)) == 0):
-                np.save(path_results + "resp_" + str(idx) + ".npy", resp_features)
-                status = 1
-            else:
-                status = 0
+                for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
+                    # take 2.5 sec after end
+                    end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
+                    start = time_end - (j * SPLIT_TIME)
 
-        # add object to dataframes
-        gsr_features = gsr_features.append(
-            {"Idx": str(idx), "Subject": subject, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
-             "Emotion": emotion, "Status": status},
-            ignore_index=True)
-        idx += 1
+                    resp = resp_data[(resp_data.iloc[:, 0] .values >= start) & (
+                            resp_data.iloc[:, 0] .values <= end)]["resp"].values
+                    ecg_resp = ecg_resp_data[(ecg_resp_data.iloc[:, 0] .values >= start) & (
+                            ecg_resp_data.iloc[:, 0] .values <= end)]["ecg"].values
 
-gsr_features.to_csv(path + "Resp_features_list.csv")
+                    status = 0
+                    # extract ecg features
+                    time_domain = ecg_features_exct.extractTimeDomain(ecg_resp)
+                    freq_domain = ecg_features_exct.extractFrequencyDomain(ecg_resp)
+                    nonlinear_domain = ecg_features_exct.extractNonLinearDomain(ecg_resp)
+                    # extract resp features
+                    resp_time_features = resp_features_exct.extractTimeDomain(resp)
+                    resp_freq_features =resp_features_exct.extractFrequencyDomain(resp)
+                    resp_nonlinear_features = resp_features_exct.extractNonLinear(resp)
+                    if resp_time_features.shape[0] != 0 and resp_freq_features.shape[0] != 0 and resp_nonlinear_features.shape[0] != 0 and time_domain.shape[0] != 0 and freq_domain.shape[0] != 0 and nonlinear_domain.shape[0] != 0:
+                        resp_features = np.concatenate([resp_time_features, resp_features_exct.extractFrequencyDomain(resp),
+                                                        resp_features_exct.extractNonLinear(resp)])
+                        ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
+                        # print(np.sum(np.isinf(ecg_features)))
+                        if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
+                            np.save(subject + path_result_resp + "resp_" + str(idx) + ".npy", resp_features)
+                            np.save(subject + path_result_ecg + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            status = 1
+                        else:
+                            status = 0
+
+                    # add object to dataframes
+                    subject_name = subject.split("\\")[-1]
+                    gsr_features = gsr_features.append(
+                        {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal,
+                         "Emotion": emotion, "Status": status},
+                        ignore_index=True)
+                    idx += 1
+
+            # save to csv
+            gsr_features.to_csv(subject + "\\Resp_features_list.csv", index=False)
+        except:
+            print("Error: "+subject)

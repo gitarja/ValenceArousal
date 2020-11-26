@@ -19,10 +19,12 @@ generator = DataGenerator(path=path, training_list_file=feature_list_file,
 X = generator.fetchData(training=True, split=False)
 features = []
 Y = []
+ecg_all = []
 for step, inputs in enumerate(X):
-    X, _, y = inputs
+    X, ecg, y = inputs
     features.append(np.expand_dims(X, 0))
     Y.append(y)
+    ecg_all.append(ecg)
 
 features = np.concatenate(features)
 

@@ -23,7 +23,7 @@ def utcToTimeStamp(x):
 
 
 def timeToInt(time):
-    date, hours = time.split(" ")
+    hours = time.split(" ")[-1]
     h, m, s = hours.split(":")
     inttime = 3600 * float(h) + 60 * float(m) + float(s)
 
@@ -56,3 +56,11 @@ def avgSlidingWindow(x, n):
     filtered = convolve(x, window, mode="same")
 
     return filtered
+
+
+def rollingWindow(a, size=50):
+    slides = []
+    for i in range(len(a) // size):
+        slides.append(a[(i*size):((i+1) * size)])
+
+    return np.array(slides)

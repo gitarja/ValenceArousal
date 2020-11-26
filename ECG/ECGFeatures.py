@@ -7,6 +7,8 @@ import pyhrv.tools as tools
 import pyhrv
 from biosppy import utils
 import numpy as np
+from biosppy import tools as st
+import pywt
 
 
 class ECGFeatures:
@@ -14,7 +16,39 @@ class ECGFeatures:
     def __init__(self, fs):
         self.fs = fs
 
+    def filterECG(self, x):
+        order = int(0.3 * self.fs)
+        filtered, _, _ = st.filter_signal(signal=x,
+                                          ftype='FIR',
+                                          band='bandpass',
+                                          order=order,
+                                          frequency=[3, 45],
+                                          sampling_rate=self.fs)
+
+        return filtered
+
+    def waveDriftFilter(self, signal, n=9):
+        '''
+        :param signal: signal input
+        :param n: level of decomposition
+        :return: signal - baseline
+        The signal is decomposed into 9 level and only the last coeffictient [1] is used to reconstruct the baseline
+        To remove baseline wondering the baseline is substracted from the input signal
+        '''
+        waveletName = "bior1.5"
+        coeffs = pywt.wavedecn(signal, waveletName, level=n)
+        for i in range(2, len(coeffs), 1):
+            coeffs[i] = self.ignoreCoefficient(coeffs[i])
+        baseline = pywt.waverecn(coeffs, waveletName)
+        filtered = signal - baseline[:len(signal)]
+        return filtered
+
+    def ignoreCoefficient(self, coeff):
+        coeff = {k: np.zeros_like(v) for k, v in coeff.items()}
+        return coeff
+
     def extractRR(self, x):
+
         X, r = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[1:3]
         r = biosppy.signals.ecg.correct_rpeaks(signal=X, rpeaks=r, sampling_rate=self.fs)[0]
         r = r.astype(float)

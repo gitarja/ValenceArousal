@@ -1,74 +1,90 @@
 from GSR.GSRFeatures import PPGFeatures, EDAFeatures
 import pandas as pd
 from datetime import datetime
-from Libs.Utils import timeToInt, utcToTimeStamp
-from Conf.Settings import FS_GSR
+from Libs.Utils import timeToInt
+from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME
 import numpy as np
+import glob
 
-subject = "Okada"
-path = "D:\\usr\\pras\\data\\EmotionTestVR\\"+subject+"\\"
-path_results = path + "results\\GSR\\"
-experiment_results = pd.read_csv(path + "Okada_M_2020_7_30_17_5_5_gameResults.csv")
-gsr_data = pd.read_csv(path + "Okada_GSR.csv", header=[0, 1])
-gsr_data["GSR_Timestamp_Unix_CAL"] = gsr_data["GSR_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
-experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
-experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
 
-format = '%H:%M:%S'
-split_time = 45
-
+data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+gsr_file = "\\GSR\\"
+game_result = "\\*_gameResults.csv"
+path_result_eda = "\\results\\eda\\"
+path_result_ppg = "\\results\\ppg\\"
+min_len = FS_GSR * (SPLIT_TIME + 1)
 eda_features_exct = EDAFeatures(FS_GSR)
 ppg_features_exct = PPGFeatures(FS_GSR)
-min_len = FS_GSR * (split_time + 1)
+min_eda_len = (FS_GSR * SPLIT_TIME) - 50
 
-gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
-idx = 0
-for i in range(len(experiment_results)):
-    tdelta = experiment_results.iloc[i]["Time_End"] - experiment_results.iloc[i]["Time_Start"]
-    time_end = experiment_results.iloc[i]["Time_End"]
-    valence = experiment_results.iloc[i]["Valence"]
-    arousal = experiment_results.iloc[i]["Arousal"]
-    emotion = experiment_results.iloc[i]["Emotion"]
+for folder in glob.glob(data_path):
+    for subject in glob.glob(folder + "\\*-2020-*"):
+        print(subject)
+        try:
+            data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
+            eda_data = pd.read_csv(subject + gsr_file + "filtered_eda.csv")
+            ppg_data = pd.read_csv(subject + gsr_file + "filtered_ppg.csv")
+            eda_data.iloc[:, 0] = eda_data.iloc[:, 0].apply(timeToInt)
+            ppg_data.iloc[:, 0] = ppg_data.iloc[:, 0].apply(timeToInt)
 
-    for j in np.arange(0, (tdelta // split_time), 0.4):
-        end = time_end - (j * split_time)
-        start = time_end - ((j + 1) * split_time)
-        gsr_split = gsr_data[(gsr_data["GSR_Timestamp_Unix_CAL"].values >= start) & (
-                gsr_data["GSR_Timestamp_Unix_CAL"].values <= end)]
-        eda = gsr_split["GSR_GSR_Skin_Conductance_CAL"].values.flatten()
-        ppg = gsr_split["GSR_PPG_A13_CAL"].values.flatten()
+            data_EmotionTest["Time_Start"] = data_EmotionTest["Time_Start"].apply(timeToInt)
+            data_EmotionTest["Time_End"] = data_EmotionTest["Time_End"].apply(timeToInt)
 
-        status = 0
-        # extract eda features
-        #scr_features = eda_features_exct.extractSCRFeatures(eda)
+            gsr_features = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
+            idx = 0
+            for i in range(len(data_EmotionTest)):
+                tdelta = data_EmotionTest.iloc[i]["Time_End"] - data_EmotionTest.iloc[i]["Time_Start"]
+                time_end = data_EmotionTest.iloc[i]["Time_End"]
+                valence = data_EmotionTest.iloc[i]["Valence"]
+                arousal = data_EmotionTest.iloc[i]["Arousal"]
+                emotion = data_EmotionTest.iloc[i]["Emotion"]
 
-        #extract cvx of eda and time domain of ppg to check whether the inputs are not disorted
-        cvx_features = eda_features_exct.extractCVXEDA(eda)
-        ppg_time = ppg_features_exct.extractTimeDomain(ppg)
-        if (cvx_features.shape[0] != 0) & (ppg_time.shape[0] != 0):
-            eda_features = np.concatenate([cvx_features, eda_features_exct.extractMFCCFeatures(eda, min_len=min_len)])
+                for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
+                    # take 2.5 sec after end
+                    end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
+                    start = time_end - (j * SPLIT_TIME)
 
-            # extract PPG features
-            ppg_features = np.concatenate(
-                [ppg_time, ppg_features_exct.extractFrequencyDomain(ppg),
-                 ppg_features_exct.extractNonLinear(ppg)])
+                    eda = eda_data[(eda_data.iloc[:, 0].values >= start) & (
+                            eda_data.iloc[:, 0].values <= end)]["eda"].values[:min_eda_len]
+                    ppg = ppg_data[(ppg_data.iloc[:, 0].values >= start) & (
+                            ppg_data.iloc[:, 0].values <= end)]["ppg"].values[:min_eda_len]
 
-            if (np.sum(np.isinf(ppg_features))== 0 | np.sum(np.isnan(ppg_features)) == 0):
-                # print(eda_features.shape)
-                # save features
-                np.save(path_results + "eda_" + str(idx) + ".npy", eda_features)
-                np.save(path_results + "ppg_" + str(idx) + ".npy", ppg_features)
-                status = 1
-            else:
-                status = 0
-        else:
-            status = 0
-
-        # add object to dataframes
-        gsr_features = gsr_features.append(
-            {"Idx": str(idx), "Subject": subject, "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
-            ignore_index=True)
-        idx+=1
+                    status = 0
+                    # extract eda features
+                    # print(eda.shape)
+                    if (eda.shape[0] == min_eda_len):
+                        #extract cvx of eda and time domain of ppg to check whether the inputs are not disorted
+                        cvx_features = eda_features_exct.extractCVXEDA(eda)
+                        # scr_features = eda_features_exct.extractSCRFeatures(eda)
+                        ppg_time = ppg_features_exct.extractTimeDomain(ppg)
+                        if (cvx_features.shape[0] != 0) and (ppg_time.shape[0] != 0):
+                            eda_features = np.concatenate([cvx_features, eda_features_exct.extractMFCCFeatures(eda, min_len=min_len)])
 
 
-gsr_features.to_csv(path+"GSR_features_list.csv")
+                            # extract PPG features
+                            ppg_features = np.concatenate(
+                                [ppg_time, ppg_features_exct.extractFrequencyDomain(ppg),
+                                 ppg_features_exct.extractNonLinear(ppg)])
+
+                            if np.sum(np.isinf(ppg_features))== 0 and np.sum(np.isnan(ppg_features)) == 0 and np.sum(np.isinf(eda_features))== 0 and np.sum(np.isnan(eda_features)) == 0:
+                                # print(eda_features.shape)
+                                # save features
+                                np.save(subject + path_result_eda + "eda_" + str(idx) + ".npy", eda_features)
+                                np.save(subject + path_result_ppg + "ppg_" + str(idx) + ".npy", ppg_features)
+                                status = 1
+                            else:
+                                status = 0
+                        else:
+                            status = 0
+
+                    # add object to dataframes
+                    subject_name = subject.split("\\")[-1]
+                    gsr_features = gsr_features.append(
+                        {"Idx": str(idx), "Subject": subject_name, "Start":str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+                        ignore_index=True)
+                    idx+=1
+
+            # save to csv
+            gsr_features.to_csv(subject+"\\GSR_features_list.csv", index=False)
+        except ValueError:
+            print("Error" + subject)

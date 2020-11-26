@@ -1,3 +1,4 @@
 {
-  "DataGeneratorTesting.py::MyTestCase::test_dimension": true
+  "DataGeneratorTesting.py::MyTestCase::test_dimension": true,
+  "EnsembleFeaturesTesting.py::MyTestCase::test_something": true
 }

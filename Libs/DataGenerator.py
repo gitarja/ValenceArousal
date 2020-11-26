@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from joblib import dump, load
+from scipy import interpolate
 class DataGenerator():
 
     def __init__(self, path, training_list_file, testing_list_file, val_th=3, ar_th=3, ecg_length=10000, batch_size=32, transform=False):
@@ -56,11 +57,17 @@ class DataGenerator():
             ecg_features = np.load(subject_path + self.ecg_path + "ecg_" + str(filename) + ".npy")
 
             ecg_raw = np.load(subject_path + self.ecg_raw_path + "ecg_raw_" + str(filename) + ".npy")
+            if len(ecg_raw) < self.ecg_length:
+                f = interpolate.interp1d(np.arange(0, len(ecg_raw)), ecg_raw)
+                xnew = np.arange(0, len(ecg_raw) - 1, len(ecg_raw) / (self.ecg_length+5))
+                ecg_raw = f(xnew)
 
             X_teacher = np.expand_dims(np.concatenate([eda_features, ppg_features, resp_features, eeg_features, ecg_features]),0)
             if self.transform:
                 X_teacher = self.scaler.transform(X_teacher)
-            X_student = ecg_raw[:self.ecg_length]
+            ecg_raw = (ecg_raw[:self.ecg_length] - 2169.707228404167) / 329.4425863704116
+            ecg_raw = ecg_raw.reshape((106, 106))
+            X_student = np.expand_dims(ecg_raw, -1)
 
             if split:
                 yield X_teacher.flatten(), X_student, self.convertBinLabel(val_label), self.convertBinLabel(ar_label)
