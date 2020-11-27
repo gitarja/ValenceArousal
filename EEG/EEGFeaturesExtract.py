@@ -1,15 +1,18 @@
 from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
+import os
 
 from Libs.Utils import timeToInt
 from Conf.Settings import FS_EEG
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 
-subject = "Komiyama"
-path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
+subject = 'A6-2020-10-27'
+date = '2020-10-27'
+path = 'G:\\usr\\nishihara\\data\\Yamaha-Experiment\\' + date + '\\' + subject + '\\'
 path_results = path + "results\\EEG\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
+os.makedirs(path_results, exist_ok=True)
+experiment_results = pd.read_csv(path + "A6_M_2020_10_27_16_16_35_gameResults.csv")
 
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
@@ -28,13 +31,14 @@ for i in range(len(experiment_results)):
     valence = experiment_results.iloc[i]["Valence"]
     arousal = experiment_results.iloc[i]["Arousal"]
     emotion = experiment_results.iloc[i]["Emotion"]
-    eeg_data = pd.read_csv(path+"eeg\\eeg"+str(i)+".csv")
+    eeg_data = pd.read_csv(path + "EEG\\eeg" + str(i) + ".csv")
     print('{}/{}'.format(i + 1, len(experiment_results)))
     eeg_data["Timestamp_Unix_CAL"] = eeg_data["Timestamp_Unix_CAL"].apply(timeToInt)
 
     eeg_data.loc[:, "CH1":"CH19"] = eeg_filter.FilterEEG(eeg_data.loc[:, "CH1":"CH19"].values, mode=4)
 
     for j in np.arange(0, (tdelta // split_time), 0.4):
+        status = 0
         end = time_end - (j * split_time)
         start = time_end - ((j + 1) * split_time)
         eeg_split = eeg_data[(eeg_data["Timestamp_Unix_CAL"].values >= start) & (

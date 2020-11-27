@@ -6,14 +6,18 @@ import numpy as np
 from Conf import Settings as set
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 
 
-subject = "Komiyama"
-path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
+subject = 'A6-2020-10-27'
+date = '2020-10-27'
+path = 'G:\\usr\\nishihara\\data\\Yamaha-Experiment\\' + date + '\\' + subject + '\\'
 path_results = path + 'results\\ECG\\'
 path_raw = path + 'results\\ECG_raw\\'
-path_ECGdata = path + 'Komiya_ECG.csv'
-path_EmotionTest = path + 'Komiya_M_2020_7_9_15_22_44_gameResults.csv'
+os.makedirs(path_results, exist_ok=True)
+os.makedirs(path_raw, exist_ok=True)
+path_ECGdata = path + 'ECG\\20201027_161000_536_HB_PW.csv'
+path_EmotionTest = path + 'A6_M_2020_10_27_16_16_35_gameResults.csv'
 
 
 data = pd.read_csv(path_ECGdata)

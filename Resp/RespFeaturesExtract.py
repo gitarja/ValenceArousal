@@ -4,17 +4,20 @@ from datetime import datetime
 from Libs.Utils import timeToInt, utcToTimeStamp
 from Conf.Settings import FS_RESP
 import numpy as np
+import os
 
-subject = "Komiyama"
-path = "C:\\Users\\ShimaLab\\Documents\\nishihara\\data\\EmotionTestVR\\" + subject + "\\"
+subject = 'A6-2020-10-27'
+date = '2020-10-27'
+path = 'G:\\usr\\nishihara\\data\\Yamaha-Experiment\\' + date + '\\' + subject + '\\'
 path_results = path + "results\\Resp\\"
-experiment_results = pd.read_csv(path + "Komiya_M_2020_7_9_15_22_44_gameResults.csv")
-resp_data = pd.read_csv(path + "Komiya_Resp.csv", header=[0, 1])
-resp_data["RESP_Timestamp_Unix_CAL"] = resp_data["RESP_Timestamp_Unix_CAL"].apply(utcToTimeStamp, axis=1)
+os.makedirs(path_results, exist_ok=True)
+experiment_results = pd.read_csv(path + 'A6_M_2020_10_27_16_16_35_gameResults.csv')
+resp_data = pd.read_csv(path + 'Resp\\A6-2020-10-27_Resp.csv', header=0, skiprows=[1])
+resp_data["RESP_Timestamp_Unix_CAL"] = resp_data["RESP_Timestamp_Unix_CAL"].apply(utcToTimeStamp)
 experiment_results["Time_Start"] = experiment_results["Time_Start"].apply(timeToInt)
 experiment_results["Time_End"] = experiment_results["Time_End"].apply(timeToInt)
 
-format = '%H:%M:%S'
+# format = '%H:%M:%S'
 split_time = 45
 
 resp_features_exct = RespFeatures(FS_RESP)
