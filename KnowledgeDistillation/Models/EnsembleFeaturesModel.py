@@ -4,32 +4,52 @@ from Conf.Settings import EDA_N, PPG_N, Resp_N, ECG_Resp_N, ECG_N, EEG_N
 
 class EnsembleSeparateModel(tf.keras.Model):
 
-    def __init__(self, num_output=4):
+    def __init__(self, num_output=4, eda_length=1102, eeg_length=1330, ecg_length=48):
         super(EnsembleSeparateModel, self).__init__(self)
 
         # ensemble
-        # 1
-        self.ens_11 = tf.keras.layers.Dense(units=16, name="ens_11")
-        self.ens_12 = tf.keras.layers.Dense(units=32, name="ens_12")
-        self.ens_13 = tf.keras.layers.Dense(units=64, name="ens_13")
-        self.ens_1_ar = tf.keras.layers.Dense(units=num_output, name="ens_1_ar", activation=None)
-        self.ens_1_val = tf.keras.layers.Dense(units=num_output, name="ens_1_val", activation=None)
+        # EDA
+        # encoder
+        self.eda_en_1 = tf.keras.layers.Dense(units=256, name="eda_en_1")
+        self.eda_en_2 = tf.keras.layers.Dense(units=128, name="eda_en_2")
+        self.eda_en_3 = tf.keras.layers.Dense(units=64, name="eda_en_3")
+        self.eda_en_4 = tf.keras.layers.Dense(units=32, name="eda_en_4")
+        # decoder
+        self.eda_de_1 = tf.keras.layers.Dense(units=64, name="eda_de_1")
+        self.eda_de_2 = tf.keras.layers.Dense(units=128, name="eda_de_2")
+        self.eda_de_3 = tf.keras.layers.Dense(units=256, name="eda_de_3")
+        self.eda_de_4 = tf.keras.layers.Dense(units=eda_length, name="eda_de_4", activation=None)
+        # classifer
+        self.eda_ar_logit = tf.keras.layers.Dense(units=num_output, name="eda_ar_logit", activation=None)
+        self.eda_val_logit = tf.keras.layers.Dense(units=num_output, name="eda_val_logit", activation=None)
 
-        # 2
-        self.ens_21 = tf.keras.layers.Dense(units=32, name="ens_21")
-        self.ens_22 = tf.keras.layers.Dense(units=64, name="ens_22")
-        self.ens_23 = tf.keras.layers.Dense(units=128, name="ens_23")
-        self.ens_24 = tf.keras.layers.Dense(units=256, name="ens_24")
-        self.ens_2_ar = tf.keras.layers.Dense(units=num_output, name="ens_2_ar", activation=None)
-        self.ens_2_val = tf.keras.layers.Dense(units=num_output, name="ens_2_val", activation=None)
+        # ECG
+        # encoder
+        self.ecg_en_1 = tf.keras.layers.Dense(units=128, name="ecg_en_1")
+        self.ecg_en_2 = tf.keras.layers.Dense(units=64, name="ecg_en_2")
+        self.ecg_en_3 = tf.keras.layers.Dense(units=32, name="ecg_en_3")
+        # decoder
+        self.ecg_de_1 = tf.keras.layers.Dense(units=64, name="ecg_de_1")
+        self.ecg_de_2 = tf.keras.layers.Dense(units=128, name="ecg_de_2")
+        self.ecg_de_3 = tf.keras.layers.Dense(units=ecg_length, name="ecg_de_3")
+        # classifier
+        self.ecg_ar_logit = tf.keras.layers.Dense(units=num_output, name="ecg_ar_logit", activation=None)
+        self.ecg_val_logit = tf.keras.layers.Dense(units=num_output, name="ecg_val_logit", activation=None)
 
-        # 3
-        self.ens_31 = tf.keras.layers.Dense(units=64, name="ens_31")
-        self.ens_32 = tf.keras.layers.Dense(units=64, name="ens_32")
-        self.ens_33 = tf.keras.layers.Dense(units=128, name="ens_33")
-        self.ens_34 = tf.keras.layers.Dense(units=256, name="ens_34")
-        self.ens_3_ar = tf.keras.layers.Dense(units=num_output, name="ens_3_ar", activation=None)
-        self.ens_3_val = tf.keras.layers.Dense(units=num_output, name="ens_3_val", activation=None)
+        # EEG
+        # encoder
+        self.eeg_en_1 = tf.keras.layers.Dense(units=256, name="eeg_en_1")
+        self.eeg_en_2 = tf.keras.layers.Dense(units=128, name="eeg_en_2")
+        self.eeg_en_3 = tf.keras.layers.Dense(units=64, name="eeg_en_3")
+        self.eeg_en_4 = tf.keras.layers.Dense(units=32, name="eeg_en_4")
+        # decoder
+        self.eeg_de_1 = tf.keras.layers.Dense(units=64, name="eeg_de_1")
+        self.eeg_de_2 = tf.keras.layers.Dense(units=128, name="eeg_de_2")
+        self.eeg_de_3 = tf.keras.layers.Dense(units=256, name="eeg_de_3")
+        self.eeg_de_4 = tf.keras.layers.Dense(units=ecg_length, name="eeg_de_4")
+        # classifier
+        self.eeg_ar_logit = tf.keras.layers.Dense(units=num_output, name="eeg_ar_logit", activation=None)
+        self.eeg_val_logit = tf.keras.layers.Dense(units=num_output, name="eeg_val_logit", activation=None)
 
         # activation
         self.activation = tf.keras.layers.ELU()
@@ -40,57 +60,90 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+        self.cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
+                                                                  reduction=tf.keras.losses.Reduction.NONE)
+        self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
     def forward(self, x, dense, activation=None, droput=None):
         if activation is None:
             return droput(dense(x))
         return droput(activation(dense(x)))
 
-    def forwardEnsemble1(self, inputs):
-        x = self.forward(inputs, self.ens_11, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_12, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_13, self.activation, self.dropout1)
-        ar_logit = self.ens_1_ar(x)
-        val_logit = self.ens_1_val(x)
-        return ar_logit, val_logit
+    def forwardEDA(self, inputs):
+        # encode
+        x = self.forward(inputs, self.eda_en_1, self.activation, self.dropout1)
+        x = self.forward(x, self.eda_en_2, self.activation, self.dropout1)
+        x = self.forward(x, self.eda_en_3, self.activation, self.dropout1)
+        z = self.forward(x, self.eda_en_4, self.activation, self.dropout1)
 
-    def forwardEnsemble2(self, inputs):
-        x = self.forward(inputs, self.ens_21, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_22, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_23, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_24, self.activation, self.dropout1)
-        ar_logit = self.ens_2_ar(x)
-        val_logit = self.ens_2_val(x)
-        return ar_logit, val_logit
+        # decode
+        x = self.forward(z, self.eda_de_1, self.activation, self.dropout1)
+        x = self.forward(x, self.eda_de_2, self.activation, self.dropout1)
+        x = self.forward(x, self.eda_de_3, self.activation, self.dropout1)
+        x = self.eda_de_4(x)
 
-    def forwardEnsemble3(self, inputs):
-        x = self.forward(inputs, self.ens_31, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_32, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_33, self.activation, self.dropout1)
-        x = self.forward(x, self.ens_34, self.activation, self.dropout1)
-        ar_logit = self.ens_3_ar(x)
-        val_logit = self.ens_3_val(x)
-        return ar_logit, val_logit
+        # classify
+        ar_logit = self.ens_1_ar(z)
+        val_logit = self.ens_1_val(z)
+        return ar_logit, val_logit, x
+
+    def forwardECG(self, inputs):
+        # encode
+        x = self.forward(inputs, self.ecg_en_1, self.activation, self.dropout1)
+        x = self.forward(x, self.ecg_en_2, self.activation, self.dropout1)
+        z = self.forward(x, self.ecg_en_3, self.activation, self.dropout1)
+
+        # decode
+        x = self.forward(z, self.ecg_de_1, self.activation, self.dropout1)
+        x = self.forward(x, self.ecg_de_2, self.activation, self.dropout1)
+        x = self.ecg_de_3(x)
+
+        #classify
+        ar_logit = self.ens_2_ar(z)
+        val_logit = self.ens_2_val(z)
+        return ar_logit, val_logit, x
+
+    def forwardEEG(self, inputs):
+        # encode
+        x = self.forward(inputs, self.eeg_en_1, self.activation, self.dropout1)
+        x = self.forward(x, self.eeg_en_2, self.activation, self.dropout1)
+        x = self.forward(x, self.eeg_en_3, self.activation, self.dropout1)
+        z = self.forward(x, self.eeg_en_4, self.activation, self.dropout1)
+
+        # encode
+        x = self.forward(z, self.eeg_de_1, self.activation, self.dropout1)
+        x = self.forward(x, self.eeg_de_2, self.activation, self.dropout1)
+        x = self.forward(x, self.eeg_de_3, self.activation, self.dropout1)
+        x = self.eeg_de_4(x)
+
+        # decode
+        ar_logit = self.ens_3_ar(z)
+        val_logit = self.ens_3_val(z)
+        return ar_logit, val_logit, x
 
     def call(self, inputs, training=None, mask=None):
-        ar_logit_1, val_logit_1 = self.forwardEnsemble1(inputs)
-        ar_logit_2, val_logit_2 = self.forwardEnsemble2(inputs)
-        # ar_logit_3, val_logit_3 = self.forwardEnsemble3(inputs)
+        # EDA
+        ar_logit_eda, val_logit_eda, x_eda = self.forwardEDA(inputs)
+        # PPG, ECG
+        ar_logit_ecg, val_logit_ecg, x_ecg = self.forwardECG(inputs)
+        # EEG
+        ar_logit_eeg, val_logit_eeg, x_eeg = self.forwardEEG(inputs)
 
-        return [ar_logit_1, ar_logit_2], [val_logit_1, val_logit_2]
+        return [ar_logit_eda, ar_logit_ecg, ar_logit_eeg], [val_logit_eda, val_logit_ecg, val_logit_eeg], [x_eda, x_ecg, x_eeg]
 
     def trainSMCL(self, X, y_ar, y_val, th, global_batch_size, training=False):
         # compute AR and VAL logits
         logits = self(X, training)
 
-        ar_logit_1, ar_logit_2 = logits[0]
-        val_logit_1, val_logit_2 = logits[1]
+        ar_logit_eda, ar_logit_ecg, ar_logit_eeg = logits[0]
+        val_logit_eda, val_logit_ecg, val_logit_eeg = logits[1]
+        x_eda, x_ecg, x_eeg = logits[1]
+
 
         # print(z_ecgResp_val.shape)
 
         # compute AR loss and AR acc
-        losses_ar = tf.concat([self.loss(ar_logit_1, y_ar), self.loss(ar_logit_2, y_ar)],
+        losses_ar = tf.concat([self.loss(ar_logit_eda, y_ar), self.loss(ar_logit_ecg, y_ar), self.loss(ar_logit_eeg, y_ar)],
                               axis=-1)
 
         p_ar = tf.math.argmin(losses_ar, axis=1)
@@ -100,7 +153,10 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # compute VAL loss and VAL ACC
         losses_val = tf.concat(
-            [self.loss(val_logit_1, y_val), self.loss(val_logit_2, y_val)], axis=-1)
+            [self.loss(ar_logit_eda, y_val), self.loss(ar_logit_ecg, y_val), self.loss(val_logit_eeg, y_val)], axis=-1)
+
+        # compute rec loss
+        losses_rec = 0.33 * (self.rs_loss(X, x_eda) + self.rs_loss(X, x_ecg) + self.rs_loss(X, x_eeg))
 
         p_val = tf.math.argmin(losses_val, axis=1)
         mask_val = tf.one_hot(p_val, losses_val.shape.as_list()[1]) + 0.1
@@ -110,8 +166,12 @@ class EnsembleSeparateModel(tf.keras.Model):
         final_losses_val = tf.nn.compute_average_loss(losses_val, sample_weight=mask_val,
                                                       global_batch_size=global_batch_size)
 
-        logits_ar = tf.concat([tf.expand_dims(ar_logit_1, -1), tf.expand_dims(ar_logit_2, -1)], axis=-1)
-        logits_val = tf.concat([tf.expand_dims(val_logit_1, -1), tf.expand_dims(val_logit_2, -1)], axis=-1)
+        final_rec_loss = tf.nn.compute_average_loss(losses_val,
+                                                      global_batch_size=global_batch_size)
+
+        logits_ar = tf.concat([tf.expand_dims(ar_logit_eda, -1), tf.expand_dims(ar_logit_ecg, -1),tf.expand_dims(ar_logit_ecg, -1)], axis=-1)
+        logits_val = tf.concat([tf.expand_dims(val_logit_eda, -1), tf.expand_dims(val_logit_ecg, -1), tf.expand_dims(val_logit_eeg, -1)], axis=-1)
+
         predictions_ar = self.avgMultiple(logits_ar)
         predictions_val = self.avgMultiple(logits_val)
 
@@ -122,7 +182,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         avg_losses_val = tf.nn.compute_average_loss(losses_val, sample_weight=average_mask,
                                                     global_batch_size=global_batch_size)
 
-        return final_losses_ar, final_losses_val, predictions_ar, predictions_val, avg_losses_ar, avg_losses_val
+        return final_losses_ar, final_losses_val, final_rec_loss, predictions_ar, predictions_val, avg_losses_ar, avg_losses_val
 
     def loss(self, y, t):
         return tf.expand_dims(self.cross_loss(t, y), -1)
@@ -152,7 +212,6 @@ class EnsembleSeparateModel(tf.keras.Model):
         return prediction
 
     def avgMultiple(self, y):
-
         predictions = tf.reduce_mean(y, -1)
         prob = tf.nn.softmax(predictions)
         labels = tf.argmax(prob, -1)

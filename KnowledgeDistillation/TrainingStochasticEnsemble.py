@@ -110,10 +110,10 @@ with strategy.scope():
         y_val = tf.expand_dims(inputs[2], -1)
 
         with tf.GradientTape() as tape_ar:
-            loss_ar, loss_val, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+            loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
                                                                                                         0.55,
                                                                                                         GLOBAL_BATCH_SIZE, training=True)
-            loss = loss_ar + loss_val
+            loss = loss_ar + loss_val + loss_rec
 
         # update gradient
         grads = tape_ar.gradient(loss, model.trainable_weights)
@@ -139,7 +139,7 @@ with strategy.scope():
         y_ar = tf.expand_dims(inputs[1], -1)
         y_val = tf.expand_dims(inputs[2], -1)
 
-        loss_ar, loss_val, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+        loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
                                                                                                     0.55,
                                                                                                     GLOBAL_BATCH_SIZE, training=False)
         ar_loss_metric(loss_ar_or)
