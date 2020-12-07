@@ -123,11 +123,11 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def call(self, inputs, training=None, mask=None):
         # EDA
-        ar_logit_eda, val_logit_eda, x_eda = self.forwardEDA(inputs)
+        ar_logit_eda, val_logit_eda, x_eda = self.forwardEDA(inputs[0])
         # PPG, ECG
-        ar_logit_ecg, val_logit_ecg, x_ecg = self.forwardECG(inputs)
+        ar_logit_ecg, val_logit_ecg, x_ecg = self.forwardECG(inputs[1])
         # EEG
-        ar_logit_eeg, val_logit_eeg, x_eeg = self.forwardEEG(inputs)
+        ar_logit_eeg, val_logit_eeg, x_eeg = self.forwardEEG(inputs[2])
 
         return [ar_logit_eda, ar_logit_ecg, ar_logit_eeg], [val_logit_eda, val_logit_ecg, val_logit_eeg], [x_eda, x_ecg, x_eeg]
 
@@ -156,7 +156,7 @@ class EnsembleSeparateModel(tf.keras.Model):
             [self.loss(ar_logit_eda, y_val), self.loss(ar_logit_ecg, y_val), self.loss(val_logit_eeg, y_val)], axis=-1)
 
         # compute rec loss
-        losses_rec = 0.33 * (self.rs_loss(X, x_eda) + self.rs_loss(X, x_ecg) + self.rs_loss(X, x_eeg))
+        losses_rec = 0.33 * (self.rs_loss(X[0], x_eda) + self.rs_loss(X[1], x_ecg) + self.rs_loss(X[2], x_eeg))
 
         p_val = tf.math.argmin(losses_val, axis=1)
         mask_val = tf.one_hot(p_val, losses_val.shape.as_list()[1]) + 0.1

@@ -11,7 +11,7 @@ from joblib import load
 
 class DataFetch:
 
-    def __init__(self, train_file, test_file, validation_file, ECG_N, max_scaler, norm_scaler):
+    def __init__(self, train_file, test_file, validation_file, ECG_N, max_scaler=None, norm_scaler=None):
         self.data_train = pd.read_csv(train_file)
         self.data_test = pd.read_csv(test_file)
         self.data_val = pd.read_csv(validation_file)
@@ -21,9 +21,9 @@ class DataFetch:
         self.val_n = len(self.data_val)
         self.test_n = len(self.data_test)
 
-        self.max = np.load("Utils\\max.npy")
-        self.mean = np.load("Utils\\mean.npy")
-        self.std = np.load("Utils\\std.npy")
+        # self.max = np.load("Utils\\max.npy")
+        # self.mean = np.load("Utils\\mean.npy")
+        # self.std = np.load("Utils\\std.npy")
 
     def fetch(self, training_mode=0, KD=False):
         '''
@@ -53,15 +53,15 @@ class DataFetch:
                     [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
 
                 if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
-                    concat_features_norm = (concat_features - self.mean) / self.std
+                    # concat_features_norm = (concat_features - self.mean) / self.std
                     # print(np.max(concat_features_norm))
                     # print(np.min(concat_features[575:588]))
                     y_ar = valArLevelToLabels(features_list.iloc[i]["Arousal"])
                     y_val = valArLevelToLabels(features_list.iloc[i]["Valence"])
 
                     if KD == False:
-                        yield concat_features_norm, y_ar, y_val
+                        return np.array([concat_features[:1102], concat_features[1102:1150], concat_features[1150:]]), y_ar, y_val
                     else:
                         ecg = np.load(base_path + ECG_RAW_PATH + "ecg_raw_" + str(filename) + ".npy")
-                        yield concat_features_norm, y_ar, y_val, ecg[:self.ECG_N]
+                        return concat_features, y_ar, y_val, ecg[:self.ECG_N]
                 i+=1

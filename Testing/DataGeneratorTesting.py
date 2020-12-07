@@ -22,11 +22,11 @@ class MyTestCase(unittest.TestCase):
         testing_data = DATASET_PATH + "test_data.csv"
         validation_data = DATASET_PATH + "validation_data.csv"
 
-        generator = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data, ECG_N=ECG_RAW_N, scaller="..\\KnowledgeDistillation\\Utils\\max_scaller.joblib")
-        X, y_ar, y_val, ecg = generator.fetch(training_mode=0, KD=True)
+        generator = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data, ECG_N=ECG_RAW_N,max_scaler=None, norm_scaler=None)
+        X, y_ar, y_val = generator.fetch(training_mode=0, KD=False)
 
-        self.assertEqual(X.shape, (FEATURES_N, ))
-        self.assertEqual(ecg.shape, (ECG_RAW_N, ))
+        self.assertEqual(X.shape, (3, ))
+        # self.assertEqual(ecg.shape, (ECG_RAW_N, ))
 
 
 

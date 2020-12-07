@@ -8,7 +8,7 @@ STRIDE = 1.
 EXTENTION_TIME = 2.5
 
 # Features
-FEATURES_N = 1513
+FEATURES_N = 3
 ECG_RAW_N = 11250
 
 # features

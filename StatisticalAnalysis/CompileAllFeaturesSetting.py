@@ -6,43 +6,59 @@ import numpy as np
 
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 
-for folder in glob.glob(data_path):
-    for subject in glob.glob(folder + "\\*-2020-*"):
-        try:
-            eeg_features_list = pd.read_csv(subject+"\\EEG_features_list_1.0.csv").set_index('Idx')
-            ecg_features_list = pd.read_csv(subject+"\\ECG_features_list_1.0.csv").set_index('Idx')
-            GSR_features_list = pd.read_csv(subject+"\\GSR_features_list_1.0.csv").set_index('Idx')
-            Resp_features_list = pd.read_csv(subject+"\\Resp_features_list_1.0.csv").set_index('Idx')
-
-            features_list = ecg_features_list[(eeg_features_list["Status"]==1) & (GSR_features_list["Status"]==1) & (Resp_features_list["Status"]==1) & (ecg_features_list["Status"]==1)]
-            # features_list = ecg_features_list[ (GSR_features_list["Status"] == 1) & (
-            #                 Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
-            features_list.to_csv(subject+"\\features_list_1.0.csv")
-        except:
-            print("Error: "+ subject)
+# for folder in glob.glob(data_path):
+#     for subject in glob.glob(folder + "\\*-2020-*"):
+#         try:
+#             eeg_features_list = pd.read_csv(subject+"\\EEG_features_list_1.0.csv").set_index('Idx')
+#             ecg_features_list = pd.read_csv(subject+"\\ECG_features_list_1.0.csv").set_index('Idx')
+#             GSR_features_list = pd.read_csv(subject+"\\GSR_features_list_1.0.csv").set_index('Idx')
+#             Resp_features_list = pd.read_csv(subject+"\\Resp_features_list_1.0.csv").set_index('Idx')
+#
+#             features_list = ecg_features_list[(eeg_features_list["Status"]==1) & (GSR_features_list["Status"]==1) & (Resp_features_list["Status"]==1) & (ecg_features_list["Status"]==1)]
+#             # features_list = ecg_features_list[ (GSR_features_list["Status"] == 1) & (
+#             #                 Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
+#             features_list.to_csv(subject+"\\features_list_1.0.csv")
+#         except:
+#             print("Error: "+ subject)
 
 
 # SPlit to train test and val
 
-# data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
-# all_features = []
-# all_ori_features = []
-# for folder in glob.glob(data_path + "*"):
-#     for subject in glob.glob(folder + "\\*-2020-*"):
-#         try:
-#             features_list = pd.read_csv(subject + "\\features_list.csv")
-#             features_list_ori = pd.read_csv(subject + "\\features_list.csv")
-#             features_list["Valence"] = features_list["Valence"].apply(valArLevelToLabels)
-#             features_list["Arousal"] = features_list["Arousal"].apply(valArLevelToLabels)
-#             all_features.append(features_list)
-#             all_ori_features.append(features_list_ori)
-#         except:
-#             print("Error" + subject)
+data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
+all_features = []
+all_ori_features = []
+for folder in glob.glob(data_path + "*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
+        try:
+            features_list = pd.read_csv(subject + "\\features_list_1.0.csv")
+            features_list_ori = pd.read_csv(subject + "\\features_list_1.0.csv")
+            features_list["Valence"] = features_list["Valence"].apply(valArLevelToLabels)
+            features_list["Arousal"] = features_list["Arousal"].apply(valArLevelToLabels)
+            all_features.append(features_list)
+            all_ori_features.append(features_list_ori)
+        except:
+            print("Error" + subject)
 
-# df = pd.concat(all_features)
-# df_ori = pd.concat(all_ori_features)
-# y = convertLabels(df["Arousal"].values, df["Valence"].values)
+df = pd.concat(all_features)
+df_ori = pd.concat(all_ori_features)
+y = convertLabels(df["Arousal"].values, df["Valence"].values)
+
+
+# #Split to train and test
+X_train, X_test, y_train, y_test = train_test_split(df.index, y, test_size=0.4, random_state=42)
+
+
+X_val, X_test, _, _ = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+
+# #training data
+training_data = df_ori.iloc[X_train]
+val_data = df_ori.iloc[X_val]
+test_data = df_ori.iloc[X_test]
 #
+training_data.to_csv(data_path + "training_data.csv", index=False)
+val_data.to_csv(data_path + "validation_data.csv", index=False)
+test_data.to_csv(data_path + "test_data.csv", index=False)
+
 # # Split to cross validation
 #
 # subjects = np.unique(df["Subject"].values)
@@ -63,17 +79,4 @@ for folder in glob.glob(data_path):
 #     training_data.to_csv(data_path + "training_data_" + str(j) + ".csv", index=False)
 #     val_data.to_csv(data_path + "validation_data_" + str(j) + ".csv", index=False)
 
-# #Split to train and test
-# X_train, X_test, y_train, y_test = train_test_split(df.index, y, test_size=0.4, random_state=42)
-#
-#
-# X_val, X_test, _, _ = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
-#
-# #training data
-# training_data = df_ori.iloc[X_train]
-# val_data = df_ori.iloc[X_val]
-# test_data = df_ori.iloc[X_test]
-#
-# training_data.to_csv(data_path + "training_data.csv", index=False)
-# val_data.to_csv(data_path + "validation_data.csv", index=False)
-# test_data.to_csv(data_path + "test_data.csv", index=False)
+
