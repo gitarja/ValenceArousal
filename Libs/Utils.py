@@ -7,8 +7,31 @@ from scipy import signal
 def valArLevelToLabels(y):
     if (y < 3):
         return 0
+    # elif (y == 3):
+    #     return 1
     else:
         return 1
+
+def arToLabels(y):
+    if (y < 3):
+        return 0
+
+    else:
+        return 1
+
+def valToLabels(y):
+    if (y <= 3):
+        return 0
+
+    else:
+        return 1
+
+def convertLabels(ar, val):
+    labels = np.ones_like(ar)
+    labels[(ar == 0) & (val == 1)] = 1
+    labels[(ar == 1) & (val == 0)] = 2
+    labels[(ar == 1) & (val == 1)] = 3
+    return labels
 
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):

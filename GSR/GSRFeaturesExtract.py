@@ -2,7 +2,7 @@ from GSR.GSRFeatures import PPGFeatures, EDAFeatures
 import pandas as pd
 from datetime import datetime
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME
+from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME, EDA_RAW_PATH, PPG_RAW_PATH, EDA_PATH, PPG_PATH
 import numpy as np
 import glob
 
@@ -10,8 +10,7 @@ import glob
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 gsr_file = "\\GSR\\"
 game_result = "\\*_gameResults.csv"
-path_result_eda = "\\results\\eda\\"
-path_result_ppg = "\\results\\ppg\\"
+
 min_len = FS_GSR * (SPLIT_TIME + 1)
 eda_features_exct = EDAFeatures(FS_GSR)
 ppg_features_exct = PPGFeatures(FS_GSR)
@@ -21,6 +20,7 @@ for folder in glob.glob(data_path):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
+
             data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
             eda_data = pd.read_csv(subject + gsr_file + "filtered_eda.csv")
             ppg_data = pd.read_csv(subject + gsr_file + "filtered_ppg.csv")
@@ -41,8 +41,11 @@ for folder in glob.glob(data_path):
 
                 for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
-                    end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
-                    start = time_end - (j * SPLIT_TIME)
+                    # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
+                    # start = time_end - (j * SPLIT_TIME)
+
+                    end = time_end - ((j) * SPLIT_TIME)
+                    start = time_end - ((j+1) * SPLIT_TIME) - EXTENTION_TIME
 
                     eda = eda_data[(eda_data.iloc[:, 0].values >= start) & (
                             eda_data.iloc[:, 0].values <= end)]["eda"].values[:min_eda_len]
@@ -55,10 +58,10 @@ for folder in glob.glob(data_path):
                     if (eda.shape[0] == min_eda_len):
                         #extract cvx of eda and time domain of ppg to check whether the inputs are not disorted
                         cvx_features = eda_features_exct.extractCVXEDA(eda)
-                        # scr_features = eda_features_exct.extractSCRFeatures(eda)
+                        scr_features = eda_features_exct.extractSCRFeatures(eda)
                         ppg_time = ppg_features_exct.extractTimeDomain(ppg)
-                        if (cvx_features.shape[0] != 0) and (ppg_time.shape[0] != 0):
-                            eda_features = np.concatenate([cvx_features, eda_features_exct.extractMFCCFeatures(eda, min_len=min_len)])
+                        if (cvx_features.shape[0] != 0) and (ppg_time.shape[0] != 0) and (scr_features.shape[0] != 0):
+                            eda_features = np.concatenate([cvx_features, eda_features_exct.extractMFCCFeatures(eda, min_len=min_len), scr_features])
 
 
                             # extract PPG features
@@ -69,8 +72,10 @@ for folder in glob.glob(data_path):
                             if np.sum(np.isinf(ppg_features))== 0 and np.sum(np.isnan(ppg_features)) == 0 and np.sum(np.isinf(eda_features))== 0 and np.sum(np.isnan(eda_features)) == 0:
                                 # print(eda_features.shape)
                                 # save features
-                                np.save(subject + path_result_eda + "eda_" + str(idx) + ".npy", eda_features)
-                                np.save(subject + path_result_ppg + "ppg_" + str(idx) + ".npy", ppg_features)
+                                np.save(subject + EDA_PATH + "eda_" + str(idx) + ".npy", eda_features)
+                                np.save(subject + PPG_PATH + "ppg_" + str(idx) + ".npy", ppg_features)
+                                # np.save(subject + EDA_RAW_PATH +"eda_" + str(idx) + ".npy", eda )
+                                # np.save(subject + PPG_RAW_PATH + "ppg_" + str(idx) + ".npy", ppg)
                                 status = 1
                             else:
                                 status = 0
@@ -85,6 +90,6 @@ for folder in glob.glob(data_path):
                     idx+=1
 
             # save to csv
-            gsr_features.to_csv(subject+"\\GSR_features_list.csv", index=False)
+            gsr_features.to_csv(subject+"\\GSR_features_list_"+str(STRIDE)+".csv", index=False)
         except ValueError:
             print("Error" + subject)

@@ -8,9 +8,9 @@ class MyTestCase(unittest.TestCase):
         N = 20
         X = tf.random.uniform(shape=(N, 100))
         y = tf.cast(tf.transpose(tf.random.categorical(tf.math.log([[0.5, 0.5]]), N)), tf.dtypes.float32)
-        model = EnsembleSeparateModel(num_output=1)
+        model = EnsembleSeparateModel(num_output=3)
 
-        losses = model.trainSMCL(X, y, 1)
+        losses = model.trainSMCL(X, y, y, 1, 100)
         self.assertEqual(losses.shape, (N, 6))
 
 

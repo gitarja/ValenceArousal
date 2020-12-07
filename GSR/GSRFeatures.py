@@ -144,29 +144,56 @@ class EDAFeatures:
         mfcc_kurt = kurtosis(mfcc_features)
         return np.array([mfcc_mean, mfcc_std, mfcc_median, mfcc_skew, mfcc_kurt])
 
+
+    def meanSquare(self, x, axis):
+        return np.sqrt(np.average(np.power(x, 2), axis=axis))
+
+    def maxPSD(self, x):
+        psd = np.abs(np.fft.fft(x))**2
+        return np.max(psd, -1)
+
+    def power(self, x):
+        F = np.fft.fft(x)
+        P = F * np.conj(F)
+        resp = np.sum(P, -1)
+
+        return np.mean(resp.real)
     def extractCVXEDA(self, x, size = .5):
         if np.std(x) < 1e-5:
             return np.array([])
         try:
-            filtered = self.filterEDA(x)
-            yn = (filtered - filtered.mean()) / filtered.std()
+
+            yn = (x - x.mean()) / x.std()
             [r, p, t, l, d, _, _] = cvxEDA(yn, 1. / self.fs)
             n = int(size * self.fs)
             # r features
-            r_mean = np.mean(rollingWindow(r, size=n), 1).flatten()
-            r_std = np.std(rollingWindow(r, size=n), 1).flatten()
+            r_rolling = rollingWindow(r, size=n)
+            r_mean = np.mean(r_rolling, 1).flatten()
+            r_std = np.std(r_rolling, 1).flatten()
+            r_mean_square = self.meanSquare(r_rolling, 1).flatten()
+            r_power = self.power(r_rolling).flatten()
+            r_psd = self.maxPSD(r_rolling).flatten()
             r_skew = skew(r)
             r_kurt = kurtosis(r)
 
+
             # p features
-            p_mean = np.mean(rollingWindow(p, size=n), 1).flatten()
-            p_std = np.std(rollingWindow(p, size=n), 1).flatten()
+            p_rolling = rollingWindow(p, size=n)
+            p_mean = np.mean(p_rolling, 1).flatten()
+            p_std = np.std(p_rolling, 1).flatten()
+            p_mean_square = self.meanSquare(p_rolling, 1).flatten()
+            p_power = self.power(p_rolling).flatten()
+            p_psd = self.maxPSD(p_rolling).flatten()
             p_skew = skew(p)
             p_kurt = kurtosis(p)
 
             # t features
-            t_mean = np.mean(rollingWindow(t, size=n), 1).flatten()
-            t_std = np.std(rollingWindow(t, size=n), 1).flatten()
+            t_rolling = rollingWindow(t, size=n)
+            t_mean = np.mean(t_rolling, 1).flatten()
+            t_std = np.std(t_rolling, 1).flatten()
+            t_mean_square = self.meanSquare(t_rolling, 1).flatten()
+            t_power = self.power(t_rolling).flatten()
+            t_psd =  self.maxPSD(t_rolling).flatten()
             t_skew = skew(t)
             t_kurt = kurtosis(t)
 
@@ -183,8 +210,12 @@ class EDAFeatures:
             d_min = np.min(d)
 
             return np.concatenate(
-                [r_mean, r_std,  p_mean, p_std, t_mean, t_std,  np.array([p_skew, p_kurt, t_skew, t_kurt,  r_skew, r_kurt, l_mean, l_std,
+                [r_mean, r_std, r_mean_square, r_power, r_psd,  p_mean, p_std, p_mean_square, p_power, p_psd, t_mean, t_std, t_mean_square, t_power, t_psd,  np.array([p_skew, p_kurt, t_skew, t_kurt,  r_skew, r_kurt, l_mean, l_std,
                  l_max, l_min, d_mean, d_std, d_max, d_min])])
+
+            # return np.array(
+            #     [r_mean, r_std, r_mean_square, r_power, r_psd,  p_mean, p_std, p_mean_square, p_power, p_psd, t_mean, t_std, t_mean_square, t_power, t_psd,  p_skew, p_kurt, t_skew, t_kurt,  r_skew, r_kurt, l_mean, l_std,
+            #      l_max, l_min, d_mean, d_std, d_max, d_min])
         except:
             return np.array([])
 
@@ -196,9 +227,8 @@ class EDAFeatures:
         try:
             #_, _, onsets, peaks, amplitude = biosppy.eda.eda(x, sampling_rate=self.fs, show=False)
 
-            onsets, peaks, amplitude = biosppy.eda.kbk_scr(signal=x,
-                                          sampling_rate=self.fs,
-                                          min_amplitude=0.1)
+            onsets, peaks, amplitude = biosppy.eda.basic_scr(signal=x,
+                                          sampling_rate=self.fs)
             onsets_diff = np.insert(np.diff(onsets), 0, onsets[0]).astype(np.float)
             peaks_diff = np.insert(np.diff(peaks), 0, peaks[0]).astype(np.float)
 

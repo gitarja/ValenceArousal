@@ -3,7 +3,7 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME
+from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH
 import numpy as np
 
 
@@ -11,8 +11,7 @@ import numpy as np
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 resp_file = "\\Resp\\"
 game_result = "\\*_gameResults.csv"
-path_result_resp = "\\results\\resp\\"
-path_result_ecg = "\\results\\ecg_resp\\"
+
 
 resp_features_exct = RespFeatures(FS_RESP)
 ecg_features_exct = ECGFeatures(FS_RESP)
@@ -41,8 +40,11 @@ for folder in glob.glob(data_path):
 
                 for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
-                    end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
-                    start = time_end - (j * SPLIT_TIME)
+                    # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
+                    # start = time_end - (j * SPLIT_TIME)
+
+                    end = time_end - ((j) * SPLIT_TIME)
+                    start = time_end - ((j + 1) * SPLIT_TIME) - EXTENTION_TIME
 
                     resp = resp_data[(resp_data.iloc[:, 0] .values >= start) & (
                             resp_data.iloc[:, 0] .values <= end)]["resp"].values
@@ -64,8 +66,10 @@ for folder in glob.glob(data_path):
                         ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         # print(np.sum(np.isinf(ecg_features)))
                         if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
-                            np.save(subject + path_result_resp + "resp_" + str(idx) + ".npy", resp_features)
-                            np.save(subject + path_result_ecg + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
+                            np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            # np.save(subject + RESP_RAW_PATH + "resp_" + str(idx) + ".npy", resp)
+                            # np.save(subject + ECG_RAW_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_resp)
                             status = 1
                         else:
                             status = 0
@@ -79,6 +83,6 @@ for folder in glob.glob(data_path):
                     idx += 1
 
             # save to csv
-            gsr_features.to_csv(subject + "\\Resp_features_list.csv", index=False)
+            gsr_features.to_csv(subject + "\\Resp_features_list_"+str(STRIDE)+".csv", index=False)
         except:
             print("Error: "+subject)

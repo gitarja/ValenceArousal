@@ -2,15 +2,16 @@ from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME
+from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
+from scipy import signal
 
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 eeg_file = "\\EEG\\"
 game_result = "\\*_gameResults.csv"
-path_result = "\\results\\eeg\\"
 min_eeg_len = SPLIT_TIME * FS_EEG - 100
+downsample_eeg_len = SPLIT_TIME * 200
 for folder in glob.glob(data_path):
 
     for subject in glob.glob(folder + "\\*-2020-*"):
@@ -39,8 +40,12 @@ for folder in glob.glob(data_path):
                 # print(eeg["time"].values[0])
                 for j in np.arange(0., (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
-                    end = time_end - ((j-1) * SPLIT_TIME) + EXTENTION_TIME
-                    start = time_end - (j * SPLIT_TIME)
+                    # end = time_end - ((j-1) * SPLIT_TIME) + EXTENTION_TIME
+                    # start = time_end - (j * SPLIT_TIME)
+
+
+                    end = time_end - ((j) * SPLIT_TIME)
+                    start = time_end - ((j+1) * SPLIT_TIME) - EXTENTION_TIME
 
                     eeg_split = eeg[(eeg["time"].values >= start) & (
                             eeg["time"].values <= end)]
@@ -53,9 +58,10 @@ for folder in glob.glob(data_path):
                         plf_features = eeg_features_exct.extractPLFFeatures(eeg_filtered)
                         power_features = eeg_features_exct.extractPowerFeatures(eeg_filtered)
                         if (time_domain_features.shape[0] != 0) and (freq_domain_features.shape[0] != 0) :
-                            eeg_features = np.concatenate([time_domain_features, freq_domain_features])
+                            eeg_features = np.concatenate([time_domain_features, freq_domain_features, plf_features, power_features])
                             if np.sum(np.isinf(eeg_features)) == 0 and np.sum(np.isinf(eeg_features)) == 0:
-                                np.save(subject + path_result + "eeg_" + str(idx) + ".npy", eeg_features)
+                                np.save(subject + EEG_PATH + "eeg_" + str(idx) + ".npy", eeg_features)
+                                # np.save(subject + EEG_RAW_PATH + "eeg_" + str(idx) + ".npy", signal.resample(eeg_filtered, downsample_eeg_len))
                                 status = 1
 
                         # add object to dataframes
@@ -67,7 +73,7 @@ for folder in glob.glob(data_path):
                             ignore_index=True)
                     idx += 1
 
-            eeg_features_list.to_csv(subject + "\\EEG_features_list.csv", index=False)
+            eeg_features_list.to_csv(subject + "\\EEG_features_list_"+str(STRIDE)+".csv", index=False)
 
         except:
             print("Error: " + subject)

@@ -1,5 +1,5 @@
-from Libs.DataGenerator import DataGenerator
-from joblib import dump, load
+from KnowledgeDistillation.Utils.DataGenerator import DataGenerator
+from joblib import load
 import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import precision_recall_fscore_support

@@ -2,7 +2,7 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 from Libs.Utils import timeToInt
 import numpy as np
-from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME
+from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, ECG_RAW_PATH, ECG_PATH
 
 import glob
 
@@ -11,8 +11,7 @@ import glob
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
-path_result = "\\results\\ecg\\"
-path_result_raw = "\\results\\ecg_raw\\"
+
 
 for folder in glob.glob(data_path):
     for subject in glob.glob(folder + "\\*-2020-*"):
@@ -41,14 +40,17 @@ for folder in glob.glob(data_path):
 
                 for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
-                    end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
-                    start = time_end - (j * SPLIT_TIME)
+                    # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
+                    # start = time_end - (j * SPLIT_TIME)
+
+
+                    end = time_end - ((j) * SPLIT_TIME)
+                    start = time_end - ((j+1) * SPLIT_TIME) - EXTENTION_TIME
 
                     ecg = data[(data["timestamp"].values >= start) & (data["timestamp"].values <= end)]
                     status = 0
 
-                    #save raw ecg data
-                    np.save(subject+ path_result_raw + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
+
                     # extract ecg features
                     time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
                     freq_domain = featuresExct.extractFrequencyDomain(ecg['ecg'].values)
@@ -56,7 +58,10 @@ for folder in glob.glob(data_path):
                     if time_domain.shape[0] != 0 and freq_domain.shape[0] != 0 and nonlinear_domain.shape[0] != 0:
                         concatenate_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         if np.sum(np.isinf(concatenate_features)) == 0 & np.sum(np.isinf(concatenate_features)) == 0:
-                            np.save(subject + path_result + "ecg_" + str(idx) + ".npy", concatenate_features)
+                            np.save(subject + ECG_PATH + "ecg_" + str(idx) + ".npy", concatenate_features)
+                            # save raw ecg data
+                            # np.save(subject + path_result_raw + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
+                            # np.save(subject + ECG_RAW_PATH + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
                             status = 1
                         else:
                             status = 0
@@ -69,7 +74,7 @@ for folder in glob.glob(data_path):
                     idx += 1
 
             # save to csv
-            emotionTestResult.to_csv(subject + '\\ECG_features_list.csv', index=False)
+            emotionTestResult.to_csv(subject + "\\ECG_features_list_"+str(STRIDE)+".csv", index=False)
 
         except:
             print("Error:"+ subject)

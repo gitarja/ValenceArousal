@@ -1,6 +1,6 @@
 from KnowledgeDistillation.Models.EnsembleDistillModel import Baseline, EnsembleStudent, EnsembleTeacher
 import tensorflow as tf
-from Libs.DataGenerator import DataGenerator
+from KnowledgeDistillation.Utils.DataGenerator import DataGenerator
 
 # folder
 path = "D:\\usr\\pras\\data\\EmotionTestVR\\"
