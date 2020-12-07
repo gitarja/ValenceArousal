@@ -20,7 +20,7 @@ ECG_N = 13
 EEG_N = 912
 
 # Path Const
-DATASET_PATH = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
+DATASET_PATH = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\"
 RESULTS_PATH = "\\results_stride=0.5\\"
 EEG_PATH = RESULTS_PATH + "EEG\\"
 EDA_PATH = RESULTS_PATH + "eda\\"

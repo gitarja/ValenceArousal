@@ -3,23 +3,21 @@ import pandas as pd
 from Libs.Utils import timeToInt
 import numpy as np
 from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, ECG_RAW_PATH, ECG_PATH
+import os
 
 import glob
 
-
-
-data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
-
 
 for folder in glob.glob(data_path):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
-            data =  pd.read_csv(glob.glob(subject + ecg_file + "*.csv")[0])
+            os.makedirs(subject + ECG_PATH, exist_ok=True)
+            data = pd.read_csv(glob.glob(subject + ecg_file + "*.csv")[0])
             data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
-
 
             # convert timestamp to int
             data.loc[:, 'timestamp'] = data.loc[:, 'timestamp'].apply(timeToInt)
@@ -28,7 +26,8 @@ for folder in glob.glob(data_path):
 
             # features extractor
             featuresExct = ECGFeatures(FS_ECG)
-            emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
+            emotionTestResult = pd.DataFrame(
+                columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
 
             idx = 0
             for i in range(len(data_EmotionTest)):
@@ -43,13 +42,11 @@ for folder in glob.glob(data_path):
                     # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)
 
-
                     end = time_end - ((j) * SPLIT_TIME)
-                    start = time_end - ((j+1) * SPLIT_TIME) - EXTENTION_TIME
+                    start = time_end - ((j + 1) * SPLIT_TIME) - EXTENTION_TIME
 
                     ecg = data[(data["timestamp"].values >= start) & (data["timestamp"].values <= end)]
                     status = 0
-
 
                     # extract ecg features
                     time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
@@ -69,12 +66,13 @@ for folder in glob.glob(data_path):
                     # add object to dataframes
                     subject_name = subject.split("\\")[-1]
                     emotionTestResult = emotionTestResult.append(
-                        {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+                        {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end),
+                         "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
                         ignore_index=True)
                     idx += 1
 
             # save to csv
-            emotionTestResult.to_csv(subject + "\\ECG_features_list_"+str(STRIDE)+".csv", index=False)
+            emotionTestResult.to_csv(subject + "\\ECG_features_list_" + str(STRIDE) + ".csv", index=False)
 
         except:
-            print("Error:"+ subject)
+            print("Error:" + subject)
