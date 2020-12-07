@@ -11,4 +11,6 @@ Plotting/__pycache__
 pyeeg/__pycache__
 Resp/__pycache__
 StatisticalAnalysis/__pycache__
+StatisticalAnalysis/results
 Testing/__pycache__
+*.cpython-36.pyc
