@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from Libs.Utils import valArLevelToLabels, convertLabels
 import glob
 import numpy as np
@@ -43,19 +43,19 @@ y = convertLabels(df["Arousal"].values, df["Valence"].values)
 
 
 # #Split to train and test
-X_train, X_test, y_train, y_test = train_test_split(df.index, y, test_size=0.3, random_state=42)
+skf = StratifiedKFold(n_splits=5)
 
+for train_index, test_index in skf.split(df.index, y):
+    X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=42)
 
-X_val, X_test, _, _ = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
-
-# #training data
-training_data = df_ori.iloc[X_train.values.tolist()]
-val_data = df_ori.iloc[X_val]
-test_data = df_ori.iloc[X_test]
-#
-training_data.to_csv(DATASET_PATH + "training_data.csv", index=False)
-val_data.to_csv(DATASET_PATH + "validation_data.csv", index=False)
-test_data.to_csv(DATASET_PATH + "test_data.csv", index=False)
+    # #training data
+    training_data = df_ori.iloc[train_index]
+    val_data = df_ori.iloc[X_val]
+    test_data = df_ori.iloc[X_test]
+    #
+    training_data.to_csv(DATASET_PATH + "training_data.csv", index=False)
+    val_data.to_csv(DATASET_PATH + "validation_data.csv", index=False)
+    test_data.to_csv(DATASET_PATH + "test_data.csv", index=False)
 
 # # Split to cross validation
 #
