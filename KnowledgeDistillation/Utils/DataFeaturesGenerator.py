@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valArLevelToLabels
+from Libs.Utils import valArLevelToLabels, valToLabels, arToLabels
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_RAW_PATH
 
 from joblib import load
@@ -21,9 +21,9 @@ class DataFetch:
         self.val_n = len(self.data_val)
         self.test_n = len(self.data_test)
 
-        # self.max = np.load("Utils\\max.npy")
-        # self.mean = np.load("Utils\\mean.npy")
-        # self.std = np.load("Utils\\std.npy")
+        self.max = np.load("Utils\\max.npy")
+        self.mean = np.load("Utils\\mean.npy")
+        self.std = np.load("Utils\\std.npy")
 
     def fetch(self, training_mode=0, KD=False):
         '''
@@ -52,16 +52,19 @@ class DataFetch:
                 concat_features = np.concatenate(
                     [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
 
+                # concat_features = np.concatenate(
+                #     [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features])
+
                 if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
-                    # concat_features_norm = (concat_features - self.mean) / self.std
+                    concat_features_norm = (concat_features - self.mean) / self.std
                     # print(np.max(concat_features_norm))
                     # print(np.min(concat_features[575:588]))
-                    y_ar = valArLevelToLabels(features_list.iloc[i]["Arousal"])
-                    y_val = valArLevelToLabels(features_list.iloc[i]["Valence"])
+                    y_ar = arToLabels(features_list.iloc[i]["Arousal"])
+                    y_val = valToLabels(features_list.iloc[i]["Valence"])
 
                     if KD == False:
-                        return np.array([concat_features[:1102], concat_features[1102:1150], concat_features[1150:]]), y_ar, y_val
+                        yield concat_features_norm, y_ar, y_val
                     else:
                         ecg = np.load(base_path + ECG_RAW_PATH + "ecg_raw_" + str(filename) + ".npy")
-                        return concat_features, y_ar, y_val, ecg[:self.ECG_N]
+                        yield concat_features_norm, y_ar, y_val, ecg[:self.ECG_N]
                 i+=1

@@ -3,7 +3,7 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH
+from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH, DATASET_PATH
 import numpy as np
 
 
@@ -17,7 +17,7 @@ resp_features_exct = RespFeatures(FS_RESP)
 ecg_features_exct = ECGFeatures(FS_RESP)
 min_len = FS_RESP * (SPLIT_TIME + 1)
 
-for folder in glob.glob(data_path):
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:

@@ -1,6 +1,7 @@
 .idea/
 Classification/__pycache__
 Conf/__pycache__
+Conf/Settings.py
 ECG/__pycache__
 EEG/__pycache__
 Exercise/__pycache__

@@ -4,6 +4,8 @@ from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH,
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import valArLevelToLabels
 import datetime
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -18,14 +20,14 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=1)
+cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output = 3
+num_output = 1
 initial_learning_rate = 1e-3
 EPOCHS = 500
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 checkpoint_prefix = CHECK_POINT_PATH + "fold0"
@@ -40,9 +42,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "training_data_0.csv"
-testing_data = DATASET_PATH + "validation_data_0.csv"
-validation_data = DATASET_PATH + "validation_data_0.csv"
+training_data = DATASET_PATH + "training_data.csv"
+testing_data = DATASET_PATH + "validation_data.csv"
+validation_data = DATASET_PATH + "test_data.csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, max_scaler="Utils\\max_scaller.joblib",
@@ -65,13 +67,13 @@ test_generator = tf.data.Dataset.from_generator(
     output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
 
 # train dataset
-train_data = train_generator.shuffle(data_fetch.train_n).padded_batch(BATCH_SIZE, padded_shapes=(
+train_data = train_generator.shuffle(data_fetch.train_n).repeat(2).padded_batch(BATCH_SIZE, padded_shapes=(
     tf.TensorShape([FEATURES_N]), (), ()))
 
-val_data = val_generator.padded_batch(data_fetch.val_n, padded_shapes=(
+val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
     tf.TensorShape([FEATURES_N]), (), ()))
 
-test_data = test_generator.padded_batch(data_fetch.test_n, padded_shapes=(
+test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
     tf.TensorShape([FEATURES_N]), (), ()))
 
 with strategy.scope():
@@ -79,7 +81,8 @@ with strategy.scope():
 
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.98, staircase=True)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
+    optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
     # loss
@@ -87,8 +90,8 @@ with strategy.scope():
     val_loss_metric = tf.keras.metrics.Mean()
 
     # accuracy
-    ar_acc = tf.keras.metrics.Accuracy()
-    val_acc = tf.keras.metrics.Accuracy()
+    ar_acc = tf.keras.metrics.BinaryAccuracy()
+    val_acc = tf.keras.metrics.BinaryAccuracy()
 
     # recall
     ar_recall = tf.keras.metrics.Recall()
@@ -106,6 +109,7 @@ with strategy.scope():
 with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
+        # print(X)
         y_ar = tf.expand_dims(inputs[1], -1)
         y_val = tf.expand_dims(inputs[2], -1)
 
@@ -125,11 +129,11 @@ with strategy.scope():
         ar_acc(prediction_ar, y_ar)
         val_acc(prediction_val, y_val)
 
-        # ar_precision(prediction_ar, y_ar)
-        # val_precision(prediction_val, y_val)
-        #
-        # ar_recall(prediction_ar, y_ar)
-        # val_recall(prediction_val, y_val)
+        ar_precision(prediction_ar, y_ar)
+        val_precision(prediction_val, y_val)
+
+        ar_recall(prediction_ar, y_ar)
+        val_recall(prediction_val, y_val)
 
         return loss_ar
 
@@ -142,17 +146,17 @@ with strategy.scope():
         loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
                                                                                                     0.55,
                                                                                                     GLOBAL_BATCH_SIZE, training=False)
-        ar_loss_metric(loss_ar_or)
-        val_loss_metric(loss_val_or)
+        ar_loss_metric(loss_ar)
+        val_loss_metric(loss_val)
 
         ar_acc(prediction_ar, y_ar)
         val_acc(prediction_val, y_val)
 
-        # ar_precision(prediction_ar, y_ar)
-        # val_precision(prediction_val, y_val)
-        #
-        # ar_recall(prediction_ar, y_ar)
-        # val_recall(prediction_val, y_val)
+        ar_precision(prediction_ar, y_ar)
+        val_precision(prediction_val, y_val)
+
+        ar_recall(prediction_ar, y_ar)
+        val_recall(prediction_val, y_val)
 
         return loss_ar
 
@@ -172,14 +176,14 @@ with strategy.scope():
     # with the distributed input.
     @tf.function
     def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-        per_replica_losses = strategy.run(train_step,
+        per_replica_losses = strategy.experimental_run_v2(train_step,
                                           args=(dataset_inputs, GLOBAL_BATCH_SIZE))
         return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                axis=None)
 
 
     def distributed_test_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-        per_replica_losses = strategy.run(test_step,
+        per_replica_losses = strategy.experimental_run_v2(test_step,
                                           args=(dataset_inputs, GLOBAL_BATCH_SIZE))
         return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                axis=None)
@@ -208,32 +212,32 @@ with strategy.scope():
                               val_precision.result().numpy(), ar_recall.result().numpy(), val_recall.result().numpy()))
 
         reset_states()
+        if (epoch + 1) % 3 == 0:
+            for step, val in enumerate(val_data):
+                distributed_test_step(val, data_fetch.val_n)
 
-        for step, val in enumerate(val_data):
-            distributed_test_step(val, data_fetch.val_n)
+            with train_summary_writer.as_default():
+                tf.summary.scalar('Arousal loss', ar_loss_metric.result(), step=epoch)
+                tf.summary.scalar('Arousal accuracy', ar_acc.result(), step=epoch)
+                tf.summary.scalar('Valence loss', val_loss_metric.result(), step=epoch)
+                tf.summary.scalar('Valence accuracy', val_acc.result(), step=epoch)
+            print("--------------------------------------------Validation------------------------------------------")
+            template = (
+                "Val: epoch {}, ar_loss: {:.4f}, val_loss:{:.4f}, ar_acc: {}, val_acc:{}, ar_prec:{}, val_prec:{}, ar_rec:{}, val_rec:{}")
+            print(template.format(epoch + 1, ar_loss_metric.result().numpy(), val_loss_metric.result().numpy(),
+                                  ar_acc.result().numpy(), val_acc.result().numpy(), ar_precision.result().numpy(),
+                                  val_precision.result().numpy(), ar_recall.result().numpy(),
+                                  val_recall.result().numpy()))
 
-        with train_summary_writer.as_default():
-            tf.summary.scalar('Arousal loss', ar_loss_metric.result(), step=epoch)
-            tf.summary.scalar('Arousal accuracy', ar_acc.result(), step=epoch)
-            tf.summary.scalar('Valence loss', val_loss_metric.result(), step=epoch)
-            tf.summary.scalar('Valence accuracy', val_acc.result(), step=epoch)
-        print("--------------------------------------------Validation------------------------------------------")
-        template = (
-            "Val: epoch {}, ar_loss: {:.4f}, val_loss:{:.4f}, ar_acc: {}, val_acc:{}, ar_prec:{}, val_prec:{}, ar_rec:{}, val_rec:{}")
-        print(template.format(epoch + 1, ar_loss_metric.result().numpy(), val_loss_metric.result().numpy(),
-                              ar_acc.result().numpy(), val_acc.result().numpy(), ar_precision.result().numpy(),
-                              val_precision.result().numpy(), ar_recall.result().numpy(),
-                              val_recall.result().numpy()))
+            # Save model
+            val_loss = ar_loss_metric.result().numpy() + val_loss_metric.result().numpy()
+            if (prev_val_loss > val_loss):
+                prev_val_loss = val_loss
+                manager.save()
+            # reset state
+            reset_states()
 
-        # Save model
-        val_loss = ar_loss_metric.result().numpy() + val_loss_metric.result().numpy()
-        if (prev_val_loss > val_loss):
-            prev_val_loss = val_loss
-            manager.save()
-        # reset state
-        reset_states()
-
-        print("-----------------------------------------------------------------------------------------")
+            print("-----------------------------------------------------------------------------------------")
 
 print("-------------------------------------------Testing----------------------------------------------")
 for step, test in enumerate(test_data):
