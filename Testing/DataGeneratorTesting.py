@@ -18,14 +18,14 @@ class MyTestCase(unittest.TestCase):
 
 
     def test_generatorFeatures(self):
-        training_data = DATASET_PATH + "training_data.csv"
-        testing_data = DATASET_PATH + "test_data.csv"
-        validation_data = DATASET_PATH + "validation_data.csv"
+        training_data = DATASET_PATH + "training_data_1.csv"
+        testing_data = DATASET_PATH + "test_data_1.csv"
+        validation_data = DATASET_PATH + "validation_data_1.csv"
 
         generator = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data, ECG_N=ECG_RAW_N,max_scaler=None, norm_scaler=None)
         X, y_ar, y_val = generator.fetch(training_mode=0, KD=False)
 
-        self.assertEqual(X.shape, (3, ))
+        self.assertEqual(X.shape, (2480, ))
         # self.assertEqual(ecg.shape, (ECG_RAW_N, ))
 
 

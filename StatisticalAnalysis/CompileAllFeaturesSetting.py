@@ -43,19 +43,20 @@ y = convertLabels(df["Arousal"].values, df["Valence"].values)
 
 
 # #Split to train and test
-skf = StratifiedKFold(n_splits=5)
-
+skf = StratifiedKFold(n_splits=5, shuffle=True)
+fold = 1
 for train_index, test_index in skf.split(df.index, y):
     X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=42)
 
     # #training data
-    training_data = df_ori.iloc[train_index]
+    training_data = df_ori.iloc[df.index[train_index]]
     val_data = df_ori.iloc[X_val]
     test_data = df_ori.iloc[X_test]
     #
-    training_data.to_csv(DATASET_PATH + "training_data.csv", index=False)
-    val_data.to_csv(DATASET_PATH + "validation_data.csv", index=False)
-    test_data.to_csv(DATASET_PATH + "test_data.csv", index=False)
+    training_data.to_csv(DATASET_PATH + "training_data_"+str(fold)+".csv", index=False)
+    val_data.to_csv(DATASET_PATH + "validation_data_"+str(fold)+".csv", index=False)
+    test_data.to_csv(DATASET_PATH + "test_data_"+str(fold)+".csv", index=False)
+    fold += 1
 
 # # Split to cross validation
 #

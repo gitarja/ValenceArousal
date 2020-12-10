@@ -1,6 +1,6 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, EnsembleStudentOneDim
+from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import valArLevelToLabels
 import datetime
@@ -26,22 +26,22 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = 1
-initial_learning_rate = 1e-3
-EPOCHS = 50
+initial_learning_rate = 0.55e-3
+EPOCHS = 100
 BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 5
+wait = 20
 
 
 for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "fold"+str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "KD\\fold"+str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = TENSORBOARD_PATH + current_time + '/train'
-    test_log_dir = TENSORBOARD_PATH + current_time + '/test'
+    train_log_dir = TENSORBOARD_PATH + "KD\\" + current_time + '/train'
+    test_log_dir = TENSORBOARD_PATH +  "KD\\" + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
@@ -52,36 +52,36 @@ for fold in range(1, 6):
     testing_data = DATASET_PATH + "test_data_"+str(fold)+".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=False)
+                           ECG_N=ECG_RAW_N, KD=True)
     generator = data_fetch.fetch
 
     train_generator = tf.data.Dataset.from_generator(
-        lambda: generator(),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        lambda: generator(training_mode=0),
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
-        model = EnsembleSeparateModel(num_output=num_output)
+        model = EnsembleStudent(num_output=num_output)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -111,23 +111,23 @@ for fold in range(1, 6):
 
     with strategy.scope():
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[0]
+            X = inputs[3]
             # print(X)
             y_ar = tf.expand_dims(inputs[1], -1)
             y_val = tf.expand_dims(inputs[2], -1)
 
             with tf.GradientTape() as tape_ar:
-                loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+                loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
                                                                                                             0.55,
                                                                                                             GLOBAL_BATCH_SIZE, training=True)
-                loss = loss_ar + loss_val + loss_rec
+                loss = loss_ar + loss_val
 
             # update gradient
             grads = tape_ar.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-            train_ar_loss(loss_ar_or)
-            train_val_loss(loss_val_or)
+            train_ar_loss(loss_ar)
+            train_val_loss(loss_val)
 
             train_ar_acc(prediction_ar, y_ar)
             train_val_acc(prediction_val, y_val)
@@ -138,15 +138,15 @@ for fold in range(1, 6):
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[0]
+            X = inputs[3]
             y_ar = tf.expand_dims(inputs[1], -1)
             y_val = tf.expand_dims(inputs[2], -1)
 
-            loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+            loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
                                                                                                         0.55,
                                                                                                         GLOBAL_BATCH_SIZE, training=False)
-            vald_ar_loss(loss_ar_or)
-            vald_val_loss(loss_val_or)
+            vald_ar_loss(loss_ar)
+            vald_val_loss(loss_val)
 
             vald_ar_acc(prediction_ar, y_ar)
             vald_val_acc(prediction_val, y_val)
@@ -240,7 +240,7 @@ for fold in range(1, 6):
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: ar_loss: {}, val_loss:{}, arr_acc: {}, arr_acc: {}")
+        "Test: ar_loss: {}, val_loss:{}, arr_acc: {}, val_acc: {}")
     print(template.format(
                           vald_ar_loss.result().numpy(), vald_val_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
 

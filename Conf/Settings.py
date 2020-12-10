@@ -9,7 +9,7 @@ EXTENTION_TIME = 2.5
 
 # Features
 FEATURES_N = 2480
-ECG_RAW_N = 11250
+ECG_RAW_N = 11025
 
 # features
 EDA_N = 553

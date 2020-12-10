@@ -11,46 +11,65 @@ class EnsembleSeparateModel(tf.keras.Model):
         # EDA
         # encoder
         self.eda_en_1 = tf.keras.layers.Dense(units=64, name="eda_en_1")
+        self.eda_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.eda_en_2 = tf.keras.layers.Dense(units=32, name="eda_en_2")
+        self.eda_en_batch_2 = tf.keras.layers.BatchNormalization()
         self.eda_en_3 = tf.keras.layers.Dense(units=32, name="eda_en_3")
-        self.eda_en_4 = tf.keras.layers.Dense(units=32, name="eda_en_4")
+        self.eda_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.eda_en_4 = tf.keras.layers.Dense(units=16, name="eda_en_4")
+        self.eda_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
         self.eda_de_1 = tf.keras.layers.Dense(units=32, name="eda_de_1")
+        self.eda_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.eda_de_2 = tf.keras.layers.Dense(units=32, name="eda_de_2")
+        self.eda_de_batch_2 = tf.keras.layers.BatchNormalization()
         self.eda_de_3 = tf.keras.layers.Dense(units=64, name="eda_de_3")
+        self.eda_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.eda_de_4 = tf.keras.layers.Dense(units=features_length, name="eda_de_4", activation=None)
         # classifer
-        self.eda_class1 = tf.keras.layers.Dense(units=128, name="eda_de_3")
+        self.eda_class1 = tf.keras.layers.Dense(units=64, name="eda_de_3")
         self.eda_ar_logit = tf.keras.layers.Dense(units=num_output, name="eda_ar_logit", activation=None)
         self.eda_val_logit = tf.keras.layers.Dense(units=num_output, name="eda_val_logit", activation=None)
 
         # ECG
         # encoder
         self.ecg_en_1 = tf.keras.layers.Dense(units=64, name="ecg_en_1")
+        self.ecg_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.ecg_en_2 = tf.keras.layers.Dense(units=32, name="ecg_en_2")
+        self.ecg_en_batch_2 = tf.keras.layers.BatchNormalization()
         self.ecg_en_3 = tf.keras.layers.Dense(units=32, name="ecg_en_3")
+        self.ecg_en_batch_3 = tf.keras.layers.BatchNormalization()
         # decoder
         self.ecg_de_1 = tf.keras.layers.Dense(units=32, name="ecg_de_1")
+        self.ecg_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.ecg_de_2 = tf.keras.layers.Dense(units=64, name="ecg_de_2")
+        self.ecg_de_batch_2 = tf.keras.layers.BatchNormalization()
         self.ecg_de_3 = tf.keras.layers.Dense(units=features_length, name="ecg_de_3")
         # classifier
-        self.ecg_class1 = tf.keras.layers.Dense(units=128, name="ecg_class1")
+        self.ecg_class1 = tf.keras.layers.Dense(units=64, name="ecg_class1")
         self.ecg_ar_logit = tf.keras.layers.Dense(units=num_output, name="ecg_ar_logit", activation=None)
         self.ecg_val_logit = tf.keras.layers.Dense(units=num_output, name="ecg_val_logit", activation=None)
 
         # EEG
         # encoder
-        self.eeg_en_1 = tf.keras.layers.Dense(units=64, name="eeg_en_1")
-        self.eeg_en_2 = tf.keras.layers.Dense(units=32, name="eeg_en_2")
+        self.eeg_en_1 = tf.keras.layers.Dense(units=128, name="eeg_en_1")
+        self.eeg_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.eeg_en_2 = tf.keras.layers.Dense(units=64, name="eeg_en_2")
+        self.eeg_en_batch_2 = tf.keras.layers.BatchNormalization()
         self.eeg_en_3 = tf.keras.layers.Dense(units=32, name="eeg_en_3")
-        self.eeg_en_4 = tf.keras.layers.Dense(units=32, name="eeg_en_4")
+        self.eeg_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.eeg_en_4 = tf.keras.layers.Dense(units=16, name="eeg_en_4")
+        self.eeg_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
         self.eeg_de_1 = tf.keras.layers.Dense(units=32, name="eeg_de_1")
+        self.eeg_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.eeg_de_2 = tf.keras.layers.Dense(units=32, name="eeg_de_2")
+        self.eeg_de_batch_2 = tf.keras.layers.BatchNormalization()
         self.eeg_de_3 = tf.keras.layers.Dense(units=64, name="eeg_de_3")
+        self.eeg_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.eeg_de_4 = tf.keras.layers.Dense(units=features_length, name="eeg_de_4")
         # classifier
-        self.eeg_class1 = tf.keras.layers.Dense(units=128, name="eeg_class1")
+        self.eeg_class1 = tf.keras.layers.Dense(units=64, name="eeg_class1")
         self.eeg_ar_logit = tf.keras.layers.Dense(units=num_output, name="eeg_ar_logit", activation=None)
         self.eeg_val_logit = tf.keras.layers.Dense(units=num_output, name="eeg_val_logit", activation=None)
 
@@ -58,31 +77,33 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.activation = tf.keras.layers.ELU()
         # dropout
         self.dropout1 = tf.keras.layers.Dropout(0.0)
-        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        self.dropout2 = tf.keras.layers.Dropout(0.15)
         # avg
         self.avg = tf.keras.layers.Average()
 
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
-                                                                  reduction=tf.keras.losses.Reduction.NONE)
+                                                                  reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.01)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
-    def forward(self, x, dense, activation=None, droput=None):
+    def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
         if activation is None:
             return droput(dense(x))
-        return droput(activation(dense(x)))
+        if batch_norm is None:
+            return droput(activation(dense(x)))
+        return activation(batch_norm(dense(x)))
 
     def forwardEDA(self, inputs):
         # encode
-        x = self.forward(inputs, self.eda_en_1, self.activation, self.dropout1)
-        x = self.forward(x, self.eda_en_2, self.activation, self.dropout1)
-        x = self.forward(x, self.eda_en_3, self.activation, self.dropout1)
-        z = self.forward(x, self.eda_en_4, self.activation, self.dropout1)
+        x = self.forward(inputs, self.eda_en_1, self.activation, batch_norm=self.eda_en_batch_1)
+        x = self.forward(x, self.eda_en_2, self.activation, batch_norm= self.eda_en_batch_2)
+        x = self.forward(x, self.eda_en_3, self.activation, batch_norm=self.eda_en_batch_3)
+        z = self.forward(x, self.eda_en_4, self.activation, batch_norm=self.eda_en_batch_4)
 
         # decode
-        x = self.forward(z, self.eda_de_1, self.activation, self.dropout1)
-        x = self.forward(x, self.eda_de_2, self.activation, self.dropout1)
-        x = self.forward(x, self.eda_de_3, self.activation, self.dropout1)
+        x = self.forward(z, self.eda_de_1, self.activation, batch_norm=self.eda_de_batch_1)
+        x = self.forward(x, self.eda_de_2, self.activation,batch_norm=self.eda_de_batch_2)
+        x = self.forward(x, self.eda_de_3, self.activation, batch_norm= self.eda_de_batch_3)
         x = self.eda_de_4(x)
 
         # classify
@@ -93,13 +114,13 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def forwardECG(self, inputs):
         # encode
-        x = self.forward(inputs, self.ecg_en_1, self.activation, self.dropout1)
-        x = self.forward(x, self.ecg_en_2, self.activation, self.dropout1)
-        z = self.forward(x, self.ecg_en_3, self.activation, self.dropout1)
+        x = self.forward(inputs, self.ecg_en_1, self.activation,batch_norm=self.ecg_en_batch_1)
+        x = self.forward(x, self.ecg_en_2, self.activation, batch_norm=self.ecg_en_batch_2)
+        z = self.forward(x, self.ecg_en_3, self.activation,batch_norm=self.ecg_en_batch_3)
 
         # decode
-        x = self.forward(z, self.ecg_de_1, self.activation, self.dropout1)
-        x = self.forward(x, self.ecg_de_2, self.activation, self.dropout1)
+        x = self.forward(z, self.ecg_de_1, self.activation, batch_norm= self.ecg_de_batch_1)
+        x = self.forward(x, self.ecg_de_2, self.activation, batch_norm=self.ecg_de_batch_2)
         x = self.ecg_de_3(x)
 
         #classify
@@ -110,15 +131,15 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def forwardEEG(self, inputs):
         # encode
-        x = self.forward(inputs, self.eeg_en_1, self.activation, self.dropout1)
-        x = self.forward(x, self.eeg_en_2, self.activation, self.dropout1)
-        x = self.forward(x, self.eeg_en_3, self.activation, self.dropout1)
-        z = self.forward(x, self.eeg_en_4, self.activation, self.dropout1)
+        x = self.forward(inputs, self.eeg_en_1, self.activation, batch_norm=self.eeg_en_batch_1)
+        x = self.forward(x, self.eeg_en_2, self.activation, batch_norm= self.eeg_en_batch_2)
+        x = self.forward(x, self.eeg_en_3, self.activation, batch_norm= self.eeg_en_batch_3)
+        z = self.forward(x, self.eeg_en_4, self.activation, batch_norm= self.eeg_en_batch_4)
 
         # encode
-        x = self.forward(z, self.eeg_de_1, self.activation, self.dropout1)
-        x = self.forward(x, self.eeg_de_2, self.activation, self.dropout1)
-        x = self.forward(x, self.eeg_de_3, self.activation, self.dropout1)
+        x = self.forward(z, self.eeg_de_1, self.activation, batch_norm= self.eeg_de_batch_1)
+        x = self.forward(x, self.eeg_de_2, self.activation, batch_norm= self.eeg_de_batch_2)
+        x = self.forward(x, self.eeg_de_3, self.activation, batch_norm= self.eeg_de_batch_3)
         x = self.eeg_de_4(x)
 
         # decode
@@ -128,7 +149,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         return ar_logit, val_logit, x
 
     def call(self, inputs, training=None, mask=None):
-        # EDA_x, ECG_x, EEG_x = inputs[:, 0:1102], inputs[:,1102:1150], inputs[:,1150:]
+
         # print(EDA_x)
         # EDA
         ar_logit_eda, val_logit_eda, x_eda = self.forwardEDA(inputs)
@@ -139,9 +160,11 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return [ar_logit_eda, ar_logit_ecg, ar_logit_eeg], [val_logit_eda, val_logit_ecg, val_logit_eeg], [x_eda, x_ecg, x_eeg]
 
+
+
     def trainSMCL(self, X, y_ar, y_val, th, global_batch_size, training=False):
         # compute AR and VAL logits
-        logits = self(X, training)
+        logits = self.call(X, training)
 
         ar_logit_eda, ar_logit_ecg, ar_logit_eeg = logits[0]
         val_logit_eda, val_logit_ecg, val_logit_eeg = logits[1]
@@ -155,9 +178,9 @@ class EnsembleSeparateModel(tf.keras.Model):
                               axis=-1)
 
         p_ar = tf.math.argmin(losses_ar, axis=1)
-        mask_ar = tf.one_hot(p_ar, losses_ar.shape.as_list()[1])+ 0.1
+        mask_ar = tf.one_hot(p_ar, losses_ar.shape.as_list()[1]) + 0.1
         # mask AVG
-        average_mask = tf.ones_like(mask_ar) / 6.
+        average_mask = tf.ones_like(mask_ar) / 3.
 
         # compute VAL loss and VAL ACC
         losses_val = tf.concat(
