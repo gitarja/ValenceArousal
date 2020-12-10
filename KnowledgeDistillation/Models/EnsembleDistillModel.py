@@ -111,9 +111,9 @@ class EnsembleStudent(tf.keras.Model):
 
     def __init__(self, num_output=4, ecg_size=(105, 105)):
         super(EnsembleStudent, self).__init__(self)
-        self.en_conv1 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=2, activation=None, name="en_conv1",
+        self.en_conv1 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=1, activation=None, name="en_conv1",
                                                padding="same")
-        self.en_conv2 = tf.keras.layers.Conv2D(filters=16, kernel_size=3, strides=2, activation=None, name="en_conv2",
+        self.en_conv2 = tf.keras.layers.Conv2D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv2",
                                                padding="same")
         self.en_conv3 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv3",
                                                padding="same")
@@ -121,12 +121,20 @@ class EnsembleStudent(tf.keras.Model):
                                                padding="same")
 
 
-        self.en_conv5 = tf.keras.layers.Conv2D(filters=64, kernel_size=3, strides=1, activation=None, name="en_conv5",
+
+        self.de_conv1 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="de_conv1",
                                                padding="same")
-        self.en_conv6 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv6",
+        self.de_conv2 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="de_conv2",
                                                padding="same")
-        self.en_conv7 = tf.keras.layers.Conv2D(filters=64, kernel_size=3, strides=1, activation=None, name="en_conv7",
+        self.de_conv3 = tf.keras.layers.Conv2D(filters=16, kernel_size=3, strides=1, activation=None, name="de_conv3",
                                                padding="same")
+
+        self.de_conv4 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=1, activation=None, name="de_conv4",
+                                               padding="same")
+
+        self.de_conv5 = tf.keras.layers.Conv2D(filters=1, kernel_size=3, strides=1, activation=None, name="de_conv5",
+                                               padding="same")
+
 
         self.data_augmentation = tf.keras.Sequential([
             tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
@@ -143,6 +151,9 @@ class EnsembleStudent(tf.keras.Model):
         self.batch_norm5 = tf.keras.layers.BatchNormalization(name="batch_norm5")
         self.batch_norm6 = tf.keras.layers.BatchNormalization(name="batch_norm6")
         self.batch_norm7 = tf.keras.layers.BatchNormalization(name="batch_norm7")
+        self.batch_norm8 = tf.keras.layers.BatchNormalization(name="batch_norm8")
+        self.batch_norm9 = tf.keras.layers.BatchNormalization(name="batch_norm9")
+        self.batch_norm10 = tf.keras.layers.BatchNormalization(name="batch_norm10")
 
         #activation
         self.elu = tf.keras.layers.ELU()
@@ -157,19 +168,22 @@ class EnsembleStudent(tf.keras.Model):
         #flattent
         self.flat = tf.keras.layers.Flatten()
 
-        #reshape
+        #reshape & resize
         self.reshape = tf.keras.layers.Reshape(ecg_size)
+        self.resize = tf.keras.layers.experimental.preprocessing.Resizing(ecg_size[0], ecg_size[1])
 
-        #loss
-        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE)
+
 
         #pool
-        self.max_pool = tf.keras.layers.MaxPool2D(pool_size=(3, 3), strides=1)
-        self.up_samp = tf.keras.layers.UpSampling2D
+        self.max_pool = tf.keras.layers.MaxPool2D(pool_size=(2, 2))
+        self.up_samp = tf.keras.layers.UpSampling2D((2, 2))
 
         #dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.5)
+
+        # loss
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+                                                       reduction=tf.keras.losses.Reduction.NONE)
 
 
     def forward(self, x, dense, norm, activation):
@@ -178,34 +192,42 @@ class EnsembleStudent(tf.keras.Model):
 
 
     def call(self, inputs, training=None, mask=None):
-        x = tf.expand_dims(self.reshape(inputs), -1)
+        x = self.resize(tf.expand_dims(self.reshape(inputs), -1))
         if training:
             x = self.data_augmentation(x)
+
+        #encoder
         x = self.max_pool(self.forward(x, self.en_conv1, self.batch_norm1, self.elu))
         x = self.max_pool(self.forward(x, self.en_conv2, self.batch_norm2, self.elu))
         x = self.max_pool(self.forward(x, self.en_conv3, self.batch_norm3, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_norm4, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv5, self.batch_norm5, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv6, self.batch_norm6, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv7, self.batch_norm7, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv4, self.batch_norm4, self.elu))
 
-        x = self.flat(x)
-        x = self.dropout_1(self.class_1(x))
+        #decoder
+
+        x = self.up_samp(self.forward(z, self.de_conv1, self.batch_norm5, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv2, self.batch_norm6, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv3, self.batch_norm7, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv4, self.batch_norm8, self.elu))
+        x = self.forward(x, self.de_conv5, self.batch_norm9, self.elu)
+
+        z = self.flat(z)
+        z = self.dropout_1(self.class_1(z))
         # x = self.dropout_1(self.class_2(x))
-        z_ar = self.logit_ar(x)
-        z_val = self.logit_val(x)
+        z_ar = self.logit_ar(z)
+        z_val = self.logit_val(z)
 
-        return z_ar, z_val
+        return z_ar, z_val, x
 
 
     def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
-        z_ar, z_val = self.call(X, training=training)
+        z_ar, z_val, Xrec = self.call(X, training=training)
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)
+        final_loss_rec =  tf.nn.compute_average_loss(self.cross_loss(X, Xrec), global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+        return final_loss_ar, final_loss_val, final_loss_rec, predictions_ar, predictions_val
 
 
 class EnsembleStudentOneDim(tf.keras.Model):
