@@ -109,7 +109,7 @@ class EnsembleTeacher(tf.keras.Model):
 
 class EnsembleStudent(tf.keras.Model):
 
-    def __init__(self, num_output=4, ecg_size=(105, 105)):
+    def __init__(self, num_output=4, ecg_size=(105, 105), expected_size=(96, 96)):
         super(EnsembleStudent, self).__init__(self)
         self.en_conv1 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=1, activation=None, name="en_conv1",
                                                padding="same")
@@ -137,9 +137,9 @@ class EnsembleStudent(tf.keras.Model):
 
 
         self.data_augmentation = tf.keras.Sequential([
-            tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-            tf.keras.layers.experimental.preprocessing.RandomRotation(0.2),
-            tf.keras.layers.experimental.preprocessing.RandomContrast(0.1)
+            # tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
+            tf.keras.layers.experimental.preprocessing.RandomRotation(0.1),
+            # tf.keras.layers.experimental.preprocessing.RandomContrast(0.1)
         ])
 
 
@@ -159,7 +159,8 @@ class EnsembleStudent(tf.keras.Model):
         self.elu = tf.keras.layers.ELU()
 
         #classify
-        self.class_1 = tf.keras.layers.Dense(units=32, name="class_1")
+        self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
+        self.class_val = tf.keras.layers.Dense(units=32, name="class_ar")
 
         #logit
         self.logit_ar = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
@@ -170,7 +171,7 @@ class EnsembleStudent(tf.keras.Model):
 
         #reshape & resize
         self.reshape = tf.keras.layers.Reshape(ecg_size)
-        self.resize = tf.keras.layers.experimental.preprocessing.Resizing(ecg_size[0], ecg_size[1])
+        self.resize = tf.keras.layers.experimental.preprocessing.Resizing(expected_size[0], expected_size[1])
 
 
 
@@ -179,7 +180,7 @@ class EnsembleStudent(tf.keras.Model):
         self.up_samp = tf.keras.layers.UpSampling2D((2, 2))
 
         #dropout
-        self.dropout_1 = tf.keras.layers.Dropout(0.5)
+        self.dropout_1 = tf.keras.layers.Dropout(0.3)
 
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
@@ -192,9 +193,9 @@ class EnsembleStudent(tf.keras.Model):
 
 
     def call(self, inputs, training=None, mask=None):
-        x = self.resize(tf.expand_dims(self.reshape(inputs), -1))
+        x = inputs
         if training:
-            x = self.data_augmentation(x)
+            x = self.data_augmentation(inputs)
 
         #encoder
         x = self.max_pool(self.forward(x, self.en_conv1, self.batch_norm1, self.elu))
@@ -211,15 +212,17 @@ class EnsembleStudent(tf.keras.Model):
         x = self.forward(x, self.de_conv5, self.batch_norm9, self.elu)
 
         z = self.flat(z)
-        z = self.dropout_1(self.class_1(z))
+        z_ar = self.dropout_1(self.elu(self.class_ar(z)))
+        z_val = self.dropout_1(self.elu(self.class_val(z)))
         # x = self.dropout_1(self.class_2(x))
-        z_ar = self.logit_ar(z)
-        z_val = self.logit_val(z)
+        z_ar = self.logit_ar(z_ar)
+        z_val = self.logit_val(z_val)
 
         return z_ar, z_val, x
 
 
     def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
+        X = self.resize(tf.expand_dims(self.reshape(X), -1))
         z_ar, z_val, Xrec = self.call(X, training=training)
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)

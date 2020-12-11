@@ -26,12 +26,14 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = 1
-initial_learning_rate = 0.55e-3
-EPOCHS = 100
+initial_learning_rate = 1e-3
+EPOCHS = 500
+PRE_EPOCHS = 100
 BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 20
+EXPECTED_ECG_SIZE = (96, 96)
 
 
 for fold in range(1, 6):
@@ -81,7 +83,7 @@ for fold in range(1, 6):
         tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
-        model = EnsembleStudent(num_output=num_output)
+        model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -95,6 +97,9 @@ for fold in range(1, 6):
 
         vald_ar_loss = tf.keras.metrics.Mean()
         vald_val_loss = tf.keras.metrics.Mean()
+
+
+        pre_trained_loss = tf.keras.metrics.Mean()
 
         # accuracy
         train_ar_acc = tf.keras.metrics.BinaryAccuracy()
@@ -110,6 +115,29 @@ for fold in range(1, 6):
         checkpoint.restore(manager.latest_checkpoint)
 
     with strategy.scope():
+
+        def pre_train_step(inputs, GLOBAL_BATCH_SIZE=0):
+            X = inputs[3]
+            # print(X)
+            y_ar = tf.expand_dims(inputs[1], -1)
+            y_val = tf.expand_dims(inputs[2], -1)
+
+            with tf.GradientTape() as tape_ar:
+                loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
+                                                                                         0.55,
+                                                                                         GLOBAL_BATCH_SIZE,
+                                                                                         training=True)
+                loss = loss_rec
+
+
+            # update gradient
+            grads = tape_ar.gradient(loss, model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+            pre_trained_loss(loss)
+            return loss_ar
+
+
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[3]
             # print(X)
@@ -173,12 +201,21 @@ for fold in range(1, 6):
     with strategy.scope():
         # `experimental_run_v2` replicates the provided computation and runs it
         # with the distributed input.
+
         @tf.function
+        def distributed_pre_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
+            per_replica_losses = strategy.experimental_run_v2(pre_train_step,
+                                                              args=(dataset_inputs, GLOBAL_BATCH_SIZE))
+            return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
+                                   axis=None)
+
+
         def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
             per_replica_losses = strategy.experimental_run_v2(train_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)
+
 
 
         def distributed_test_step(dataset_inputs, GLOBAL_BATCH_SIZE):
@@ -189,6 +226,19 @@ for fold in range(1, 6):
 
 
         it = 0
+
+
+        # #pre-trained
+        # for epoch in range(PRE_EPOCHS):
+        #     for step, train in enumerate(train_data):
+        #         # print(tf.reduce_max(train[0][0]))
+        #         distributed_pre_train_step(train, ALL_BATCH_SIZE)
+        #         it += 1
+        #
+        #     template = (
+        #         "epoch {} loss:{}")
+        #     print(template.format(epoch + 1, pre_trained_loss.result().numpy()))
+
         for epoch in range(EPOCHS):
             # TRAIN LOOP
             total_loss = 0.0

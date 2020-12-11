@@ -3,9 +3,9 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH, DATASET_PATH
+from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH, DATASET_PATH, ECG_RR_PATH
 import numpy as np
-
+import os
 
 
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
@@ -66,8 +66,11 @@ for folder in glob.glob(DATASET_PATH + "*"):
                         ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         # print(np.sum(np.isinf(ecg_features)))
                         if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
-                            np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
-                            np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            if not os.path.isdir(subject + ECG_RR_PATH):
+                                os.mkdir(subject + ECG_RR_PATH )
+                            np.save(subject + ECG_RR_PATH+ "ecg_raw_" + str(idx) + ".npy", ecg_resp)
+                            # np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
+                            # np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
                             # np.save(subject + RESP_RAW_PATH + "resp_" + str(idx) + ".npy", resp)
                             # np.save(subject + ECG_RAW_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_resp)
                             status = 1

@@ -10,7 +10,7 @@ from sklearn.model_selection import GridSearchCV
 from StatisticalAnalysis.FeaturesImportance import FeaturesImportance
 import glob
 from sklearn.metrics import classification_report, confusion_matrix
-from Conf.Settings import EDA_PATH, PPG_PATH, ECG_PATH, RESP_PATH, ECG_RESP_PATH, EEG_PATH, DATASET_PATH, STRIDE, ECG_R_PATH
+from Conf.Settings import EDA_PATH, PPG_PATH, ECG_PATH, RESP_PATH, ECG_RESP_PATH, EEG_PATH, DATASET_PATH, STRIDE, ECG_R_PATH, ECG_RR_PATH
 
 #init
 features_importance = FeaturesImportance()
@@ -40,7 +40,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
             ecg_features = np.load(subject + ECG_PATH + "ecg_" + str(filename) + ".npy")
             ecg_resp_features = np.load(subject + ECG_RESP_PATH + "ecg_resp_" + str(filename) + ".npy")
             eeg_features = np.load(subject + EEG_PATH + "eeg_" + str(filename) + ".npy")
-            ecg_raw = np.load(subject + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy")
+            ecg_raw = np.load(subject + ECG_RR_PATH + "ecg_raw_" + str(filename) + ".npy")
 
             if (len(eda_features)!= 1102):
                 print(subject)
@@ -49,7 +49,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
             ecg.append(ecg_raw)
             if np.sum(np.isinf(ecg_features)) == 0 & np.sum(np.isnan(ecg_features)) == 0:
                 # print(np.min(eeg_features))
-                features.append(ecg_features)
+                features.append(eda_features)
                 y_ar.append(features_list.iloc[i]["Arousal"])
                 y_val.append(features_list.iloc[i]["Valence"])
             else:

@@ -4,7 +4,7 @@ import numpy as np
 import random
 from scipy import signal
 from Libs.Utils import valArLevelToLabels, valToLabels, arToLabels
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH
 
 from joblib import Parallel, delayed
 
@@ -93,8 +93,10 @@ class DataFetch:
             y_val = valToLabels(features_list.iloc[i]["Valence"])
             if KD :
                 if len(ecg) >= self.ECG_N:
+                    # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
                     # ecg = (ecg -  1223.901793051745) / 1068.7720750244841
-                    ecg = ecg / (4095 + 2675.6720098731157)
+                    ecg = ecg / (4095 - 0)
+                    # ecg = ecg /  2.0861534577149707
                     data_set.append([concat_features_norm, y_ar, y_val, ecg[-self.ECG_N:]])
             else:
                 data_set.append([concat_features_norm, y_ar, y_val])

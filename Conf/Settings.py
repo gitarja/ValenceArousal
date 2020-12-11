@@ -28,6 +28,7 @@ PPG_PATH = RESULTS_PATH + "ppg\\"
 RESP_PATH = RESULTS_PATH + "Resp\\"
 ECG_PATH = RESULTS_PATH + "ECG\\"
 ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
+ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ECG_resp\\"
 TENSORBOARD_PATH = "D:\\usr\\pras\\result\\tensor-board\\ValenceArousal\\sMCL\\"
 
