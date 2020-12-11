@@ -211,7 +211,7 @@ class EnsembleStudent(tf.keras.Model):
         x = self.up_samp(self.forward(x, self.de_conv2, None, self.elu))
         x = self.up_samp(self.forward(x, self.de_conv3, None, self.elu))
         x = self.up_samp(self.forward(x, self.de_conv4, None, self.elu))
-        x = self.forward(x, self.de_conv5, None, self.elu)
+        x = self.de_conv5(x)
 
         z = self.flat(z)
         z_ar = self.dropout_1(self.elu(self.class_ar(z)))
@@ -320,21 +320,21 @@ class EnsembleStudentOneDim(tf.keras.Model):
         x = tf.expand_dims(inputs, -1)
 
         #encoder
-        x = self.forward(x, self.en_conv1, self.batch_norm1, self.elu)
-        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_norm2, self.elu))
-        x = self.forward(x, self.en_conv3, self.batch_norm3, self.elu)
-        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_norm4, self.elu))
-        x = self.forward(x, self.en_conv5, self.batch_norm4, self.elu)
-        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_norm4, self.elu))
+        x = self.forward(x, self.en_conv1, None, self.elu)
+        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
+        x = self.forward(x, self.en_conv3, None, self.elu)
+        x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
+        x = self.forward(x, self.en_conv5, None, self.elu)
+        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
 
 
         #decoder
-        x = self.forward(x, self.de_conv1, self.batch_norm1, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv2, self.batch_norm2, self.elu))
-        x = self.forward(x, self.de_conv3, self.batch_norm3, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv4, self.batch_norm4, self.elu))
-        x = self.forward(x, self.de_conv5, self.batch_norm4, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv6, self.batch_norm4, self.elu))
+        x = self.forward(x, self.de_conv1, None, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv2, None, self.elu))
+        x = self.forward(x, self.de_conv3, None, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv4, None, self.elu))
+        x = self.forward(x, self.de_conv5, None, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv6, None, self.elu))
 
         z = self.flat(z)
         z = self.dropout_1(self.elu(self.class_1(z)))
