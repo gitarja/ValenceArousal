@@ -264,9 +264,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
                                                padding="same")
         self.de_conv6 = tf.keras.layers.Conv1D(filters=8, kernel_size=3, strides=1, activation=None, name="de_conv6",
                                                padding="same")
-
-
-
+        self.de_conv7 = tf.keras.layers.Conv1D(filters=1, kernel_size=3, strides=1, activation=None, name="de_conv7",
+                                               padding="same")
 
         #batch normalization
         self.batch_norm1 = tf.keras.layers.BatchNormalization(name="batch_norm1")
@@ -301,7 +300,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
 
         #pool
-        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3, strides=1)
+        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=2)
+        self.up_sample = tf.keras.layers.UpSampling1D(size=2)
 
         #dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.3)
@@ -311,7 +311,9 @@ class EnsembleStudentOneDim(tf.keras.Model):
                                                        reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.01)
 
 
-    def forward(self, x, dense, norm, activation):
+    def forward(self, x, dense, norm=None, activation=None):
+        if norm is None:
+            return activation(dense(x))
         return activation(norm(dense(x)))
 
 
@@ -329,13 +331,14 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
 
         #decoder
-        x = self.forward(x, self.de_conv1, None, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv2, None, self.elu))
+        x = self.forward(z, self.de_conv1, None, self.elu)
+        x = self.up_sample(self.forward(x, self.de_conv2, None, self.elu))
         x = self.forward(x, self.de_conv3, None, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv4, None, self.elu))
+        x = self.up_sample(self.forward(x, self.de_conv4, None, self.elu))
         x = self.forward(x, self.de_conv5, None, self.elu)
-        x = self.max_pool(self.forward(x, self.de_conv6, None, self.elu))
-
+        x = self.up_sample(self.forward(x, self.de_conv6, None, self.elu))
+        x = self.de_conv7(x)
+        print(z.shape)
         z = self.flat(z)
         z = self.dropout_1(self.elu(self.class_1(z)))
         z_ar = self.logit_ar(z)

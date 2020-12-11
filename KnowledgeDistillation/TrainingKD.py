@@ -59,28 +59,28 @@ for fold in range(1, 6):
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
         model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
@@ -116,33 +116,14 @@ for fold in range(1, 6):
 
     with strategy.scope():
 
-        def pre_train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[3]
-            # print(X)
-            y_ar = tf.expand_dims(inputs[1], -1)
-            y_val = tf.expand_dims(inputs[2], -1)
-
-            with tf.GradientTape() as tape_ar:
-                loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
-                                                                                         0.55,
-                                                                                         GLOBAL_BATCH_SIZE,
-                                                                                         training=True)
-                loss = loss_rec
-
-
-            # update gradient
-            grads = tape_ar.gradient(loss, model.trainable_weights)
-            optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-            pre_trained_loss(loss)
-            return loss_ar
-
 
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[3]
+            X = inputs[-1]
             # print(X)
-            y_ar = tf.expand_dims(inputs[1], -1)
-            y_val = tf.expand_dims(inputs[2], -1)
+            y_ar_bin = tf.expand_dims(inputs[1], -1)
+            y_val_bin = tf.expand_dims(inputs[2], -1)
+            y_ar = tf.expand_dims(inputs[3], -1) / 6.
+            y_val = tf.expand_dims(inputs[4], -1) / 6.
 
             with tf.GradientTape() as tape_ar:
                 loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
@@ -157,8 +138,8 @@ for fold in range(1, 6):
             train_ar_loss(loss_ar)
             train_val_loss(loss_val)
 
-            train_ar_acc(prediction_ar, y_ar)
-            train_val_acc(prediction_val, y_val)
+            train_ar_acc(prediction_ar, y_ar_bin)
+            train_val_acc(prediction_val, y_val_bin)
 
 
 
@@ -166,9 +147,11 @@ for fold in range(1, 6):
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[3]
-            y_ar = tf.expand_dims(inputs[1], -1)
-            y_val = tf.expand_dims(inputs[2], -1)
+            X = inputs[-1]
+            y_ar_bin = tf.expand_dims(inputs[1], -1)
+            y_val_bin = tf.expand_dims(inputs[2], -1)
+            y_ar = tf.expand_dims(inputs[3], -1) / 6.
+            y_val = tf.expand_dims(inputs[4], -1) / 6.
 
             loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar, y_val,
                                                                                                         0.55,
@@ -176,8 +159,8 @@ for fold in range(1, 6):
             vald_ar_loss(loss_ar)
             vald_val_loss(loss_val)
 
-            vald_ar_acc(prediction_ar, y_ar)
-            vald_val_acc(prediction_val, y_val)
+            vald_ar_acc(prediction_ar, y_ar_bin)
+            vald_val_acc(prediction_val, y_val_bin)
 
 
 
@@ -203,13 +186,6 @@ for fold in range(1, 6):
         # with the distributed input.
 
         @tf.function
-        def distributed_pre_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(pre_train_step,
-                                                              args=(dataset_inputs, GLOBAL_BATCH_SIZE))
-            return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
-                                   axis=None)
-
-
         def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
             per_replica_losses = strategy.experimental_run_v2(train_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
@@ -226,18 +202,6 @@ for fold in range(1, 6):
 
 
         it = 0
-
-
-        # #pre-trained
-        # for epoch in range(PRE_EPOCHS):
-        #     for step, train in enumerate(train_data):
-        #         # print(tf.reduce_max(train[0][0]))
-        #         distributed_pre_train_step(train, ALL_BATCH_SIZE)
-        #         it += 1
-        #
-        #     template = (
-        #         "epoch {} loss:{}")
-        #     print(template.format(epoch + 1, pre_trained_loss.result().numpy()))
 
         for epoch in range(EPOCHS):
             # TRAIN LOOP

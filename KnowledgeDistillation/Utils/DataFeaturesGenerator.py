@@ -81,24 +81,22 @@ class DataFetch:
 
             concat_features = np.concatenate(features[0:6])
 
-
-
-
-
             # if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
             concat_features_norm = (concat_features - self.mean) / self.std
             # print(np.max(concat_features_norm))
             # print(np.min(concat_features[575:588]))
-            y_ar = arToLabels(features_list.iloc[i]["Arousal"])
-            y_val = valToLabels(features_list.iloc[i]["Valence"])
+            y_ar = features_list.iloc[i]["Arousal"]
+            y_val = features_list.iloc[i]["Valence"]
+            y_ar_bin = arToLabels(features_list.iloc[i]["Arousal"])
+            y_val_bin = valToLabels(features_list.iloc[i]["Valence"])
             if KD :
                 if len(ecg) >= self.ECG_N:
                     # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
                     # ecg = (ecg -  1223.901793051745) / 1068.7720750244841
                     ecg = ecg / (4095 - 0)
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar, y_val, ecg[-self.ECG_N:]])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar, y_val, ecg[-self.ECG_N:], ])
             else:
-                data_set.append([concat_features_norm, y_ar, y_val])
+                data_set.append([concat_features_norm, y_ar_bin, y_ar, y_val, y_val_bin])
 
         return data_set
