@@ -83,8 +83,18 @@ for fold in range(1, 2):
         tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
+        def loadPreTrained():
+            checkpoint_pretrain_prefix = CHECK_POINT_PATH + "KD\\pre-train" + str(fold)
+            model = EnsembleStudentOneDim(num_output=num_output, pretrain=False)
+            checkpoint = tf.train.Checkpoint(step=tf.Variable(1), teacher_model=model)
+            manager = tf.train.CheckpointManager(checkpoint_pretrain_prefix, checkpoint_prefix, max_to_keep=3)
+            checkpoint.restore(manager.latest_checkpoint)
+
+            return model
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
-        model = EnsembleStudentOneDim(num_output=num_output)
+
+        #load pretrained model
+        model = loadPreTrained()
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -261,3 +271,5 @@ for fold in range(1, 2):
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")
+
+
