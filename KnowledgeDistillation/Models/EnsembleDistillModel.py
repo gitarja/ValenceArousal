@@ -187,7 +187,9 @@ class EnsembleStudent(tf.keras.Model):
                                                        reduction=tf.keras.losses.Reduction.NONE)
 
 
-    def forward(self, x, dense, norm, activation):
+    def forward(self, x, dense, norm=None, activation=None):
+        if norm is None:
+            return activation(dense(x))
         return activation(norm(dense(x)))
 
 
@@ -198,18 +200,18 @@ class EnsembleStudent(tf.keras.Model):
             x = self.data_augmentation(inputs)
 
         #encoder
-        x = self.max_pool(self.forward(x, self.en_conv1, self.batch_norm1, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_norm2, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv3, self.batch_norm3, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv4, self.batch_norm4, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv4, None, self.elu))
 
         #decoder
 
-        x = self.up_samp(self.forward(z, self.de_conv1, self.batch_norm5, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv2, self.batch_norm6, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv3, self.batch_norm7, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv4, self.batch_norm8, self.elu))
-        x = self.forward(x, self.de_conv5, self.batch_norm9, self.elu)
+        x = self.up_samp(self.forward(z, self.de_conv1, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv2, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv3, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv4, None, self.elu))
+        x = self.forward(x, self.de_conv5, None, self.elu)
 
         z = self.flat(z)
         z_ar = self.dropout_1(self.elu(self.class_ar(z)))
@@ -237,13 +239,30 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     def __init__(self, num_output=4):
         super(EnsembleStudentOneDim, self).__init__(self)
-        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=2, activation=None, name="en_conv1",
+        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
                                                padding="same")
-        self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=2, activation=None, name="en_conv2",
+        self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
                                                padding="same")
-        self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=2, activation=None, name="en_conv3",
+        self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv3",
                                                padding="same")
-        self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=2, activation=None, name="en_conv4",
+        self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv4",
+                                               padding="same")
+        self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv5",
+                                               padding="same")
+        self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv6",
+                                               padding="same")
+
+        self.de_conv1 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="de_conv1",
+                                               padding="same")
+        self.de_conv2 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="de_conv2",
+                                               padding="same")
+        self.de_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="de_conv3",
+                                               padding="same")
+        self.de_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="de_conv4",
+                                               padding="same")
+        self.de_conv5 = tf.keras.layers.Conv1D(filters=8, kernel_size=3, strides=1, activation=None, name="de_conv5",
+                                               padding="same")
+        self.de_conv6 = tf.keras.layers.Conv1D(filters=8, kernel_size=3, strides=1, activation=None, name="de_conv6",
                                                padding="same")
 
 
@@ -254,6 +273,17 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.batch_norm2 = tf.keras.layers.BatchNormalization(name="batch_norm2")
         self.batch_norm3 = tf.keras.layers.BatchNormalization(name="batch_norm3")
         self.batch_norm4 = tf.keras.layers.BatchNormalization(name="batch_norm4")
+        self.batch_norm5 = tf.keras.layers.BatchNormalization(name="batch_norm5")
+        self.batch_norm6 = tf.keras.layers.BatchNormalization(name="batch_norm6")
+
+        #de batch
+        self.batch_norm7 = tf.keras.layers.BatchNormalization(name="batch_norm7")
+        self.batch_norm8 = tf.keras.layers.BatchNormalization(name="batch_norm8")
+        self.batch_norm9 = tf.keras.layers.BatchNormalization(name="batch_norm9")
+        self.batch_norm10 = tf.keras.layers.BatchNormalization(name="batch_norm10")
+        self.batch_norm11 = tf.keras.layers.BatchNormalization(name="batch_norm11")
+        self.batch_norm12 = tf.keras.layers.BatchNormalization(name="batch_norm12")
+
 
         #activation
         self.elu = tf.keras.layers.ELU()
@@ -271,7 +301,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
 
         #pool
-        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3, strides=2)
+        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3, strides=1)
 
         #dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.3)
@@ -288,22 +318,34 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     def call(self, inputs, training=None, mask=None):
         x = tf.expand_dims(inputs, -1)
+
+        #encoder
         x = self.forward(x, self.en_conv1, self.batch_norm1, self.elu)
         x = self.max_pool(self.forward(x, self.en_conv2, self.batch_norm2, self.elu))
         x = self.forward(x, self.en_conv3, self.batch_norm3, self.elu)
         x = self.max_pool(self.forward(x, self.en_conv4, self.batch_norm4, self.elu))
+        x = self.forward(x, self.en_conv5, self.batch_norm4, self.elu)
+        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_norm4, self.elu))
 
 
-        x = self.flat(x)
-        x = self.dropout_1(self.class_1(x))
-        z_ar = self.logit_ar(x)
-        z_val = self.logit_val(x)
+        #decoder
+        x = self.forward(x, self.de_conv1, self.batch_norm1, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv2, self.batch_norm2, self.elu))
+        x = self.forward(x, self.de_conv3, self.batch_norm3, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv4, self.batch_norm4, self.elu))
+        x = self.forward(x, self.de_conv5, self.batch_norm4, self.elu)
+        x = self.max_pool(self.forward(x, self.de_conv6, self.batch_norm4, self.elu))
 
-        return z_ar, z_val
+        z = self.flat(z)
+        z = self.dropout_1(self.elu(self.class_1(z)))
+        z_ar = self.logit_ar(z)
+        z_val = self.logit_val(z)
+
+        return z_ar, z_val, x
 
 
     def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
-        z_ar, z_val = self.call(X, training=training)
+        z_ar, z_val, Xrec = self.call(X, training=training)
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
