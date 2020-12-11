@@ -25,7 +25,7 @@ class MyTestCase(unittest.TestCase):
     #     self.assertEqual(X.shape, Xr.shape)
 
     def test_distill(self):
-        dim = 11248
+        dim = 11400
         model = EnsembleStudentOneDim(num_output=1)
         X = tf.random.uniform(shape=(1, dim))
         _, _, Xr = model(X)

@@ -39,13 +39,8 @@ EXPECTED_ECG_SIZE = (96, 96)
 for fold in range(1, 2):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "KD\\fold"+str(fold)
-    # tensorboard
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = TENSORBOARD_PATH + "KD\\" + current_time + '/train'
-    test_log_dir = TENSORBOARD_PATH +  "KD\\" + current_time + '/test'
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+    checkpoint_prefix = CHECK_POINT_PATH + "KD\\pre-train"+str(fold)
+
 
     # datagenerator
 
@@ -93,21 +88,11 @@ for fold in range(1, 2):
 
         # ---------------------------Epoch&Loss--------------------------#
         # loss
-        train_ar_loss = tf.keras.metrics.Mean()
-        train_val_loss= tf.keras.metrics.Mean()
+        train_loss = tf.keras.metrics.Mean()
 
-        vald_ar_loss = tf.keras.metrics.Mean()
-        vald_val_loss = tf.keras.metrics.Mean()
+        val_loss = tf.keras.metrics.Mean()
 
 
-        pre_trained_loss = tf.keras.metrics.Mean()
-
-        # accuracy
-        train_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        train_val_acc = tf.keras.metrics.BinaryAccuracy()
-
-        vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
 
         # Manager
@@ -120,65 +105,39 @@ for fold in range(1, 2):
 
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[-1]
-            # print(X)
-            y_ar_bin = tf.expand_dims(inputs[1], -1)
-            y_val_bin = tf.expand_dims(inputs[2], -1)
-            y_ar = tf.expand_dims(inputs[3], -1) / 6.
-            y_val = tf.expand_dims(inputs[4], -1) / 6.
 
             with tf.GradientTape() as tape_ar:
-                loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
-                                                                                                            0.55,
-                                                                                                            GLOBAL_BATCH_SIZE, training=True)
-                loss = loss_ar + loss_val + loss_rec
+                loss = model.perTrain(X, GLOBAL_BATCH_SIZE, training=True)
 
             # update gradient
             grads = tape_ar.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-            train_ar_loss(loss_ar)
-            train_val_loss(loss_val)
-
-            train_ar_acc(prediction_ar, y_ar_bin)
-            train_val_acc(prediction_val, y_val_bin)
+            train_loss(loss)
 
 
 
-            return loss_ar
+
+            return loss
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[-1]
-            y_ar_bin = tf.expand_dims(inputs[1], -1)
-            y_val_bin = tf.expand_dims(inputs[2], -1)
-            y_ar = tf.expand_dims(inputs[3], -1) / 6.
-            y_val = tf.expand_dims(inputs[4], -1) / 6.
-
-            loss_ar, loss_val, loss_rec, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
-                                                                                                        0.55,
-                                                                                                        GLOBAL_BATCH_SIZE, training=False)
-            vald_ar_loss(loss_ar)
-            vald_val_loss(loss_val)
-
-            vald_ar_acc(prediction_ar, y_ar_bin)
-            vald_val_acc(prediction_val, y_val_bin)
 
 
+            loss = model.perTrain(X,GLOBAL_BATCH_SIZE, training=False)
+            val_loss(loss)
 
-            return loss_ar
+
+            return loss
 
 
         def train_reset_states():
-            train_ar_loss.reset_states()
-            train_val_loss.reset_states()
-            train_ar_acc.reset_states()
-            train_val_acc.reset_states()
+            train_loss.reset_states()
+
 
         def vald_reset_states():
-            vald_ar_loss.reset_states()
-            vald_val_loss.reset_states()
-            vald_ar_acc.reset_states()
-            vald_val_acc.reset_states()
+            val_loss.reset_states()
 
 
 
@@ -213,32 +172,22 @@ for fold in range(1, 2):
                 distributed_train_step(train, ALL_BATCH_SIZE)
                 it += 1
 
-            with train_summary_writer.as_default():
-                tf.summary.scalar('Arousal loss', train_ar_loss.result(), step=epoch)
-                tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence loss', train_val_loss.result(), step=epoch)
-                tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
 
 
 
             for step, val in enumerate(val_data):
                 distributed_test_step(val, data_fetch.val_n)
 
-            with test_summary_writer.as_default():
-                tf.summary.scalar('Arousal loss', vald_ar_loss.result(), step=epoch)
-                tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence loss', vald_val_loss.result(), step=epoch)
-                tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
+
 
             template = (
-                "epoch {} | Train: , ar_loss: {:.4f}, val_loss:{:.4f} | Val: ar_loss: {}, val_loss:{}")
-            print(template.format(epoch + 1, train_ar_loss.result().numpy(), train_val_loss.result().numpy(),
-                                  vald_ar_loss.result().numpy(), vald_val_loss.result().numpy()))
+                "epoch {} | Train:  loss: {:.4f}| val_loss:{}")
+            print(template.format(epoch + 1, train_loss.result().numpy(), val_loss.result().numpy()))
 
             # Save model
-            val_loss = 0.5 * (vald_ar_loss.result().numpy() + vald_val_loss.result().numpy())
-            if (prev_val_loss > val_loss):
-                prev_val_loss = val_loss
+
+            if (prev_val_loss > val_loss.result().numpy()):
+                prev_val_loss = val_loss.result().numpy()
                 wait_i = 0
                 manager.save()
             else:
@@ -255,9 +204,8 @@ for fold in range(1, 2):
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: ar_loss: {}, val_loss:{}, arr_acc: {}, val_acc: {}")
-    print(template.format(
-                          vald_ar_loss.result().numpy(), vald_val_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
+        "Test: ar_loss: {}, val_loss:{}")
+    print(template.format(val_loss.result().numpy()))
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")

@@ -51,9 +51,9 @@ class DataFetch:
             data_i = data_set[i]
             if self.KD:
                 # print(len(data_i))
-                yield data_i[0], data_i[1], data_i[2], data_i[3]
+                yield data_i[0], data_i[1], data_i[2], data_i[3],  data_i[4], data_i[5]
             else:
-                yield data_i[0], data_i[1], data_i[2]
+                yield data_i[0], data_i[1], data_i[2], data_i[3],  data_i[4]
             i += 1
 
 
@@ -95,7 +95,7 @@ class DataFetch:
                     # ecg = (ecg -  1223.901793051745) / 1068.7720750244841
                     ecg = ecg / (4095 - 0)
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar, y_val, ecg[-self.ECG_N:], ])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar, y_val, ecg[-self.ECG_N:]])
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_ar, y_val, y_val_bin])
 
