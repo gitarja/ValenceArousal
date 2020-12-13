@@ -1,7 +1,7 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, BaseStudentOneDim
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N
-from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
+from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetchPreTrain
 from Libs.Utils import valArLevelToLabels
 import datetime
 import os
@@ -35,7 +35,7 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
 
-for fold in range(1, 2):
+for fold in range(2, 6):
     prev_val_loss = 1000
     wait_i = 0
     checkpoint_prefix = CHECK_POINT_PATH + "KD\\pre-train"+str(fold)
@@ -47,8 +47,8 @@ for fold in range(1, 2):
     validation_data = DATASET_PATH + "validation_data_"+str(fold)+".csv"
     testing_data = DATASET_PATH + "test_data_"+str(fold)+".csv"
 
-    data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=True)
+    data_fetch = DataFetchPreTrain(train_file=training_data, test_file=testing_data, validation_file=validation_data,
+                           ECG_N=ECG_RAW_N)
     generator = data_fetch.fetch
 
     train_generator = tf.data.Dataset.from_generator(
@@ -78,7 +78,7 @@ for fold in range(1, 2):
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
-        model = EnsembleStudentOneDim(num_output=num_output)
+        model = BaseStudentOneDim(num_output=num_output)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -104,10 +104,10 @@ for fold in range(1, 2):
 
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[0]
-            y = inputs[1]
+            y = tf.expand_dims(inputs[1], -1)
 
             with tf.GradientTape() as tape_ar:
-                loss = model.perTrain(X, y, GLOBAL_BATCH_SIZE, training=True)
+                loss = model.train(X, y, GLOBAL_BATCH_SIZE, training=True)
 
             # update gradient
             grads = tape_ar.gradient(loss, model.trainable_weights)
@@ -123,10 +123,10 @@ for fold in range(1, 2):
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[0]
-            y = inputs[1]
+            y = tf.expand_dims(inputs[1], -1)
 
 
-            loss = model.perTrain(X, y,GLOBAL_BATCH_SIZE, training=False)
+            loss = model.train(X, y,GLOBAL_BATCH_SIZE, training=False)
             val_loss(loss)
 
 
@@ -205,7 +205,7 @@ for fold in range(1, 2):
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: ar_loss: {}, val_loss:{}")
+        "Test: loss:{}")
     print(template.format(val_loss.result().numpy()))
 
     vald_reset_states()

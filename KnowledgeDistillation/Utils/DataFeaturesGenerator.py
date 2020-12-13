@@ -153,19 +153,16 @@ class DataFetchPreTrain:
             ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
 
             files = [ecg_features, ecg_raw]
-            features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
+            features = Parallel(n_jobs=2)(delayed(np.load)(files[j]) for j in range(len(files)))
             ecg = features[-1]
 
-            features = Parallel(n_jobs=6)(delayed(np.load)(files[j]) for j in range(len(files)))
-
-            concat_features = features[:,0]
+            concat_features = features[0]
 
 
             if len(ecg) >= self.ECG_N:
 
                     ecg = ecg / (4095 - 0)
-                    data_set.append([ecg, concat_features[:, 0]])
-
+                    data_set.append([ecg[-self.ECG_N:], concat_features[0]])
 
         return data_set
 

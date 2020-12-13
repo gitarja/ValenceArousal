@@ -384,7 +384,7 @@ class BaseStudentOneDim(tf.keras.Model):
         z = self.flat(z)
         z = self.dropout_1(self.elu(self.class_1(z)))
         z = self.dropout_1(self.elu(self.class_2(z)))
-        z = self.logit(z)
+        z = self.elu(self.logit(z))
 
 
         return z
