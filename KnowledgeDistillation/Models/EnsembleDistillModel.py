@@ -294,7 +294,7 @@ class BaseStudentOneDim(tf.keras.Model):
 
 
     def call(self, inputs, training=None, mask=None):
-        x = self.iput_layer()
+        x = tf.expand_dims(inputs, -1)
 
         #encoder
         x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
@@ -321,7 +321,17 @@ class BaseStudentOneDim(tf.keras.Model):
 
         return final_loss_ar
 
+    def extractFeatures(self, inputs):
+        x = tf.expand_dims(inputs, -1)
+        #encoder
+        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
 
+        return z
     def loadBaseModel(self, checkpoint_prefix):
         model = self
         checkpoint = tf.train.Checkpoint(teacher_model=self)
@@ -329,9 +339,8 @@ class BaseStudentOneDim(tf.keras.Model):
         checkpoint.restore(manager.latest_checkpoint)
         model.build(input_shape=(None, 11125))
 
-        base_model = tf.keras.Model(inputs=model.inputs,  outputs=model.get_layer("en_conv6").output)
 
-        return base_model
+        return model
 
 
 
