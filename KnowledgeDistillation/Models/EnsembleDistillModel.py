@@ -253,9 +253,6 @@ class EnsembleStudentOneDim(tf.keras.Model):
                                                padding="same", trainable=pretrain)
 
 
-
-
-
         #activation
         self.elu = tf.keras.layers.ELU()
 
@@ -323,10 +320,80 @@ class EnsembleStudentOneDim(tf.keras.Model):
         final_loss = final_loss_ar + final_loss_val
         return final_loss, predictions_ar, predictions_val
 
+class BaseStudentOneDim(tf.keras.Model):
 
-    def perTrain(self, X, global_batch_size, training=False):
-        z_ar, z_val, Xrec = self.call(X, training=training)
-        final_loss_rec = tf.nn.compute_average_loss(self.mean_square(X, Xrec), global_batch_size=global_batch_size)
+    def __init__(self, num_output=4, pretrain=True):
+        super(BaseStudentOneDim, self).__init__(self)
+        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
+                                               padding="same", trainable=pretrain)
+        self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
+                                               padding="same", trainable=pretrain)
+        self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
+                                               padding="same", trainable=pretrain)
+        self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
+                                               padding="same", trainable=pretrain)
+        self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv5",
+                                               padding="same", trainable=pretrain)
+        self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
+                                               padding="same", trainable=pretrain)
+
+        #activation
+        self.elu = tf.keras.layers.ELU()
+
+        #classify
+        self.class_1 = tf.keras.layers.Dense(units=64, name="class_1")
+        self.class_2 = tf.keras.layers.Dense(units=128, name="class_1")
+
+        #logit
+        self.logit = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
 
 
-        return final_loss_rec
+        #flattent
+        self.flat = tf.keras.layers.Flatten()
+
+        #pool
+        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3)
+
+        #dropout
+        self.dropout_1 = tf.keras.layers.Dropout(0.3)
+
+
+        self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+
+
+    def forward(self, x, dense, norm=None, activation=None):
+        if norm is None:
+            return activation(dense(x))
+        return activation(norm(dense(x)))
+
+
+
+    def call(self, inputs, training=None, mask=None):
+        x = tf.expand_dims(inputs, -1)
+
+        #encoder
+        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
+
+
+        # print(z.shape)
+        z = self.flat(z)
+        z = self.dropout_1(self.elu(self.class_1(z)))
+        z = self.dropout_1(self.elu(self.class_2(z)))
+        z = self.logit(z)
+
+
+        return z
+
+
+    def train(self, X, y,  global_batch_size, training=False):
+        z = self.call(X, training=training)
+        final_loss_ar = tf.nn.compute_average_loss(self.mean_square_loss(y, z), global_batch_size=global_batch_size)
+
+        return final_loss_ar
+
+

@@ -33,7 +33,6 @@ BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
-EXPECTED_ECG_SIZE = (96, 96)
 
 
 for fold in range(1, 2):
@@ -54,28 +53,28 @@ for fold in range(1, 2):
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32,  tf.float32),
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([ECG_RAW_N]), ()))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([ECG_RAW_N]), ()))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([ECG_RAW_N]), ()))
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
@@ -104,10 +103,11 @@ for fold in range(1, 2):
 
 
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[-1]
+            X = inputs[0]
+            y = inputs[1]
 
             with tf.GradientTape() as tape_ar:
-                loss = model.perTrain(X, GLOBAL_BATCH_SIZE, training=True)
+                loss = model.perTrain(X, y, GLOBAL_BATCH_SIZE, training=True)
 
             # update gradient
             grads = tape_ar.gradient(loss, model.trainable_weights)
@@ -122,10 +122,11 @@ for fold in range(1, 2):
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[-1]
+            X = inputs[0]
+            y = inputs[1]
 
 
-            loss = model.perTrain(X,GLOBAL_BATCH_SIZE, training=False)
+            loss = model.perTrain(X, y,GLOBAL_BATCH_SIZE, training=False)
             val_loss(loss)
 
 

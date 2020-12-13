@@ -100,3 +100,72 @@ class DataFetch:
                 data_set.append([concat_features_norm, y_ar_bin, y_ar, y_val, y_val_bin])
 
         return data_set
+
+
+class DataFetchPreTrain:
+
+    def __init__(self, train_file, validation_file, test_file, ECG_N):
+
+        self.ECG_N = ECG_N
+
+        self.data_train = self.readData(pd.read_csv(train_file))
+        self.data_val = self.readData(pd.read_csv(validation_file))
+        self.data_test = self.readData(pd.read_csv(test_file))
+
+
+        self.ECG_N = ECG_N
+
+        self.train_n = len(self.data_train)
+        self.val_n = len(self.data_val)
+        self.test_n = len(self.data_test)
+
+
+
+    def fetch(self, training_mode=0):
+        '''
+
+        :param training_mode: 0 = training, 1 = testing, 2 = validation
+        :return:
+        '''
+        if training_mode == 0:
+            data_set = self.data_train
+        elif training_mode == 1:
+            data_set = self.data_val
+        else:
+            data_set = self.data_test
+        i = 0
+        # print(len(data_set))
+        while i < len(data_set):
+            # print(i)
+            data_i = data_set[i]
+            yield data_i[0], data_i[1]
+            i += 1
+
+
+    def readData(self, features_list):
+        data_set = []
+        for i in range(len(features_list)):
+            filename = features_list.iloc[i]["Idx"]
+            base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
+                "Subject"]
+
+            ecg_features = base_path + ECG_PATH + "ecg_" + str(filename) + ".npy"
+            ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
+
+            files = [ecg_features, ecg_raw]
+            features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
+            ecg = features[-1]
+
+            features = Parallel(n_jobs=6)(delayed(np.load)(files[j]) for j in range(len(files)))
+
+            concat_features = features[:,0]
+
+
+            if len(ecg) >= self.ECG_N:
+
+                    ecg = ecg / (4095 - 0)
+                    data_set.append([ecg, concat_features[:, 0]])
+
+
+        return data_set
+
