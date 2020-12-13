@@ -35,7 +35,7 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
 
-for fold in range(2, 6):
+for fold in range(1, 2):
     prev_val_loss = 1000
     wait_i = 0
     checkpoint_prefix = CHECK_POINT_PATH + "KD\\pre-train"+str(fold)
@@ -78,7 +78,7 @@ for fold in range(2, 6):
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
-        model = BaseStudentOneDim(num_output=num_output)
+        model = BaseStudentOneDim(num_output=num_output, ECG_N=ECG_RAW_N)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)

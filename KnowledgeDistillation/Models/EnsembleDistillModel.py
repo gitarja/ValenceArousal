@@ -245,8 +245,10 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
 class BaseStudentOneDim(tf.keras.Model):
 
-    def __init__(self, num_output=4, pretrain=True):
+    def __init__(self, num_output=4, ECG_N= 11125,pretrain=True):
         super(BaseStudentOneDim, self).__init__(self)
+        self.iput_layer = tf.keras.layers.Input(shape=(None, ECG_N))
+
         self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
                                                padding="same", trainable=pretrain)
         self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
@@ -292,7 +294,7 @@ class BaseStudentOneDim(tf.keras.Model):
 
 
     def call(self, inputs, training=None, mask=None):
-        x = tf.expand_dims(inputs, -1)
+        x = self.iput_layer()
 
         #encoder
         x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
@@ -325,6 +327,7 @@ class BaseStudentOneDim(tf.keras.Model):
         checkpoint = tf.train.Checkpoint(teacher_model=self)
         manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
         checkpoint.restore(manager.latest_checkpoint)
+        model.build(input_shape=(None, 11125))
 
         base_model = tf.keras.Model(inputs=model.inputs,  outputs=model.get_layer("en_conv6").output)
 
