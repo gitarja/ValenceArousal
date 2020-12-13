@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, BaseStudentOneDim
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import valArLevelToLabels
@@ -85,7 +85,9 @@ for fold in range(1, 6):
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         # load pretrained model
-        model = EnsembleStudentOneDim(num_output=num_output, pretrain=True)
+        checkpoint_prefix_base = CHECK_POINT_PATH + "KD\\pre-train" + str(fold)
+        base_model = BaseStudentOneDim(num_output=1).loadBaseModel(checkpoint_prefix_base)
+        model = EnsembleStudent(num_output=num_output)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95,
@@ -128,7 +130,7 @@ for fold in range(1, 6):
 
     with strategy.scope():
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[-1]
+            X = base_model(inputs[-1])
             # print(X)
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
@@ -161,7 +163,7 @@ for fold in range(1, 6):
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = inputs[-1]
+            X = base_model(inputs[-1])
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
             y_ar = tf.expand_dims(inputs[3], -1) / 6.

@@ -109,75 +109,22 @@ class EnsembleTeacher(tf.keras.Model):
 
 class EnsembleStudent(tf.keras.Model):
 
-    def __init__(self, num_output=4, ecg_size=(105, 105), expected_size=(96, 96)):
+    def __init__(self, num_output=4):
         super(EnsembleStudent, self).__init__(self)
-        self.en_conv1 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=1, activation=None, name="en_conv1",
-                                               padding="same")
-        self.en_conv2 = tf.keras.layers.Conv2D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv2",
-                                               padding="same")
-        self.en_conv3 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv3",
-                                               padding="same")
-        self.en_conv4 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv4",
-                                               padding="same")
-
-
-
-        self.de_conv1 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="de_conv1",
-                                               padding="same")
-        self.de_conv2 = tf.keras.layers.Conv2D(filters=32, kernel_size=3, strides=1, activation=None, name="de_conv2",
-                                               padding="same")
-        self.de_conv3 = tf.keras.layers.Conv2D(filters=16, kernel_size=3, strides=1, activation=None, name="de_conv3",
-                                               padding="same")
-
-        self.de_conv4 = tf.keras.layers.Conv2D(filters=8, kernel_size=3, strides=1, activation=None, name="de_conv4",
-                                               padding="same")
-
-        self.de_conv5 = tf.keras.layers.Conv2D(filters=1, kernel_size=3, strides=1, activation=None, name="de_conv5",
-                                               padding="same")
-
-
-        self.data_augmentation = tf.keras.Sequential([
-            # tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-            tf.keras.layers.experimental.preprocessing.RandomRotation(0.1),
-            # tf.keras.layers.experimental.preprocessing.RandomContrast(0.1)
-        ])
-
-
-        #batch normalization
-        self.batch_norm1 = tf.keras.layers.BatchNormalization(name="batch_norm1")
-        self.batch_norm2 = tf.keras.layers.BatchNormalization(name="batch_norm2")
-        self.batch_norm3 = tf.keras.layers.BatchNormalization(name="batch_norm3")
-        self.batch_norm4 = tf.keras.layers.BatchNormalization(name="batch_norm4")
-        self.batch_norm5 = tf.keras.layers.BatchNormalization(name="batch_norm5")
-        self.batch_norm6 = tf.keras.layers.BatchNormalization(name="batch_norm6")
-        self.batch_norm7 = tf.keras.layers.BatchNormalization(name="batch_norm7")
-        self.batch_norm8 = tf.keras.layers.BatchNormalization(name="batch_norm8")
-        self.batch_norm9 = tf.keras.layers.BatchNormalization(name="batch_norm9")
-        self.batch_norm10 = tf.keras.layers.BatchNormalization(name="batch_norm10")
-
-        #activation
-        self.elu = tf.keras.layers.ELU()
-
-        #classify
-        self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
-        self.class_val = tf.keras.layers.Dense(units=32, name="class_ar")
-
-        #logit
-        self.logit_ar = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
-        self.logit_val = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_val")
 
         #flattent
         self.flat = tf.keras.layers.Flatten()
 
-        #reshape & resize
-        self.reshape = tf.keras.layers.Reshape(ecg_size)
-        self.resize = tf.keras.layers.experimental.preprocessing.Resizing(expected_size[0], expected_size[1])
+        # activation
+        self.elu = tf.keras.layers.ELU()
 
+        # classify
+        self.class_1 = tf.keras.layers.Dense(units=32, name="class_1")
+        self.class_2 = tf.keras.layers.Dense(units=32, name="class_2")
 
-
-        #pool
-        self.max_pool = tf.keras.layers.MaxPool2D(pool_size=(2, 2))
-        self.up_samp = tf.keras.layers.UpSampling2D((2, 2))
+        # logit
+        self.logit_ar = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
+        self.logit_val = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_val")
 
         #dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.3)
@@ -187,52 +134,28 @@ class EnsembleStudent(tf.keras.Model):
                                                        reduction=tf.keras.losses.Reduction.NONE)
 
 
-    def forward(self, x, dense, norm=None, activation=None):
-        if norm is None:
-            return activation(dense(x))
-        return activation(norm(dense(x)))
-
-
-
     def call(self, inputs, training=None, mask=None):
-        x = inputs
-        if training:
-            x = self.data_augmentation(inputs)
 
-        #encoder
-        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv4, None, self.elu))
+        z = self.flat(inputs)
+        z = self.dropout_1(self.elu(self.class_1(z)))
+        z = self.dropout_1(self.elu(self.class_2(z)))
 
-        #decoder
+        z_ar = self.logit_ar(z)
+        z_val = self.logit_val(z)
 
-        x = self.up_samp(self.forward(z, self.de_conv1, None, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv2, None, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv3, None, self.elu))
-        x = self.up_samp(self.forward(x, self.de_conv4, None, self.elu))
-        x = self.de_conv5(x)
-
-        z = self.flat(z)
-        z_ar = self.dropout_1(self.elu(self.class_ar(z)))
-        z_val = self.dropout_1(self.elu(self.class_val(z)))
-        # x = self.dropout_1(self.class_2(x))
-        z_ar = self.logit_ar(z_ar)
-        z_val = self.logit_val(z_val)
-
-        return z_ar, z_val, x
+        return z_ar, z_val
 
 
     def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
         X = self.resize(tf.expand_dims(self.reshape(X), -1))
-        z_ar, z_val, Xrec = self.call(X, training=training)
+        z_ar, z_val = self.call(X, training=training)
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)
-        final_loss_rec =  tf.nn.compute_average_loss(self.cross_loss(X, Xrec), global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        return final_loss_ar, final_loss_val, final_loss_rec, predictions_ar, predictions_val
+        final_loss = final_loss_ar + final_loss_val
+        return final_loss, predictions_ar, predictions_val
 
 
 class EnsembleStudentOneDim(tf.keras.Model):
@@ -395,5 +318,18 @@ class BaseStudentOneDim(tf.keras.Model):
         final_loss_ar = tf.nn.compute_average_loss(self.mean_square_loss(y, z), global_batch_size=global_batch_size)
 
         return final_loss_ar
+
+
+    def loadBaseModel(self, checkpoint_prefix):
+        model = self
+        checkpoint = tf.train.Checkpoint(teacher_model=self)
+        manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
+        checkpoint.restore(manager.latest_checkpoint)
+
+        base_model = tf.keras.Model(inputs=model.inputs,  outputs=model.get_layer("en_conv6").output)
+
+        return base_model
+
+
 
 
