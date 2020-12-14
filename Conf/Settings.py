@@ -4,7 +4,7 @@ FS_EEG = 1000
 FS_GSR = 256
 FS_RESP = 256
 SPLIT_TIME = 45
-STRIDE = 1.
+STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
@@ -21,7 +21,7 @@ EEG_N = 912
 
 # Path Const
 DATASET_PATH = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\"
-RESULTS_PATH = "\\results_stride=0.5\\"
+RESULTS_PATH = "\\results_stride=" + str(STRIDE) + "\\"
 EEG_PATH = RESULTS_PATH + "EEG\\"
 EDA_PATH = RESULTS_PATH + "eda\\"
 PPG_PATH = RESULTS_PATH + "ppg\\"

@@ -4,7 +4,7 @@ from Libs.Utils import valArLevelToLabels, convertLabels
 import glob
 import numpy as np
 
-data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 
 for folder in glob.glob(data_path):
     for subject in glob.glob(folder + "\\*-2020-*"):
