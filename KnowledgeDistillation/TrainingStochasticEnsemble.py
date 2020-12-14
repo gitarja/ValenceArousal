@@ -90,11 +90,9 @@ for fold in range(1, 6):
 
         # ---------------------------Epoch&Loss--------------------------#
         # loss
-        train_ar_loss = tf.keras.metrics.Mean()
-        train_val_loss= tf.keras.metrics.Mean()
+        train_loss = tf.keras.metrics.Mean()
 
-        vald_ar_loss = tf.keras.metrics.Mean()
-        vald_val_loss = tf.keras.metrics.Mean()
+        vald_loss = tf.keras.metrics.Mean()
 
         # accuracy
         train_ar_acc = tf.keras.metrics.BinaryAccuracy()
@@ -117,24 +115,22 @@ for fold in range(1, 6):
             y_val = tf.expand_dims(inputs[2], -1)
 
             with tf.GradientTape() as tape_ar:
-                loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+               final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,
                                                                                                             0.55,
                                                                                                             GLOBAL_BATCH_SIZE, training=True)
-                loss = loss_ar + loss_val + loss_rec
 
             # update gradient
-            grads = tape_ar.gradient(loss, model.trainable_weights)
+            grads = tape_ar.gradient(final_loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-            train_ar_loss(loss_ar_or)
-            train_val_loss(loss_val_or)
+            train_loss(loss_ori)
 
             train_ar_acc(prediction_ar, y_ar)
             train_val_acc(prediction_val, y_val)
 
 
 
-            return loss_ar
+            return final_loss
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
@@ -142,29 +138,26 @@ for fold in range(1, 6):
             y_ar = tf.expand_dims(inputs[1], -1)
             y_val = tf.expand_dims(inputs[2], -1)
 
-            loss_ar, loss_val, loss_rec, prediction_ar, prediction_val, loss_ar_or, loss_val_or = model.trainSMCL(X, y_ar, y_val,
+            final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,
                                                                                                         0.55,
                                                                                                         GLOBAL_BATCH_SIZE, training=False)
-            vald_ar_loss(loss_ar_or)
-            vald_val_loss(loss_val_or)
+            vald_loss(final_loss)
 
             vald_ar_acc(prediction_ar, y_ar)
             vald_val_acc(prediction_val, y_val)
 
 
 
-            return loss_ar
+            return final_loss
 
 
         def train_reset_states():
-            train_ar_loss.reset_states()
-            train_val_loss.reset_states()
+            train_loss.reset_states()
             train_ar_acc.reset_states()
             train_val_acc.reset_states()
 
         def vald_reset_states():
-            vald_ar_loss.reset_states()
-            vald_val_loss.reset_states()
+            vald_loss.reset_states()
             vald_ar_acc.reset_states()
             vald_val_acc.reset_states()
 
@@ -199,9 +192,8 @@ for fold in range(1, 6):
                 it += 1
 
             with train_summary_writer.as_default():
-                tf.summary.scalar('Arousal loss', train_ar_loss.result(), step=epoch)
+                tf.summary.scalar('Loss', train_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence loss', train_val_loss.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
 
 
@@ -209,21 +201,18 @@ for fold in range(1, 6):
             for step, val in enumerate(val_data):
                 distributed_test_step(val, data_fetch.val_n)
 
-            with train_summary_writer.as_default():
-                tf.summary.scalar('Arousal loss', vald_ar_loss.result(), step=epoch)
+            with test_summary_writer.as_default():
+                tf.summary.scalar('Loss', vald_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence loss', vald_val_loss.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
 
             template = (
-                "epoch {} | Train: , ar_loss: {:.4f}, val_loss:{:.4f} | Val: ar_loss: {}, val_loss:{}")
-            print(template.format(epoch + 1, train_ar_loss.result().numpy(), train_val_loss.result().numpy(),
-                                  vald_ar_loss.result().numpy(), vald_val_loss.result().numpy()))
+                "epoch {} | Train_loss: {:.4f} | Val_loss: {}")
+            print(template.format(epoch + 1, train_loss.result().numpy(), vald_loss.result().numpy()))
 
-            # Save model
-            val_loss = 0.5 * (vald_ar_loss.result().numpy() + vald_val_loss.result().numpy())
-            if (prev_val_loss > val_loss):
-                prev_val_loss = val_loss
+
+            if (prev_val_loss > vald_loss.result().numpy()):
+                prev_val_loss = vald_loss.result().numpy()
                 wait_i = 0
                 manager.save()
             else:
@@ -240,9 +229,8 @@ for fold in range(1, 6):
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: ar_loss: {}, val_loss:{}, arr_acc: {}, arr_acc: {}")
-    print(template.format(
-                          vald_ar_loss.result().numpy(), vald_val_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
+        "epoch {} | Test_loss: {}")
+    print(template.format(epoch + 1, vald_loss.result().numpy()))
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")
