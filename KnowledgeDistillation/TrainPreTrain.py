@@ -35,7 +35,7 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
 
-for fold in range(2, 6):
+for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
     checkpoint_prefix = CHECK_POINT_PATH + "KD\\pre-train"+str(fold)
@@ -148,7 +148,7 @@ for fold in range(2, 6):
 
         @tf.function
         def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(train_step,
+            per_replica_losses = strategy.run(train_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)
@@ -156,7 +156,7 @@ for fold in range(2, 6):
 
 
         def distributed_test_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(test_step,
+            per_replica_losses = strategy.run(test_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)

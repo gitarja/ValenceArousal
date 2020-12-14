@@ -1,7 +1,7 @@
 import unittest
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, EnsembleStudentOneDim, BaseStudentOneDim
 class MyTestCase(unittest.TestCase):
     # def test_ensemble(self):
     #     physical_devices = tf.config.list_physical_devices('GPU')
@@ -25,10 +25,10 @@ class MyTestCase(unittest.TestCase):
     #     self.assertEqual(X.shape, Xr.shape)
 
     def test_distill(self):
-        dim = 11400
-        model = EnsembleStudentOneDim(num_output=1)
+        dim = 11025
+        model = BaseStudentOneDim(num_output=1)
         X = tf.random.uniform(shape=(1, dim))
-        _, _, Xr = model(X)
+        Xr = model(X)
         # model.summary()
 
         self.assertEqual(X.shape + (1, ), Xr.shape)

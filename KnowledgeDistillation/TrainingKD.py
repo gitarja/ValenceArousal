@@ -219,14 +219,14 @@ for fold in range(1, 6):
 
         @tf.function
         def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(train_step,
+            per_replica_losses = strategy.run(train_step,
                                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)
 
 
         def distributed_test_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(test_step,
+            per_replica_losses = strategy.run(test_step,
                                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)

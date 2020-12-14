@@ -163,7 +163,7 @@ class DataFetchPreTrain:
 
                     ecg = ecg[-self.ECG_N:] / (4095 - 0)
                     label = np.zeros_like(ecg[-self.ECG_N:])
-                    label[self.ecg_features] = 1
+                    label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1
                     data_set.append([ecg[-self.ECG_N:], label])
                     # data_set.append([ecg[-self.ECG_N:], concat_features[1]])
 

@@ -291,13 +291,14 @@ class BaseStudentOneDim(tf.keras.Model):
 
         #pool
         self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3)
+        self.up_samp = tf.keras.layers.UpSampling1D(size=3)
 
         #dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.3)
 
 
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
-        self.cross_loss = tf.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 
 
     def forward(self, x, dense, norm=None, activation=None):
@@ -334,12 +335,12 @@ class BaseStudentOneDim(tf.keras.Model):
         return z
 
     def decode(self, x):
-        x = self.max_pool(self.forward(x, self.de_conv6, None, self.elu))
-        x = self.max_pool(self.forward(x, self.de_conv5, None, self.elu))
-        x = self.max_pool(self.forward(x, self.de_conv4, None, self.elu))
-        x = self.max_pool(self.forward(x, self.de_conv3, None, self.elu))
-        x = self.max_pool(self.forward(x, self.de_conv2, None, self.elu))
-        x = self.max_pool(self.forward(x, self.de_conv1, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv6, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv5, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv4, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv3, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv2, None, self.elu))
+        x = self.up_samp(self.forward(x, self.de_conv1, None, self.elu))
         z = self.de_conv0(x)
         return z
 
@@ -357,13 +358,7 @@ class BaseStudentOneDim(tf.keras.Model):
     def extractFeatures(self, inputs):
         x = tf.expand_dims(inputs, -1)
         #encoder
-        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
-
+        z = self.encode(x)
         z = self.flat(z)
 
         return z

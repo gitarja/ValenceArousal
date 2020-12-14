@@ -9,8 +9,8 @@ EXTENTION_TIME = 2.5
 
 # Features
 FEATURES_N = 2480
-# ECG_RAW_N = 11025
-ECG_RAW_N = 11125
+ECG_RAW_N = 10935
+# ECG_RAW_N = 11125
 
 # features
 EDA_N = 553
