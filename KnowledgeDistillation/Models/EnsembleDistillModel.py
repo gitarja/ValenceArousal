@@ -112,15 +112,13 @@ class EnsembleStudent(tf.keras.Model):
     def __init__(self, num_output=4):
         super(EnsembleStudent, self).__init__(self)
 
-        #flattent
-        self.flat = tf.keras.layers.Flatten()
 
         # activation
         self.elu = tf.keras.layers.ELU()
 
         # classify
         self.class_1 = tf.keras.layers.Dense(units=32, name="class_1")
-        self.class_2 = tf.keras.layers.Dense(units=32, name="class_2")
+        self.class_2 = tf.keras.layers.Dense(units=16, name="class_2")
 
         # logit
         self.logit_ar = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
@@ -135,10 +133,8 @@ class EnsembleStudent(tf.keras.Model):
 
 
     def call(self, inputs, training=None, mask=None):
-
-        z = self.flat(inputs)
-        z = self.dropout_1(self.elu(self.class_1(z)))
-        z = self.dropout_1(self.elu(self.class_2(z)))
+        z = self.dropout_1(self.elu(self.class_1(inputs)))
+        # z = self.dropout_1(self.elu(self.class_2(z)))
 
         z_ar = self.logit_ar(z)
         z_val = self.logit_val(z)
@@ -147,7 +143,6 @@ class EnsembleStudent(tf.keras.Model):
 
 
     def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
-        X = self.resize(tf.expand_dims(self.reshape(X), -1))
         z_ar, z_val = self.call(X, training=training)
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)
@@ -247,10 +242,9 @@ class BaseStudentOneDim(tf.keras.Model):
 
     def __init__(self, num_output=4, ECG_N= 11125,pretrain=True):
         super(BaseStudentOneDim, self).__init__(self)
-        self.iput_layer = tf.keras.layers.Input(shape=(None, ECG_N))
 
         self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
-                                               padding="same", trainable=pretrain)
+                                               padding="same", trainable=pretrain, input_shape=(None, ECG_N))
         self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
                                                padding="same", trainable=pretrain)
         self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
@@ -264,6 +258,7 @@ class BaseStudentOneDim(tf.keras.Model):
 
         #activation
         self.elu = tf.keras.layers.ELU()
+        self.relu = tf.keras.layers.ReLU()
 
         #classify
         self.class_1 = tf.keras.layers.Dense(units=64, name="class_1")
@@ -309,7 +304,7 @@ class BaseStudentOneDim(tf.keras.Model):
         z = self.flat(z)
         z = self.dropout_1(self.elu(self.class_1(z)))
         z = self.dropout_1(self.elu(self.class_2(z)))
-        z = self.elu(self.logit(z))
+        z = self.relu(self.logit(z))
 
 
         return z
@@ -330,6 +325,8 @@ class BaseStudentOneDim(tf.keras.Model):
         x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
         x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
         z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
+
+        z = self.flat(z)
 
         return z
     def loadBaseModel(self, checkpoint_prefix):

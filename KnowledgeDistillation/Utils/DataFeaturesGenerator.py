@@ -162,7 +162,7 @@ class DataFetchPreTrain:
             if len(ecg) >= self.ECG_N:
 
                     ecg = ecg / (4095 - 0)
-                    data_set.append([ecg[-self.ECG_N:], concat_features[0]])
+                    data_set.append([ecg[-self.ECG_N:], concat_features[1]])
 
         return data_set
 

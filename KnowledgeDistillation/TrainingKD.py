@@ -26,10 +26,10 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = 1
-initial_learning_rate = 0.55e-3
+initial_learning_rate = 1e-3
 EPOCHS = 500
 PRE_EPOCHS = 100
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
@@ -124,13 +124,14 @@ for fold in range(1, 6):
         vald_val_rec = tf.keras.metrics.Recall()
 
     # Manager
-    checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)
+    checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, base_model=model)
     manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
-    checkpoint.restore(manager.latest_checkpoint)
+    # checkpoint.restore(manager.latest_checkpoint)
 
     with strategy.scope():
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = base_model(inputs[-1])
+            X = base_model.extractFeatures(inputs[-1])
+
             # print(X)
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
@@ -163,7 +164,7 @@ for fold in range(1, 6):
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = base_model(inputs[-1])
+            X = base_model.extractFeatures(inputs[-1])
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
             y_ar = tf.expand_dims(inputs[3], -1) / 6.
