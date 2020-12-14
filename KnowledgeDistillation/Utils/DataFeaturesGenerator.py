@@ -4,8 +4,8 @@ import numpy as np
 import random
 from scipy import signal
 from Libs.Utils import valArLevelToLabels, valToLabels, arToLabels
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH
-
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG
+from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
 
@@ -107,7 +107,7 @@ class DataFetchPreTrain:
     def __init__(self, train_file, validation_file, test_file, ECG_N):
 
         self.ECG_N = ECG_N
-
+        self.ecg_features = ECGFeatures(fs=FS_ECG)
         self.data_train = self.readData(pd.read_csv(train_file))
         self.data_val = self.readData(pd.read_csv(validation_file))
         self.data_test = self.readData(pd.read_csv(test_file))
@@ -149,20 +149,23 @@ class DataFetchPreTrain:
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
                 "Subject"]
 
-            ecg_features = base_path + ECG_PATH + "ecg_" + str(filename) + ".npy"
+            # ecg_features = base_path + ECG_PATH + "ecg_" + str(filename) + ".npy"
             ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
 
-            files = [ecg_features, ecg_raw]
+            files = [ecg_raw]
             features = Parallel(n_jobs=2)(delayed(np.load)(files[j]) for j in range(len(files)))
             ecg = features[-1]
 
-            concat_features = features[0]
+            # concat_features = features[0]
 
 
             if len(ecg) >= self.ECG_N:
 
-                    ecg = ecg / (4095 - 0)
-                    data_set.append([ecg[-self.ECG_N:], concat_features[1]])
+                    ecg = ecg[-self.ECG_N:] / (4095 - 0)
+                    label = np.zeros_like(ecg[-self.ECG_N:])
+                    label[self.ecg_features] = 1
+                    data_set.append([ecg[-self.ECG_N:], label])
+                    # data_set.append([ecg[-self.ECG_N:], concat_features[1]])
 
         return data_set
 

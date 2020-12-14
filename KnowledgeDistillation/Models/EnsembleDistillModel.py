@@ -256,6 +256,24 @@ class BaseStudentOneDim(tf.keras.Model):
         self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
                                                padding="same", trainable=pretrain)
 
+        self.de_conv6 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="de_conv6",
+                                               padding="same", trainable=pretrain)
+        self.de_conv5 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="de_conv5",
+                                               padding="same", trainable=pretrain)
+        self.de_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="de_conv4",
+                                               padding="same", trainable=pretrain)
+        self.de_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="de_conv3",
+                                               padding="same", trainable=pretrain)
+        self.de_conv2 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="de_conv2",
+                                               padding="same", trainable=pretrain)
+        self.de_conv1 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="de_conv1",
+                                               padding="same", trainable=pretrain)
+        self.de_conv0 = tf.keras.layers.Conv1D(filters=1, kernel_size=5, strides=1, activation=None, name="de_conv0",
+                                               padding="same", trainable=pretrain)
+
+
+
+
         #activation
         self.elu = tf.keras.layers.ELU()
         self.relu = tf.keras.layers.ReLU()
@@ -279,6 +297,7 @@ class BaseStudentOneDim(tf.keras.Model):
 
 
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+        self.cross_loss = tf.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 
 
     def forward(self, x, dense, norm=None, activation=None):
@@ -292,28 +311,47 @@ class BaseStudentOneDim(tf.keras.Model):
         x = tf.expand_dims(inputs, -1)
 
         #encoder
-        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv4,None, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
+        z = self.encode(x)
+        x = self.decode(z)
 
 
         # print(z.shape)
-        z = self.flat(z)
-        z = self.dropout_1(self.elu(self.class_1(z)))
-        z = self.dropout_1(self.elu(self.class_2(z)))
-        z = self.relu(self.logit(z))
+        # z = self.flat(z)
+        # z = self.dropout_1(self.elu(self.class_1(z)))
+        # z = self.dropout_1(self.elu(self.class_2(z)))
+        # z = self.relu(self.logit(z))
 
 
+        return x
+
+    def encode(self, x):
+        x = self.max_pool(self.forward(x, self.en_conv1, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv2, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv3, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv4, None, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv5, None, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv6, None, self.elu))
         return z
+
+    def decode(self, x):
+        x = self.max_pool(self.forward(x, self.de_conv6, None, self.elu))
+        x = self.max_pool(self.forward(x, self.de_conv5, None, self.elu))
+        x = self.max_pool(self.forward(x, self.de_conv4, None, self.elu))
+        x = self.max_pool(self.forward(x, self.de_conv3, None, self.elu))
+        x = self.max_pool(self.forward(x, self.de_conv2, None, self.elu))
+        x = self.max_pool(self.forward(x, self.de_conv1, None, self.elu))
+        z = self.de_conv0(x)
+        return z
+
+    # def train(self, X, y,  global_batch_size, training=False):
+    #     z = self.call(X, training=training)
+    #     final_loss_ar = tf.nn.compute_average_loss(self.mean_square_loss(y, z), global_batch_size=global_batch_size)
+    #     return final_loss_ar
 
 
     def train(self, X, y,  global_batch_size, training=False):
         z = self.call(X, training=training)
-        final_loss_ar = tf.nn.compute_average_loss(self.mean_square_loss(y, z), global_batch_size=global_batch_size)
-
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y, z), global_batch_size=global_batch_size)
         return final_loss_ar
 
     def extractFeatures(self, inputs):

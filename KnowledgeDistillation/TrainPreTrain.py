@@ -54,27 +54,27 @@ for fold in range(2, 6):
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
         output_types=(tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
         output_types=(tf.float32,  tf.float32),
-        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
         output_types=(tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([ECG_RAW_N]), ()))
+        output_shapes=(tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([ECG_RAW_N]), ()))
+        tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([ECG_RAW_N]), ()))
+        tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([ECG_RAW_N]), ()))
+        tf.TensorShape([ECG_RAW_N]), tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
