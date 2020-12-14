@@ -4,7 +4,6 @@ from Libs.Utils import timeToInt
 import numpy as np
 from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, ECG_RAW_PATH, ECG_PATH
 import os
-
 import glob
 
 data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"

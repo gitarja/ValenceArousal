@@ -31,6 +31,7 @@ class PPGFeatures:
         :param x: raw ppg
         :return: time domain features of heart beat
         '''
+
         try:
             onsets,  = biosppy.signals.bvp.find_onsets(x, sampling_rate=self.fs)
             # compute heart rate
