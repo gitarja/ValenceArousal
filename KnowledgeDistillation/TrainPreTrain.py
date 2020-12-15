@@ -35,7 +35,7 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
 
-for fold in range(1, 6):
+for fold in range(2, 6):
     prev_val_loss = 1000
     wait_i = 0
     checkpoint_prefix = CHECK_POINT_PATH + "KD\\pre-train"+str(fold)

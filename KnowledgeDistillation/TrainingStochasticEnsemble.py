@@ -101,6 +101,20 @@ for fold in range(1, 6):
         vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
         vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
+        # precision
+        train_ar_pre = tf.keras.metrics.Precision()
+        train_val_pre = tf.keras.metrics.Precision()
+
+        vald_ar_pre = tf.keras.metrics.Precision()
+        vald_val_pre = tf.keras.metrics.Precision()
+
+        # recall
+        train_ar_rec = tf.keras.metrics.Recall()
+        train_val_rec = tf.keras.metrics.Recall()
+
+        vald_ar_rec = tf.keras.metrics.Recall()
+        vald_val_rec = tf.keras.metrics.Recall()
+
 
         # Manager
         checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)
@@ -125,10 +139,18 @@ for fold in range(1, 6):
 
             train_loss(loss_ori)
 
-            train_ar_acc(prediction_ar, y_ar)
-            train_val_acc(prediction_val, y_val)
+            #accuracy
+            train_ar_acc(y_ar, prediction_ar)
+            train_val_acc(y_val, prediction_val)
 
 
+            #precision
+            train_ar_pre(y_ar, prediction_ar)
+            train_val_pre(y_val, prediction_val)
+
+            #recall
+            train_ar_rec(y_ar, prediction_ar)
+            train_val_rec(y_val, prediction_val)
 
             return final_loss
 
@@ -143,8 +165,15 @@ for fold in range(1, 6):
                                                                                                         GLOBAL_BATCH_SIZE, training=False)
             vald_loss(final_loss)
 
-            vald_ar_acc(prediction_ar, y_ar)
-            vald_val_acc(prediction_val, y_val)
+            vald_ar_acc(y_ar, prediction_ar)
+            vald_val_acc(y_val, prediction_val)
+
+            #precision
+            vald_ar_pre(y_ar, prediction_ar)
+            vald_val_pre(y_val, prediction_val)
+            # precision
+            vald_ar_rec(y_ar, prediction_ar)
+            vald_val_rec(y_val, prediction_val)
 
 
 
@@ -155,11 +184,24 @@ for fold in range(1, 6):
             train_loss.reset_states()
             train_ar_acc.reset_states()
             train_val_acc.reset_states()
+            # precision
+            train_ar_pre.reset_states()
+            train_val_pre.reset_states()
+
+            # recall
+            train_ar_rec.reset_states()
+            train_val_rec.reset_states()
 
         def vald_reset_states():
             vald_loss.reset_states()
             vald_ar_acc.reset_states()
             vald_val_acc.reset_states()
+            # precision
+            vald_ar_pre.reset_states()
+            vald_val_pre.reset_states()
+            # precision
+            vald_ar_rec.reset_states()
+            vald_val_rec.reset_states()
 
 
 
@@ -195,6 +237,10 @@ for fold in range(1, 6):
                 tf.summary.scalar('Loss', train_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
+                tf.summary.scalar('Arousal precision', train_ar_pre.result(), step=epoch)
+                tf.summary.scalar('Valence precision', train_val_pre.result(), step=epoch)
+                tf.summary.scalar('Arousal recall', train_ar_rec.result(), step=epoch)
+                tf.summary.scalar('Valence recall', train_val_rec.result(), step=epoch)
 
 
 
@@ -205,6 +251,10 @@ for fold in range(1, 6):
                 tf.summary.scalar('Loss', vald_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
+                tf.summary.scalar('Arousal precision', vald_ar_pre.result(), step=epoch)
+                tf.summary.scalar('Valence precision', vald_val_pre.result(), step=epoch)
+                tf.summary.scalar('Arousal recall', vald_ar_rec.result(), step=epoch)
+                tf.summary.scalar('Valence recall', vald_val_rec.result(), step=epoch)
 
             template = (
                 "epoch {} | Train_loss: {:.4f} | Val_loss: {}")

@@ -7,20 +7,20 @@ from scipy import signal
 def valArLevelToLabels(y):
     if (y < 3):
         return 0
-    # elif (y == 3):
-    #     return 1
-    else:
+    elif (y == 3):
         return 1
+    else:
+        return 2
 
 def arToLabels(y):
     if (y < 3):
         return 0
-
     else:
         return 1
 
+
 def valToLabels(y):
-    if (y <= 3):
+    if (y < 3):
         return 0
 
     else:

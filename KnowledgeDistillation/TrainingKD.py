@@ -1,5 +1,6 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudent, BaseStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import valArLevelToLabels
@@ -25,11 +26,12 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output = 1
-initial_learning_rate = 1e-3
+num_output_ar = 1
+num_output_val = 1
+initial_learning_rate = 0.55e-3
 EPOCHS = 500
 PRE_EPOCHS = 100
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
@@ -58,36 +60,36 @@ for fold in range(1, 6):
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32,  tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         # load pretrained model
-        checkpoint_prefix_base = CHECK_POINT_PATH + "KD\\pre-train" + str(fold)
-        base_model = BaseStudentOneDim(num_output=1).loadBaseModel(checkpoint_prefix_base)
-        model = EnsembleStudent(num_output=num_output)
+        checkpoint_prefix_base = CHECK_POINT_PATH + "fold" + str(fold)
+        teacher_model = EnsembleSeparateModel(num_output=1).loadBaseModel(checkpoint_prefix_base)
+        model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95,
@@ -104,10 +106,10 @@ for fold in range(1, 6):
 
         # accuracy
         train_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        train_val_acc = tf.keras.metrics.BinaryAccuracy()
+        train_val_acc = tf.keras.metrics.Accuracy()
 
         vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        vald_val_acc = tf.keras.metrics.BinaryAccuracy()
+        vald_val_acc = tf.keras.metrics.Accuracy()
 
         # precision
         train_ar_pre = tf.keras.metrics.Precision()
@@ -130,60 +132,62 @@ for fold in range(1, 6):
 
     with strategy.scope():
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = base_model.extractFeatures(inputs[-1])
-
+            # X = base_model.extractFeatures(inputs[-1])
+            X_t = inputs[0]
+            X = inputs[-1]
             # print(X)
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
-            y_ar = tf.expand_dims(inputs[3], -1) / 6.
-            y_val = tf.expand_dims(inputs[4], -1) / 6.
 
-            with tf.GradientTape() as tape_ar:
-                loss, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
-                                                                  0.55,
+
+            with tf.GradientTape() as tape:
+                ar_logit, val_logit, z = teacher_model.predictKD(X_t)
+                loss, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, z,
+                                                                  0.55, 0.3,
                                                                   GLOBAL_BATCH_SIZE, training=True)
                 final_loss = loss
 
-                # update gradient
-            grads = tape_ar.gradient(final_loss, model.trainable_weights)
+            # update gradient
+            grads = tape.gradient(final_loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
+
+
             train_loss(loss)
-            train_ar_acc(prediction_ar, y_ar_bin)
-            train_val_acc(prediction_val, y_val_bin)
+            train_ar_acc(y_ar_bin, prediction_ar)
+            train_val_acc(y_val_bin, prediction_val)
 
             #precision
-            train_ar_pre(prediction_ar, y_ar_bin)
-            train_val_pre(prediction_val, y_val_bin)
+            train_ar_pre(y_ar_bin, prediction_ar)
+            train_val_pre(y_val_bin, prediction_val)
 
             #recall
-            train_ar_rec(prediction_ar, y_ar_bin)
-            train_val_rec(prediction_val, y_val_bin)
+            train_ar_rec(y_ar_bin, prediction_ar)
+            train_val_rec(y_val_bin, prediction_val)
 
             return loss
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-            X = base_model.extractFeatures(inputs[-1])
+            X = inputs[-1]
+            # X = base_model.extractFeatures(inputs[-1])
             y_ar_bin = tf.expand_dims(inputs[1], -1)
             y_val_bin = tf.expand_dims(inputs[2], -1)
-            y_ar = tf.expand_dims(inputs[3], -1) / 6.
-            y_val = tf.expand_dims(inputs[4], -1) / 6.
 
-            loss, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
+            loss, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,
                                                               0.55,
                                                               GLOBAL_BATCH_SIZE, training=False)
             val_loss(loss)
 
-            vald_ar_acc(prediction_ar, y_ar_bin)
-            vald_val_acc(prediction_val, y_val_bin)
+            vald_ar_acc(y_ar_bin, prediction_ar)
+            vald_val_acc(y_val_bin, prediction_val)
 
             #precision
-            vald_ar_pre(prediction_ar, y_ar_bin)
-            vald_val_pre(prediction_val, y_val_bin)
+            vald_ar_pre(y_ar_bin, prediction_ar)
+            vald_val_pre(y_val_bin, prediction_val)
             # precision
-            vald_ar_rec(prediction_ar, y_ar_bin)
-            vald_val_rec(prediction_val, y_val_bin)
+            vald_ar_rec(y_ar_bin, prediction_ar)
+            vald_val_rec(y_val_bin, prediction_val)
 
             return loss
 

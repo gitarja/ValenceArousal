@@ -164,9 +164,10 @@ class EnsembleSeparateModel(tf.keras.Model):
     def predictKD(self, X):
         logits = self.call(X, training=False)
 
-        ar_logit = tf.reduce_mean(logits[0], axis=-1)
-        val_logit = tf.reduce_mean(logits[1], axis=-1)
-        z = tf.reduce_mean(logits[3], axis=-1)
+        ar_logit = tf.reduce_mean(logits[0], axis=0)
+        val_logit = tf.reduce_mean(logits[1], axis=0)
+        z = tf.reduce_mean(logits[3], axis=0)
+
 
 
         return ar_logit, val_logit, z
@@ -274,3 +275,14 @@ class EnsembleSeparateModel(tf.keras.Model):
         count = tf.reduce_sum(as_ints, -1)
 
         return tf.expand_dims(count, -1)
+
+
+    def loadBaseModel(self, checkpoint_prefix):
+        model = self
+        checkpoint = tf.train.Checkpoint(teacher_model=self)
+        manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
+        checkpoint.restore(manager.latest_checkpoint).expect_partial()
+
+
+        return model
+
