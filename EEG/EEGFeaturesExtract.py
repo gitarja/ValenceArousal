@@ -2,7 +2,7 @@ from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH
+from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH, DATASET_PATH
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 import os
@@ -13,9 +13,9 @@ eeg_file = "\\EEG\\"
 game_result = "\\*_gameResults.csv"
 min_eeg_len = SPLIT_TIME * FS_EEG - 100
 downsample_eeg_len = SPLIT_TIME * 200
-for folder in glob.glob(data_path):
+for folder in glob.glob(DATASET_PATH + "*"):
 
-    for subject in glob.glob(folder + "\\*-2020-*"):
+    for subject in glob.glob(folder + "\\*D4-2020-*"):
         print(subject)
         try:
             os.makedirs(subject + EEG_PATH, exist_ok=True)

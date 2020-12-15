@@ -2,16 +2,16 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 from Libs.Utils import timeToInt
 import numpy as np
-from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, ECG_RAW_PATH, ECG_PATH
+from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, ECG_R_PATH, ECG_PATH, DATASET_PATH
+from os import path
 import os
 import glob
 
-data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
 
-for folder in glob.glob(data_path):
-    for subject in glob.glob(folder + "\\*-2020-*"):
+for folder in glob.glob(DATASET_PATH + "*"):
+    for subject in glob.glob(folder + "\\*-2020-10-*"):
         print(subject)
         try:
             os.makedirs(subject + ECG_PATH, exist_ok=True)
@@ -48,16 +48,19 @@ for folder in glob.glob(data_path):
                     status = 0
 
                     # extract ecg features
-                    time_domain = featuresExct.extractTimeDomain(ecg['ecg'].values)
-                    freq_domain = featuresExct.extractFrequencyDomain(ecg['ecg'].values)
-                    nonlinear_domain = featuresExct.extractNonLinearDomain(ecg['ecg'].values)
+                    ecg_values = ecg['ecg'].values
+                    time_domain = featuresExct.extractTimeDomain(ecg_values)
+                    freq_domain = featuresExct.extractFrequencyDomain(ecg_values)
+                    nonlinear_domain = featuresExct.extractNonLinearDomain(ecg_values)
                     if time_domain.shape[0] != 0 and freq_domain.shape[0] != 0 and nonlinear_domain.shape[0] != 0:
                         concatenate_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         if np.sum(np.isinf(concatenate_features)) == 0 & np.sum(np.isinf(concatenate_features)) == 0:
                             np.save(subject + ECG_PATH + "ecg_" + str(idx) + ".npy", concatenate_features)
                             # save raw ecg data
                             # np.save(subject + path_result_raw + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
-                            # np.save(subject + ECG_RAW_PATH + "ecg_raw_" + str(idx) + ".npy", ecg['ecg'].values)
+                            if not path.exists(subject + ECG_R_PATH):
+                                os.mkdir(subject + ECG_R_PATH)
+                            np.save(subject + ECG_R_PATH + "ecg_raw_" + str(idx) + ".npy", ecg_values)
                             status = 1
                         else:
                             status = 0

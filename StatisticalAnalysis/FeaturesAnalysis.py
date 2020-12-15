@@ -10,7 +10,7 @@ from sklearn.model_selection import GridSearchCV
 from StatisticalAnalysis.FeaturesImportance import FeaturesImportance
 import glob
 from sklearn.metrics import classification_report, confusion_matrix
-from Conf.Settings import EDA_PATH, PPG_PATH, ECG_PATH, RESP_PATH, ECG_RESP_PATH, EEG_PATH
+from Conf.Settings import EDA_PATH, PPG_PATH, ECG_PATH, RESP_PATH, ECG_RESP_PATH, EEG_PATH, DATASET_PATH, STRIDE, ECG_R_PATH, ECG_RR_PATH
 
 #init
 features_importance = FeaturesImportance()
@@ -18,16 +18,17 @@ features_importance = FeaturesImportance()
 features = []
 y_ar = []
 y_val = []
+ecg = []
 
-data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+
 game_result = "\\*_gameResults.csv"
 path_result = "results\\"
 
-for folder in glob.glob(data_path):
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
 
 
-        features_list = pd.read_csv(subject + "\\features_list_1.0.csv")
+        features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
         features_list["Valence"] = features_list["Valence"].apply(valToLabels)
         features_list["Arousal"] = features_list["Arousal"].apply(arToLabels)
         for i in range(len(features_list)):
@@ -39,14 +40,16 @@ for folder in glob.glob(data_path):
             ecg_features = np.load(subject + ECG_PATH + "ecg_" + str(filename) + ".npy")
             ecg_resp_features = np.load(subject + ECG_RESP_PATH + "ecg_resp_" + str(filename) + ".npy")
             eeg_features = np.load(subject + EEG_PATH + "eeg_" + str(filename) + ".npy")
+            ecg_raw = np.load(subject + ECG_RR_PATH + "ecg_raw_" + str(filename) + ".npy")
 
             if (len(eda_features)!= 1102):
                 print(subject)
-            concat_features = np.concatenate(
-                [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
-            if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
+            # concat_features = np.concatenate(
+            #     [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
+            ecg.append(ecg_raw)
+            if np.sum(np.isinf(ecg_features)) == 0 & np.sum(np.isnan(ecg_features)) == 0:
                 # print(np.min(eeg_features))
-                features.append(concat_features)
+                features.append(eda_features)
                 y_ar.append(features_list.iloc[i]["Arousal"])
                 y_val.append(features_list.iloc[i]["Valence"])
             else:
@@ -54,6 +57,7 @@ for folder in glob.glob(data_path):
 
     # concatenate features and normalize them
 X = np.concatenate([features])
+ecg = np.concatenate(ecg)
 scaler = StandardScaler()
 X_norm = scaler.fit_transform(X)
 
@@ -203,12 +207,12 @@ rf_val = best_val.feature_importances_
 # plt.xticks(np.arange(len(features_impt_val)), ["EDA", "PPG", "RESP", "EEG", "ECG", "ECG_RESP"])
 # plt.show()
 
-#save results
-np.savetxt(path_result+"f_ar.csv", f_ar, delimiter=",")
-np.savetxt(path_result+"f_val.csv", f_val, delimiter=",")
-np.savetxt(path_result+"p_ar.csv", p_val, delimiter=",")
-np.savetxt(path_result+"p_val.csv", p_ar, delimiter=",")
-np.savetxt(path_result+"mi_val.csv", mi_val, delimiter=",")
-np.savetxt(path_result+"mi_ar.csv", mi_ar, delimiter=",")
-np.savetxt(path_result+"rf_val.csv", rf_val, delimiter=",")
-np.savetxt(path_result+"rf_ar.csv", rf_ar, delimiter=",")
+# #save results
+# np.savetxt(path_result+"f_ar.csv", f_ar, delimiter=",")
+# np.savetxt(path_result+"f_val.csv", f_val, delimiter=",")
+# np.savetxt(path_result+"p_ar.csv", p_val, delimiter=",")
+# np.savetxt(path_result+"p_val.csv", p_ar, delimiter=",")
+# np.savetxt(path_result+"mi_val.csv", mi_val, delimiter=",")
+# np.savetxt(path_result+"mi_ar.csv", mi_ar, delimiter=",")
+# np.savetxt(path_result+"rf_val.csv", rf_val, delimiter=",")
+# np.savetxt(path_result+"rf_ar.csv", rf_ar, delimiter=",")

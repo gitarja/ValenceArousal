@@ -2,12 +2,12 @@ from GSR.GSRFeatures import PPGFeatures, EDAFeatures
 import pandas as pd
 from datetime import datetime
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME, EDA_RAW_PATH, PPG_RAW_PATH, EDA_PATH, PPG_PATH
+from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME, EDA_RAW_PATH, PPG_RAW_PATH, EDA_PATH, PPG_PATH, \
+    DATASET_PATH
 import numpy as np
 import glob
 import os
 
-data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 gsr_file = "\\GSR\\"
 game_result = "\\*_gameResults.csv"
 
@@ -16,7 +16,7 @@ eda_features_exct = EDAFeatures(FS_GSR)
 ppg_features_exct = PPGFeatures(FS_GSR)
 min_eda_len = (FS_GSR * SPLIT_TIME) - 50
 
-for folder in glob.glob(data_path):
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:

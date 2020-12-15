@@ -8,8 +8,9 @@ STRIDE = 0.1
 EXTENTION_TIME = 2.5
 
 # Features
-FEATURES_N = 1513
-ECG_RAW_N = 11250
+FEATURES_N = 2480
+ECG_RAW_N = 10935
+# ECG_RAW_N = 11125
 
 # features
 EDA_N = 553
@@ -27,9 +28,10 @@ EDA_PATH = RESULTS_PATH + "eda\\"
 PPG_PATH = RESULTS_PATH + "ppg\\"
 RESP_PATH = RESULTS_PATH + "Resp\\"
 ECG_PATH = RESULTS_PATH + "ECG\\"
-ECG_RAW_PATH = RESULTS_PATH + "ECG_RAW\\"
+ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
+ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ECG_resp\\"
-TENSORBOARD_PATH = "D:\\usr\\pras\\result\\tensor-board\\valence-arousal\\sMCL\\"
+TENSORBOARD_PATH = "D:\\usr\\pras\\result\\tensor-board\\ValenceArousal\\sMCL\\"
 
 #results raw
 RESULTS_RAW_PATH = "\\results_raw\\"

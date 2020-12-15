@@ -1,6 +1,6 @@
 from KnowledgeDistillation.Utils.DataGenerator import DataGenerator
 import numpy as np
-from Conf.Settings import DATASET_PATH
+from Conf.Settings import DATASET_PATH, EEG_PATH, EDA_PATH, PPG_PATH, RESP_PATH, ECG_PATH, ECG_RESP_PATH
 import glob
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
 import pandas as pd
@@ -14,18 +14,18 @@ y_val = []
 
 data_path = DATASET_PATH+"*"
 game_result = "\\*_gameResults.csv"
-path_result = "results\\"
+
 
 for folder in glob.glob(data_path):
     for subject in glob.glob(folder + "\\*-2020-*"):
-        eeg_path = subject + "\\results\\EEG\\"
-        eda_path = subject + "\\results\\eda\\"
-        ppg_path = subject + "\\results\\ppg\\"
-        resp_path = subject + "\\results\\Resp\\"
-        ecg_path = subject + "\\results\\ECG\\"
-        ecg_resp_path = subject + "\\results\\ECG_resp\\"
+        eeg_path = subject + EEG_PATH
+        eda_path = subject + EDA_PATH
+        ppg_path = subject + PPG_PATH
+        resp_path = subject + RESP_PATH
+        ecg_path = subject + ECG_PATH
+        ecg_resp_path = subject + ECG_RESP_PATH
 
-        features_list = pd.read_csv(subject + "\\features_list.csv")
+        features_list = pd.read_csv(subject + "\\features_list_1.0.csv")
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             eda_features = np.load(eda_path + "eda_" + str(filename) + ".npy")

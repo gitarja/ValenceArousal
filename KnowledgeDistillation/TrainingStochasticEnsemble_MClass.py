@@ -37,7 +37,7 @@ wait = 5
 for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "fold"+str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "fold_M"+str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = TENSORBOARD_PATH + current_time + '/train'
@@ -52,33 +52,33 @@ for fold in range(1, 6):
     testing_data = DATASET_PATH + "test_data_"+str(fold)+".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=False)
+                           ECG_N=ECG_RAW_N, KD=False, multiple=True)
     generator = data_fetch.fetch
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), ()))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), ()))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), ()))
+        tf.TensorShape([FEATURES_N]), (), (), ()))
 
     with strategy.scope():
         model = EnsembleSeparateModel(num_output=num_output)
@@ -101,19 +101,6 @@ for fold in range(1, 6):
         vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
         vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
-        # precision
-        train_ar_pre = tf.keras.metrics.Precision()
-        train_val_pre = tf.keras.metrics.Precision()
-
-        vald_ar_pre = tf.keras.metrics.Precision()
-        vald_val_pre = tf.keras.metrics.Precision()
-
-        # recall
-        train_ar_rec = tf.keras.metrics.Recall()
-        train_val_rec = tf.keras.metrics.Recall()
-
-        vald_ar_rec = tf.keras.metrics.Recall()
-        vald_val_rec = tf.keras.metrics.Recall()
 
 
         # Manager
@@ -143,15 +130,6 @@ for fold in range(1, 6):
             train_ar_acc(y_ar, prediction_ar)
             train_val_acc(y_val, prediction_val)
 
-
-            #precision
-            train_ar_pre(y_ar, prediction_ar)
-            train_val_pre(y_val, prediction_val)
-
-            #recall
-            train_ar_rec(y_ar, prediction_ar)
-            train_val_rec(y_val, prediction_val)
-
             return final_loss
 
 
@@ -168,12 +146,7 @@ for fold in range(1, 6):
             vald_ar_acc(y_ar, prediction_ar)
             vald_val_acc(y_val, prediction_val)
 
-            #precision
-            vald_ar_pre(y_ar, prediction_ar)
-            vald_val_pre(y_val, prediction_val)
-            # precision
-            vald_ar_rec(y_ar, prediction_ar)
-            vald_val_rec(y_val, prediction_val)
+
 
 
 
@@ -184,24 +157,12 @@ for fold in range(1, 6):
             train_loss.reset_states()
             train_ar_acc.reset_states()
             train_val_acc.reset_states()
-            # precision
-            train_ar_pre.reset_states()
-            train_val_pre.reset_states()
-
-            # recall
-            train_ar_rec.reset_states()
-            train_val_rec.reset_states()
 
         def vald_reset_states():
             vald_loss.reset_states()
             vald_ar_acc.reset_states()
             vald_val_acc.reset_states()
-            # precision
-            vald_ar_pre.reset_states()
-            vald_val_pre.reset_states()
-            # precision
-            vald_ar_rec.reset_states()
-            vald_val_rec.reset_states()
+
 
 
 
@@ -237,10 +198,7 @@ for fold in range(1, 6):
                 tf.summary.scalar('Loss', train_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
-                tf.summary.scalar('Arousal precision', train_ar_pre.result(), step=epoch)
-                tf.summary.scalar('Valence precision', train_val_pre.result(), step=epoch)
-                tf.summary.scalar('Arousal recall', train_ar_rec.result(), step=epoch)
-                tf.summary.scalar('Valence recall', train_val_rec.result(), step=epoch)
+
 
 
 
@@ -251,10 +209,7 @@ for fold in range(1, 6):
                 tf.summary.scalar('Loss', vald_loss.result(), step=epoch)
                 tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
                 tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
-                tf.summary.scalar('Arousal precision', vald_ar_pre.result(), step=epoch)
-                tf.summary.scalar('Valence precision', vald_val_pre.result(), step=epoch)
-                tf.summary.scalar('Arousal recall', vald_ar_rec.result(), step=epoch)
-                tf.summary.scalar('Valence recall', vald_val_rec.result(), step=epoch)
+
 
             template = (
                 "epoch {} | Train_loss: {:.4f} | Val_loss: {}")

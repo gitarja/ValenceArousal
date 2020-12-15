@@ -3,12 +3,10 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, \
-    ECG_RESP_PATH
+from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH, DATASET_PATH, ECG_RR_PATH
 import numpy as np
 import os
 
-data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 resp_file = "\\Resp\\"
 game_result = "\\*_gameResults.csv"
 
@@ -16,7 +14,7 @@ resp_features_exct = RespFeatures(FS_RESP)
 ecg_features_exct = ECGFeatures(FS_RESP)
 min_len = FS_RESP * (SPLIT_TIME + 1)
 
-for folder in glob.glob(data_path):
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
@@ -70,10 +68,12 @@ for folder in glob.glob(data_path):
                              resp_features_exct.extractNonLinear(resp)])
                         ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         # print(np.sum(np.isinf(ecg_features)))
-                        if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(
-                                np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
-                            np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
-                            np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                        if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
+                            if not os.path.isdir(subject + ECG_RR_PATH):
+                                os.mkdir(subject + ECG_RR_PATH )
+                            np.save(subject + ECG_RR_PATH+ "ecg_raw_" + str(idx) + ".npy", ecg_resp)
+                            # np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
+                            # np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
                             # np.save(subject + RESP_RAW_PATH + "resp_" + str(idx) + ".npy", resp)
                             # np.save(subject + ECG_RAW_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_resp)
                             status = 1
