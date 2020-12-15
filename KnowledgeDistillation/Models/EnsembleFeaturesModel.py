@@ -308,7 +308,6 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.eda_class1 = tf.keras.layers.Dense(units=32, name="eda_de_3")
         self.eda_logit = tf.keras.layers.Dense(units=num_output, name="eda_ar_logit", activation=None)
 
-
         # ECG
         # encoder
         self.ecg_en_1 = tf.keras.layers.Dense(units=64, name="ecg_en_1")
@@ -359,7 +358,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
 
         # loss
         self.cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE)
+                                                                  reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
     def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
@@ -432,18 +431,17 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         logit_eeg, x_eeg, z_eeg = self.forwardLarge(inputs)
 
         return [logit_eda, logit_ecg, logit_eeg], [x_eda,
-                                                                                                           x_ecg,
-                                                                                                           x_eeg], [
+                                                   x_ecg,
+                                                   x_eeg], [
                    z_eda, z_ecg, z_eeg]
 
     def predictKD(self, X):
         logits = self.call(X, training=False)
 
-        ar_logit = tf.reduce_mean(logits[0], axis=0)
-        val_logit = tf.reduce_mean(logits[1], axis=0)
-        z = tf.reduce_mean(logits[3], axis=0)
+        logit = tf.reduce_mean(logits[0], axis=0)
+        z = tf.reduce_mean(logits[2], axis=0)
 
-        return ar_logit, val_logit, z
+        return logit, z
 
     def trainSMCL(self, X, y, th, global_batch_size, training=False):
         # compute AR and VAL logits
@@ -464,15 +462,12 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         # mask AVG
         average_mask = tf.ones_like(mask) / 3.
 
-
         # compute rec loss
 
         losses_rec = 0.33 * (self.rs_loss(X, x_eda) + self.rs_loss(X, x_ecg) + self.rs_loss(X, x_eeg))
 
-
         final_losses = tf.nn.compute_average_loss(losses, sample_weight=mask,
-                                                     global_batch_size=global_batch_size)
-
+                                                  global_batch_size=global_batch_size)
 
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
@@ -489,7 +484,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         final_loss_train = final_losses + final_rec_loss
         final_loss_ori = avg_losses_ar
 
-        return final_loss_train, predictions,  final_loss_ori
+        return final_loss_train, predictions, final_loss_ori
 
     def loss(self, y, t):
         return tf.expand_dims(self.cross_loss(t, y), -1)
