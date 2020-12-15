@@ -20,7 +20,7 @@ def arToLabels(y):
         return 1
 
 def valToLabels(y):
-    if (y <= 3):
+    if (y < 3):
         return 0
 
     else:

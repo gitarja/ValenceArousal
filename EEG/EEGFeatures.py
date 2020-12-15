@@ -7,9 +7,10 @@ from EEG.SpaceLapFilter import SpaceLapFilter
 import biosppy
 from Libs.Utils import rollingWindow
 
+
 class EEGFeatures:
 
-    def __init__(self, fs = 1000):
+    def __init__(self, fs=1000):
         self.fs = fs
 
     def filterEEG(self, x):
@@ -35,7 +36,7 @@ class EEGFeatures:
 
         filtered, _ = st._filter_signal(b, a, signal=filtered, check_phase=True, axis=0)
 
-        #smoothed
+        # smoothed
         for i in range(filtered.shape[1]):
             filtered[:, i] = avgSlidingWindow(filtered[:, i], n=50)
 
@@ -48,7 +49,6 @@ class EEGFeatures:
         smoothed = avgSlidingWindow(filtered, n=n)
 
         return smoothed
-
 
     def extractThetaAlphaBeta(self, x):
         '''
@@ -83,7 +83,7 @@ class EEGFeatures:
         return np.mean(np.array(hjrots))
 
     def maxPSD(self, x):
-        psd = np.abs(np.fft.fft(x))**2
+        psd = np.abs(np.fft.fft(x)) ** 2
         return np.max(psd, -1)
 
     def power(self, x):
@@ -137,17 +137,16 @@ class EEGFeatures:
         '''
         n = 4000
         x = rollingWindow(x, size=n)
-        m = np.mean(np.mean(x, 1).flatten())
-        std = np.mean( np.mean(x, 1).flatten())
-        rms =  np.mean(self.meanSquare(x, 1).flatten())
+        # m = np.mean(np.mean(x, 1).flatten())
+        std = np.mean(np.mean(x, 1).flatten())
+        rms = np.mean(self.meanSquare(x, 1).flatten())
         hjrot = self.hjort(x)
         maxPsd = np.mean(self.maxPSD(x))
         power = self.power(x)
-        return np.array([m, std, rms, hjrot, maxPsd, power])
-
+        return np.array([std, rms, hjrot, maxPsd, power])
 
     def bandPower(self, x, bands, fs):
-       return pyeeg.bin_power(x, bands, fs)
+        return pyeeg.bin_power(x, bands, fs)
 
     def extractFrequencyDomainFeatures(self, x, bands=[4, 8, 10, 14, 25, 40, 100]):
         '''
@@ -161,9 +160,8 @@ class EEGFeatures:
 
         return np.array(pwr_t)
 
-
     def extractPLFFeatures(self, x):
-        _, _, PLF  = biosppy.eeg.get_plf_features(x, sampling_rate=self.fs)
+        _, _, PLF = biosppy.eeg.get_plf_features(x, sampling_rate=self.fs)
         PLF_mean = np.mean(PLF, 0)
         PLF_std = np.std(PLF, 0)
         return np.concatenate([PLF_mean, PLF_std])
@@ -180,9 +178,10 @@ class EEGFeatures:
         beta_std = np.std(beta, 0)
         gamma_mean = np.mean(gamma, 0)
         gamma_std = np.std(gamma, 0)
-        features = np.concatenate([theta_mean,theta_std, alpha_low_mean, alpha_low_std, alpha_high_mean, alpha_high_std, beta_mean, beta_std, gamma_mean, gamma_std ])
+        features = np.concatenate(
+            [theta_mean, theta_std, alpha_low_mean, alpha_low_std, alpha_high_mean, alpha_high_std, beta_mean, beta_std,
+             gamma_mean, gamma_std])
         return features
-
 
     def extractFreqTimeFeatures(self, x, level=8):
         '''
@@ -201,9 +200,5 @@ class EEGFeatures:
         coeffs_gl = pywt.wavedecn(gamma_low, "bior3.3", level=level)
         coeffs_gh = pywt.wavedecn(gamma_high, "bior3.3", level=level)
 
-        return np.concatenate([coeffs_t[level]['d'], coeffs_al[level]['d'], coeffs_ah[level]['d'], coeffs_b[level]['d'], coeffs_gl[level]['d'], coeffs_gh[level]['d']])
-
-
-
-
-
+        return np.concatenate([coeffs_t[level]['d'], coeffs_al[level]['d'], coeffs_ah[level]['d'], coeffs_b[level]['d'],
+                               coeffs_gl[level]['d'], coeffs_gh[level]['d']])

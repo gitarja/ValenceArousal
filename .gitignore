@@ -14,3 +14,4 @@ StatisticalAnalysis/__pycache__
 StatisticalAnalysis/results
 Testing/__pycache__
 *.cpython-36.pyc
+EEG/EEGFeaturesExtract2.py
