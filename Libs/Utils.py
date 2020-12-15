@@ -12,6 +12,7 @@ def valArLevelToLabels(y):
     else:
         return 2
 
+
 def arToLabels(y):
     if (y < 3):
         return 0
@@ -25,6 +26,18 @@ def valToLabels(y):
 
     else:
         return 1
+
+
+def arValMulLabels(ar, val):
+    if ar == 0 and val == 0:
+        return 0
+    elif ar == 0 and val == 1:
+        return 1
+    elif ar == 1 and val == 0:
+        return 2
+    else:
+        return 3
+
 
 def convertLabels(ar, val):
     labels = np.ones_like(ar)
@@ -84,6 +97,6 @@ def avgSlidingWindow(x, n):
 def rollingWindow(a, size=50):
     slides = []
     for i in range(len(a) // size):
-        slides.append(a[(i*size):((i+1) * size)])
+        slides.append(a[(i * size):((i + 1) * size)])
 
     return np.array(slides)

@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valArLevelToLabels, valToLabels, arToLabels
+from Libs.Utils import valToLabels, arToLabels, arValMulLabels
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
@@ -11,12 +11,13 @@ from joblib import Parallel, delayed
 
 class DataFetch:
 
-    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False):
+    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False):
         self.max = np.load("Utils\\max.npy")
         self.mean = np.load("Utils\\mean.npy")
         self.std = np.load("Utils\\std.npy")
 
         self.KD = KD
+        self.multiple = multiple
         self.ECG_N = ECG_N
 
         self.data_train = self.readData(pd.read_csv(train_file), KD)
@@ -49,11 +50,18 @@ class DataFetch:
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
-            if self.KD:
-                # print(len(data_i))
-                yield data_i[0], data_i[1], data_i[2], data_i[3]
+            if self.multiple:
+                if self.KD:
+                    # print(len(data_i))
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                else:
+                    yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
-                yield data_i[0], data_i[1], data_i[2]
+                if self.KD:
+                    # print(len(data_i))
+                    yield data_i[0], data_i[1], data_i[2],  data_i[4]
+                else:
+                    yield data_i[0], data_i[1], data_i[2],
             i += 1
 
 
@@ -89,15 +97,16 @@ class DataFetch:
             y_val = features_list.iloc[i]["Valence"]
             y_ar_bin = arToLabels(y_ar)
             y_val_bin = valToLabels(y_val)
+            m_class = arValMulLabels(y_ar_bin, y_val_bin)
             if KD :
                 if len(ecg) >= self.ECG_N:
                     # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
                     # ecg = (ecg -  1223.901793051745) / 1068.7720750244841
                     ecg = ecg / (4095 - 0)
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin,  ecg[-self.ECG_N:]])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class,  ecg[-self.ECG_N:]])
             else:
-                data_set.append([concat_features_norm, y_ar_bin, y_val_bin])
+                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class])
 
         return data_set
 
