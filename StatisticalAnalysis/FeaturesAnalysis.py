@@ -44,12 +44,12 @@ for folder in glob.glob(DATASET_PATH + "*"):
 
             if (len(eda_features)!= 1102):
                 print(subject)
-            # concat_features = np.concatenate(
-            #     [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
-            ecg.append(ecg_raw)
+            concat_features = np.concatenate(
+                [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
+            # ecg.append(ecg_raw)
             if np.sum(np.isinf(ecg_features)) == 0 & np.sum(np.isnan(ecg_features)) == 0:
                 # print(np.min(eeg_features))
-                features.append(eda_features)
+                features.append(concat_features)
                 y_ar.append(features_list.iloc[i]["Arousal"])
                 y_val.append(features_list.iloc[i]["Valence"])
             else:
@@ -57,7 +57,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
 
     # concatenate features and normalize them
 X = np.concatenate([features])
-ecg = np.concatenate(ecg)
+# ecg = np.concatenate(ecg)
 scaler = StandardScaler()
 X_norm = scaler.fit_transform(X)
 
@@ -207,12 +207,12 @@ rf_val = best_val.feature_importances_
 # plt.xticks(np.arange(len(features_impt_val)), ["EDA", "PPG", "RESP", "EEG", "ECG", "ECG_RESP"])
 # plt.show()
 
-# #save results
-# np.savetxt(path_result+"f_ar.csv", f_ar, delimiter=",")
-# np.savetxt(path_result+"f_val.csv", f_val, delimiter=",")
-# np.savetxt(path_result+"p_ar.csv", p_val, delimiter=",")
-# np.savetxt(path_result+"p_val.csv", p_ar, delimiter=",")
-# np.savetxt(path_result+"mi_val.csv", mi_val, delimiter=",")
-# np.savetxt(path_result+"mi_ar.csv", mi_ar, delimiter=",")
-# np.savetxt(path_result+"rf_val.csv", rf_val, delimiter=",")
-# np.savetxt(path_result+"rf_ar.csv", rf_ar, delimiter=",")
+#save results
+np.savetxt(path_result+"f_ar.csv", f_ar, delimiter=",")
+np.savetxt(path_result+"f_val.csv", f_val, delimiter=",")
+np.savetxt(path_result+"p_ar.csv", p_val, delimiter=",")
+np.savetxt(path_result+"p_val.csv", p_ar, delimiter=",")
+np.savetxt(path_result+"mi_val.csv", mi_val, delimiter=",")
+np.savetxt(path_result+"mi_ar.csv", mi_ar, delimiter=",")
+np.savetxt(path_result+"rf_val.csv", rf_val, delimiter=",")
+np.savetxt(path_result+"rf_ar.csv", rf_ar, delimiter=",")

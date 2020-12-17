@@ -20,7 +20,7 @@ class DataFetch:
         self.multiple = multiple
         self.ECG_N = ECG_N
 
-        self.data_train = self.readData(pd.read_csv(train_file), KD)
+        self.data_train = self.readData(pd.read_csv(train_file), KD, True)
         self.data_val = self.readData(pd.read_csv(validation_file), KD)
         self.data_test = self.readData(pd.read_csv(test_file), KD)
 
@@ -65,7 +65,7 @@ class DataFetch:
             i += 1
 
 
-    def readData(self, features_list, KD):
+    def readData(self, features_list, KD, training=False):
         data_set = []
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
@@ -103,12 +103,24 @@ class DataFetch:
                     # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
                     # ecg = (ecg -  1223.901793051745) / 1068.7720750244841
                     ecg = ecg / (4095 - 0)
+                    if training:
+                        ecg = self.randomECG(ecg)
+                    else:
+                        ecg = ecg[-self.ECG_N:]
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class,  ecg[-self.ECG_N:]])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class,  ecg])
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class])
 
         return data_set
+
+    def randomECG(self, ecg):
+        diff_n = len(ecg) - self.ECG_N
+        start = np.random.randint(1, diff_n, size=1)[0]
+        end = start + self.ECG_N
+
+        return ecg[start:end]
+
 
 
 class DataFetchPreTrain:

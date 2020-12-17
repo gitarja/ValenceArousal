@@ -114,6 +114,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.multi_cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
                                                                         reduction=tf.keras.losses.Reduction.NONE)
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+        self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
 
 
     def forward(self, x, dense, norm=None, activation=None):
@@ -148,13 +149,14 @@ class EnsembleStudentOneDim(tf.keras.Model):
         z_ar, z_val, z = self.call(X, training=training)
         y_ar_t = tf.nn.sigmoid(y_ar_t)
         y_val_t = tf.nn.sigmoid(y_val_t)
-        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar) + (alpha * self.cross_loss(y_ar_t, z_ar)), global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val) + (alpha  * self.cross_loss(y_val_t, z_val)), global_batch_size=global_batch_size)
-
+        beta = 1 -alpha
+        final_loss_ar = tf.nn.compute_average_loss((alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss((alpha * self.cross_loss(y_val, z_val)) + (beta  * self.cross_loss(y_val_t, z_val)), global_batch_size=global_batch_size)
+        final_loss_rec = tf.nn.compute_average_loss(self.cos_loss(z_t, z), global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        final_loss = final_loss_ar + final_loss_val
+        final_loss = (0.5 * (final_loss_ar + final_loss_val)) + (0.5 * final_loss_rec)
         return final_loss, predictions_ar, predictions_val
 
     def test(self, X, y_ar, y_val, th, global_batch_size, training=False):
@@ -174,7 +176,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
     def __init__(self, num_output=4, pretrain=True):
-        super(EnsembleStudentOneDim, self).__init__(self)
+        super(EnsembleStudentOneDim_MClass, self).__init__(self)
         self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
                                                padding="same", trainable=pretrain)
         self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
@@ -215,7 +217,7 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
 
         #dropout
-        self.dropout_1 = tf.keras.layers.Dropout(0.3)
+        self.dropout_1 = tf.keras.layers.Dropout(0.15)
 
         # loss
         # loss
@@ -247,7 +249,7 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
         # print(z.shape)
         logit = self.flat(z)
-        logit = self.elu(self.class_1(logit))
+        logit = self.dropout_1(self.elu(self.class_1(logit)))
         logit = self.logit(logit)
 
         return logit, z
@@ -255,9 +257,9 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
     def trainM(self, X, y, y_t, z_t, T, alpha, global_batch_size, training=False):
         logit, z = self.call(X, training=training)
-        y_t = tf.nn.softmax(y_t / T)
-        final_loss = tf.nn.compute_average_loss(self.sparse_cross_loss(y, logit) + (alpha * self.cross_loss(y_t, logit / T)), global_batch_size=global_batch_size)
-
+        y_t = tf.nn.softmax(y_t / T, -1)
+        beta = 1 - alpha
+        final_loss = tf.nn.compute_average_loss((alpha * self.sparse_cross_loss(y, logit)) + (beta * self.multi_cross_loss(y_t, logit / T)), global_batch_size=global_batch_size)
         prediction = tf.argmax(tf.nn.softmax(logit, -1), -1)
 
         return final_loss, prediction
@@ -265,8 +267,7 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
     def test(self, X, y, global_batch_size, training=False):
         logit, z = self.call(X, training=training)
 
-
-        final_loss = tf.nn.compute_average_loss(self.cross_loss(y, logit) , global_batch_size=global_batch_size)
+        final_loss = tf.nn.compute_average_loss(self.sparse_cross_loss(y, logit) , global_batch_size=global_batch_size)
         prediction = tf.argmax(tf.nn.softmax(logit, -1), -1)
 
         return final_loss, prediction

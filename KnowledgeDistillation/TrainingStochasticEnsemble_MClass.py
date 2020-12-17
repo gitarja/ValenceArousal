@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel_MClass
 from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import valArLevelToLabels
@@ -25,7 +25,7 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output = 1
+num_output = 4
 initial_learning_rate = 1e-3
 EPOCHS = 50
 BATCH_SIZE = 128
@@ -81,7 +81,7 @@ for fold in range(1, 6):
         tf.TensorShape([FEATURES_N]), (), (), ()))
 
     with strategy.scope():
-        model = EnsembleSeparateModel(num_output=num_output)
+        model = EnsembleSeparateModel_MClass(num_output=num_output)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -95,11 +95,9 @@ for fold in range(1, 6):
         vald_loss = tf.keras.metrics.Mean()
 
         # accuracy
-        train_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        train_val_acc = tf.keras.metrics.BinaryAccuracy()
+        train_acc = tf.keras.metrics.Accuracy()
 
-        vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        vald_val_acc = tf.keras.metrics.BinaryAccuracy()
+        vald_acc = tf.keras.metrics.Accuracy()
 
 
 
@@ -112,13 +110,10 @@ for fold in range(1, 6):
         def train_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[0]
             # print(X)
-            y_ar = tf.expand_dims(inputs[1], -1)
-            y_val = tf.expand_dims(inputs[2], -1)
+            y = tf.expand_dims(inputs[3], -1)
 
             with tf.GradientTape() as tape_ar:
-               final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,
-                                                                                                            0.55,
-                                                                                                            GLOBAL_BATCH_SIZE, training=True)
+               final_loss, prediction, loss_ori = model.trainSMCL(X, y, GLOBAL_BATCH_SIZE, training=True)
 
             # update gradient
             grads = tape_ar.gradient(final_loss, model.trainable_weights)
@@ -127,26 +122,20 @@ for fold in range(1, 6):
             train_loss(loss_ori)
 
             #accuracy
-            train_ar_acc(y_ar, prediction_ar)
-            train_val_acc(y_val, prediction_val)
+            train_acc(y, prediction)
+
 
             return final_loss
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[0]
-            y_ar = tf.expand_dims(inputs[1], -1)
-            y_val = tf.expand_dims(inputs[2], -1)
+            y = tf.expand_dims(inputs[3], -1)
 
-            final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,
-                                                                                                        0.55,
-                                                                                                        GLOBAL_BATCH_SIZE, training=False)
+            final_loss, prediction, loss_ori = model.trainSMCL(X, y, GLOBAL_BATCH_SIZE, training=False)
             vald_loss(final_loss)
 
-            vald_ar_acc(y_ar, prediction_ar)
-            vald_val_acc(y_val, prediction_val)
-
-
+            vald_acc(y, prediction)
 
 
 
@@ -155,14 +144,11 @@ for fold in range(1, 6):
 
         def train_reset_states():
             train_loss.reset_states()
-            train_ar_acc.reset_states()
-            train_val_acc.reset_states()
+            train_acc.reset_states()
 
         def vald_reset_states():
             vald_loss.reset_states()
-            vald_ar_acc.reset_states()
-            vald_val_acc.reset_states()
-
+            vald_acc.reset_states()
 
 
 
@@ -196,8 +182,8 @@ for fold in range(1, 6):
 
             with train_summary_writer.as_default():
                 tf.summary.scalar('Loss', train_loss.result(), step=epoch)
-                tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
+                tf.summary.scalar('Accuracy', train_acc.result(), step=epoch)
+
 
 
 
@@ -207,8 +193,7 @@ for fold in range(1, 6):
 
             with test_summary_writer.as_default():
                 tf.summary.scalar('Loss', vald_loss.result(), step=epoch)
-                tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
-                tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
+                tf.summary.scalar('Accuracy', vald_acc.result(), step=epoch)
 
 
             template = (

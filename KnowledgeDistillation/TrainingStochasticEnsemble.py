@@ -37,11 +37,11 @@ wait = 5
 for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "fold"+str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "Binary\\fold"+str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = TENSORBOARD_PATH + current_time + '/train'
-    test_log_dir = TENSORBOARD_PATH + current_time + '/test'
+    train_log_dir = TENSORBOARD_PATH +  "\\Binary\\" + current_time + '/train'
+    test_log_dir = TENSORBOARD_PATH +  "\\Binary\\"  + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
