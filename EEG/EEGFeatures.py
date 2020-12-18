@@ -138,12 +138,12 @@ class EEGFeatures:
         n = 4000
         x = rollingWindow(x, size=n)
         # m = np.mean(np.mean(x, 1).flatten())
-        std = np.mean(np.mean(x, 1).flatten())
+        # std = np.mean(np.mean(x, 1).flatten())
         rms = np.mean(self.meanSquare(x, 1).flatten())
         hjrot = self.hjort(x)
         maxPsd = np.mean(self.maxPSD(x))
         power = self.power(x)
-        return np.array([std, rms, hjrot, maxPsd, power])
+        return np.array([rms, hjrot, maxPsd, power])
 
     def bandPower(self, x, bands, fs):
         return pyeeg.bin_power(x, bands, fs)

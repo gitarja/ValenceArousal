@@ -15,7 +15,7 @@ min_eeg_len = SPLIT_TIME * FS_EEG - 100
 downsample_eeg_len = SPLIT_TIME * 200
 for folder in glob.glob(DATASET_PATH + "*"):
 
-    for subject in glob.glob(folder + "\\*D4-2020-*"):
+    for subject in glob.glob(folder + "\\*-2020-10-*"):
         print(subject)
         try:
             os.makedirs(subject + EEG_PATH, exist_ok=True)
