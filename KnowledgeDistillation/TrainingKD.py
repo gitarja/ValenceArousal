@@ -28,8 +28,8 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 # setting
 num_output_ar = 1
 num_output_val = 1
-initial_learning_rate = 0.55e-3
-EPOCHS = 500
+initial_learning_rate = 1e-3
+EPOCHS = 200
 PRE_EPOCHS = 100
 BATCH_SIZE = 128
 th = 0.5
@@ -40,11 +40,11 @@ EXPECTED_ECG_SIZE = (96, 96)
 for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "KD\\fold" + str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "Binary\\KD\\fold" + str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = TENSORBOARD_PATH + "KD\\" + current_time + '/train'
-    test_log_dir = TENSORBOARD_PATH + "KD\\" + current_time + '/test'
+    train_log_dir = TENSORBOARD_PATH + "\\Binary\\KD\\" + current_time + '/train'
+    test_log_dir = TENSORBOARD_PATH + "\\Binary\\KD\\" + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
@@ -87,7 +87,7 @@ for fold in range(1, 6):
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         # load pretrained model
-        checkpoint_prefix_base = CHECK_POINT_PATH + "fold" + str(fold)
+        checkpoint_prefix_base = CHECK_POINT_PATH + "Binary\\fold" + str(fold)
         teacher_model = EnsembleSeparateModel(num_output=1).loadBaseModel(checkpoint_prefix_base)
         model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
 
@@ -106,10 +106,10 @@ for fold in range(1, 6):
 
         # accuracy
         train_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        train_val_acc = tf.keras.metrics.Accuracy()
+        train_val_acc = tf.keras.metrics.BinaryAccuracy()
 
         vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
-        vald_val_acc = tf.keras.metrics.Accuracy()
+        vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
         # precision
         train_ar_pre = tf.keras.metrics.Precision()
@@ -143,8 +143,8 @@ for fold in range(1, 6):
             with tf.GradientTape() as tape:
                 ar_logit, val_logit, z = teacher_model.predictKD(X_t)
                 loss, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, z,
-                                                                  0.55, 0.3,
-                                                                  GLOBAL_BATCH_SIZE, training=True)
+                                                                  th=0.55, alpha=0.9,
+                                                                  global_batch_size=GLOBAL_BATCH_SIZE, training=True)
                 final_loss = loss
 
             # update gradient
@@ -286,13 +286,21 @@ for fold in range(1, 6):
             train_reset_states()
             vald_reset_states()
 
-    print("-------------------------------------------Testing----------------------------------------------")
-    for step, test in enumerate(test_data):
-        distributed_test_step(test, data_fetch.test_n)
-    template = (
-        "Test: loss: {}, arr_acc: {}, val_acc: {}")
-    print(template.format(
-        val_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
+        print("-------------------------------------------Testing----------------------------------------------")
+        vald_reset_states()
+        for step, test in enumerate(test_data):
+            distributed_test_step(test, data_fetch.test_n)
+        template = (
+            "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
+        print(template.format(
+            val_loss.result().numpy(),
+            vald_ar_acc.result().numpy(),
+            vald_ar_pre.result().numpy(),
+            vald_ar_rec.result().numpy(),
+            vald_val_acc.result().numpy(),
+            vald_val_pre.result().numpy(),
+            vald_val_rec.result().numpy(),
+        ))
 
-    vald_reset_states()
-    print("-----------------------------------------------------------------------------------------")
+        vald_reset_states()
+        print("-----------------------------------------------------------------------------------------")

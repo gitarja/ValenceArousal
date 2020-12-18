@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from Libs.Utils import valArLevelToLabels, convertLabels
+from Libs.Utils import arToLabels, valToLabels, convertLabels
 import glob
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE
@@ -29,10 +29,10 @@ all_ori_features = []
 for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
-            features_list = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
-            features_list_ori = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
-            features_list["Valence"] = features_list["Valence"].apply(valArLevelToLabels)
-            features_list["Arousal"] = features_list["Arousal"].apply(valArLevelToLabels)
+            features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
+            features_list_ori = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
+            features_list["Valence"] = features_list["Valence"].apply(arToLabels)
+            features_list["Arousal"] = features_list["Arousal"].apply(valToLabels)
             all_features.append(features_list)
             all_ori_features.append(features_list_ori)
         except:

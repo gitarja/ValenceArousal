@@ -36,10 +36,10 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 EXPECTED_ECG_SIZE = (96, 96)
 
-for fold in range(1, 6):
+for fold in range(1, 2):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "KD\\fold" + str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "KD\\fold_M" + str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = TENSORBOARD_PATH + "KD\\" + current_time + '/train'
@@ -54,39 +54,39 @@ for fold in range(1, 6):
     testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=True)
+                           ECG_N=ECG_RAW_N, KD=True, multiple=True)
     generator = data_fetch.fetch
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32,  tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.int32, tf.int32,  tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         # load pretrained model
-        checkpoint_prefix_base = CHECK_POINT_PATH + "fold" + str(fold)
+        checkpoint_prefix_base = CHECK_POINT_PATH + "fold_M" + str(fold)
         teacher_model = EnsembleSeparateModel_MClass(num_output=num_output).loadBaseModel(checkpoint_prefix_base)
         model = EnsembleStudentOneDim_MClass(num_output=num_output)
 
@@ -123,7 +123,7 @@ for fold in range(1, 6):
             y = tf.expand_dims(inputs[3], -1)
             with tf.GradientTape() as tape:
                 logit, z = teacher_model.predictKD(X_t)
-                loss, prediction = model.trainM(X, y, logit, z, 0.3,
+                loss, prediction = model.trainM(X, y=y, y_t=logit, z_t=z, T=3, alpha=0.9, global_batch_size=
                                                                   GLOBAL_BATCH_SIZE, training=True)
                 final_loss = loss
 

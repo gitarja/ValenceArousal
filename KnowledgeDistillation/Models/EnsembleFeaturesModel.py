@@ -439,6 +439,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         logits = self.call(X, training=False)
 
         logit = tf.reduce_mean(logits[0], axis=0)
+
         z = tf.reduce_mean(logits[2], axis=0)
 
         return logit, z
@@ -472,9 +473,9 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
 
-        logits = tf.concat([logit_eda, logit_ecg, logit_ecg], axis=-1)
+        logits = tf.concat([tf.expand_dims(logit_eda, -1), tf.expand_dims(logit_ecg, -1), tf.expand_dims(logit_eeg, -1)], axis=-1)
 
-        predictions = self.voteMultiple(logits)
+        predictions = self.avgMultiple(logits)
 
         # average loss
 
@@ -516,7 +517,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
 
     def avgMultiple(self, y):
         predictions = tf.reduce_mean(y, -1)
-        prob = tf.nn.softmax(predictions)
+        prob = tf.nn.softmax(predictions, -1)
         labels = tf.argmax(prob, -1)
 
         return labels
