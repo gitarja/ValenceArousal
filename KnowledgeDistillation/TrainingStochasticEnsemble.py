@@ -37,11 +37,11 @@ wait = 5
 for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
-    checkpoint_prefix = CHECK_POINT_PATH + "Binary\\fold"+str(fold)
+    checkpoint_prefix = CHECK_POINT_PATH + "Binary_ECG\\fold"+str(fold)
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = TENSORBOARD_PATH +  "\\Binary\\" + current_time + '/train'
-    test_log_dir = TENSORBOARD_PATH +  "\\Binary\\"  + current_time + '/test'
+    train_log_dir = TENSORBOARD_PATH +  "\\Binary_ECG\\" + current_time + '/train'
+    test_log_dir = TENSORBOARD_PATH +  "\\Binary_ECG\\"  + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
@@ -81,7 +81,7 @@ for fold in range(1, 6):
         tf.TensorShape([FEATURES_N]), (), ()))
 
     with strategy.scope():
-        model = EnsembleSeparateModel(num_output=num_output)
+        model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N)
 
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
@@ -210,14 +210,14 @@ for fold in range(1, 6):
         # with the distributed input.
         @tf.function
         def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(train_step,
+            per_replica_losses = strategy.run(train_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)
 
 
         def distributed_test_step(dataset_inputs, GLOBAL_BATCH_SIZE):
-            per_replica_losses = strategy.experimental_run_v2(test_step,
+            per_replica_losses = strategy.run(test_step,
                                               args=(dataset_inputs, GLOBAL_BATCH_SIZE))
             return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                    axis=None)
