@@ -91,6 +91,7 @@ class DataFetch:
 
             # if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
             concat_features_norm = (concat_features - self.mean) / self.std
+
             # print(np.max(concat_features_norm))
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
@@ -110,7 +111,8 @@ class DataFetch:
                     # ecg = ecg /  2.0861534577149707
                     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class,  ecg])
             else:
-                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class])
+                # data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class])
+                data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set
 
