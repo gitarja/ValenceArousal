@@ -59,28 +59,28 @@ for fold in range(1, 2):
 
     train_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=0),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output]), tf.TensorShape([num_output]), tf.TensorShape([ECG_RAW_N])))
 
     val_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=1),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.int32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output]), tf.TensorShape([num_output]), tf.TensorShape([ECG_RAW_N])))
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.int32, tf.int32, tf.int32,  tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), tf.TensorShape([ECG_RAW_N])))
+        output_types=(tf.float32, tf.int32, tf.float32, tf.float32,  tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output]), tf.TensorShape([num_output]), tf.TensorShape([ECG_RAW_N])))
 
     # train dataset
     train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output]), tf.TensorShape([num_output]),  tf.TensorShape([ECG_RAW_N])))
 
     val_data = val_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output]), tf.TensorShape([num_output]),  tf.TensorShape([ECG_RAW_N])))
 
     test_data = test_generator.padded_batch(BATCH_SIZE, padded_shapes=(
-        tf.TensorShape([FEATURES_N]), (), (), (),  tf.TensorShape([ECG_RAW_N])))
+        tf.TensorShape([FEATURES_N]),tf.TensorShape([num_output]), tf.TensorShape([num_output]),  tf.TensorShape([ECG_RAW_N])))
 
     with strategy.scope():
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
@@ -99,15 +99,17 @@ for fold in range(1, 2):
         # ---------------------------Epoch&Loss--------------------------#
         # loss
         train_loss = tf.keras.metrics.Mean()
-        val_loss = tf.keras.metrics.Mean()
+        vald_loss = tf.keras.metrics.Mean()
 
         pre_trained_loss = tf.keras.metrics.Mean()
 
+
         # accuracy
-        train_acc = tf.keras.metrics.Accuracy()
+        train_ar_acc = tf.keras.metrics.BinaryAccuracy()
+        train_val_acc = tf.keras.metrics.BinaryAccuracy()
 
-        vald_acc = tf.keras.metrics.Accuracy()
-
+        vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
+        vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, base_model=model)
@@ -120,12 +122,13 @@ for fold in range(1, 2):
             X_t = inputs[0]
             X = inputs[-1]
             # print(X)
-            y = tf.expand_dims(inputs[3], -1)
+            y_ar = tf.expand_dims(inputs[1], -1)
+            y_val = tf.expand_dims(inputs[2], -1)
+
             with tf.GradientTape() as tape:
-                logit, z = teacher_model.predictKD(X_t)
-                loss, prediction = model.trainM(X, y=y, y_t=logit, z_t=z, T=3, alpha=0.9, global_batch_size=
+                ar_logit, val_logit, z = teacher_model.predictKD(X_t)
+                final_loss, prediction_ar, prediction_val = model.trainM(X,  y_ar, y_val, ar_logit, val_logit, z, T=3, alpha=0.9, global_batch_size=
                                                                   GLOBAL_BATCH_SIZE, training=True)
-                final_loss = loss
 
             # update gradient
             grads = tape.gradient(final_loss, model.trainable_weights)
@@ -133,36 +136,41 @@ for fold in range(1, 2):
 
 
 
-            train_loss(loss)
-            train_acc(y, prediction)
+            train_loss(final_loss)
+            train_ar_acc(y_ar, prediction_ar)
+            train_val_acc(y_val, prediction_val)
 
-            return loss
+            return final_loss
 
 
         def test_step(inputs, GLOBAL_BATCH_SIZE=0):
             X = inputs[-1]
             # X = base_model.extractFeatures(inputs[-1])
-            y = tf.expand_dims(inputs[3], -1)
+            y_ar = tf.expand_dims(inputs[1], -1)
+            y_val = tf.expand_dims(inputs[2], -1)
 
-            loss, prediction = model.test(X, y,  GLOBAL_BATCH_SIZE, training=False)
-            val_loss(loss)
+            final_loss, prediction_ar, prediction_val= model.test(X, y_ar, y_val,  GLOBAL_BATCH_SIZE, training=False)
+            vald_loss(final_loss)
 
-            vald_acc(y, prediction)
+            vald_ar_acc(y_ar, prediction_ar)
+            vald_val_acc(y_val, prediction_val)
 
 
 
-            return loss
+            return final_loss
 
 
         def train_reset_states():
             train_loss.reset_states()
-            train_acc.reset_states()
+            train_ar_acc.reset_states()
+            train_val_acc.reset_states()
 
 
 
         def vald_reset_states():
-            val_loss.reset_states()
-            vald_acc.reset_states()
+            vald_loss.reset_states()
+            vald_ar_acc.reset_states()
+            vald_val_acc.reset_states()
 
 
     with strategy.scope():
@@ -197,24 +205,26 @@ for fold in range(1, 2):
 
             with train_summary_writer.as_default():
                 tf.summary.scalar('Loss', train_loss.result(), step=epoch)
-                tf.summary.scalar('Accuracy', train_acc.result(), step=epoch)
+                tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
+                tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
 
             for step, val in enumerate(val_data):
                 distributed_test_step(val, data_fetch.val_n)
 
             with test_summary_writer.as_default():
-                tf.summary.scalar('Loss', val_loss.result(), step=epoch)
-                tf.summary.scalar('Accuracy', vald_acc.result(), step=epoch)
+                tf.summary.scalar('Loss', vald_loss.result(), step=epoch)
+                tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
+                tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
 
 
             template = (
                 "epoch {} | Train_loss: {} | Val_loss: {}")
-            print(template.format(epoch + 1, train_loss.result().numpy(), val_loss.result().numpy()))
+            print(template.format(epoch + 1, train_loss.result().numpy(), vald_loss.result().numpy()))
 
             # Save model
 
-            if (prev_val_loss > val_loss.result().numpy()):
-                prev_val_loss = val_loss.result().numpy()
+            if (prev_val_loss > vald_loss.result().numpy()):
+                prev_val_loss = vald_loss.result().numpy()
                 wait_i = 0
                 manager.save()
             else:
@@ -229,9 +239,9 @@ for fold in range(1, 2):
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: loss: {}, acc: {}")
+        "Test: loss: {}, arousal acc: {}, valence acc: {}")
     print(template.format(
-        val_loss.result().numpy(), vald_acc.result().numpy()))
+        vald_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")
