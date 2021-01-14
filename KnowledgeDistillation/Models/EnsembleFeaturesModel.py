@@ -458,21 +458,17 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         # compute AR and VAL logits
         logits = self.call(X, training)
 
-        ar_logit_med, ar_logit_small, ar_logit_large = logits[0]
-        val_logit_med, val_logit_small, val_logit_large = logits[1]
+        ar_logit_small, ar_logit_med, ar_logit_large = logits[0]
+        val_logit_small, val_logit_med, val_logit_large = logits[1]
         x_med, x_small, x_large = logits[2]
 
-        # print(z_smallResp_val.shape)
+        # logit mean
+        logit_ar_mean = tf.reduce_mean(logits[0], -1)
+        logit_val_mean = tf.reduce_mean(logits[1], -1)
 
         # compute AR loss and AR acc
-        losses_ar = tf.concat(
-            [self.loss(ar_logit_med, y_ar), self.loss(ar_logit_small, y_ar), self.loss(ar_logit_large, y_ar)],
-            axis=-1)
-
-        # compute VAL loss and VAL ACC
-        losses_val = tf.concat(
-            [self.loss(val_logit_med, y_val), self.loss(val_logit_small, y_val), self.loss(val_logit_large, y_val)],
-            axis=-1)
+        losses_ar = self.multi_cross_loss(y_ar, logit_ar_mean)
+        losses_val = self.multi_cross_loss(y_val, logit_val_mean)
 
         # compute rec loss
 
@@ -487,13 +483,8 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
 
-        logits_ar = tf.concat([ar_logit_med, ar_logit_small, ar_logit_small], axis=-1)
-        logits_val = tf.concat([val_logit_med, val_logit_small, val_logit_large], axis=-1)
-
-        predictions_ar = self.vote(logits_ar, th)
-        predictions_val = self.vote(logits_val, th)
-
-
+        predictions_ar = self.vote(logit_ar_mean, th)
+        predictions_val = self.vote(logit_val_mean, th)
 
         final_loss_train = final_losses_ar + final_losses_val + final_rec_loss
 

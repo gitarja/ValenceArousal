@@ -52,7 +52,7 @@ for fold in range(1, 6):
     testing_data = DATASET_PATH + "test_data_"+str(fold)+".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=False, multiple=True)
+                           ECG_N=ECG_RAW_N, KD=False, multiple=False, soft=True)
     generator = data_fetch.fetch
 
     train_generator = tf.data.Dataset.from_generator(

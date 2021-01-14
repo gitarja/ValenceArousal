@@ -4,13 +4,22 @@ from datetime import datetime
 from scipy import signal
 
 
-def valArLevelToLabels(y):
-    if (y < 3):
-        return 0
-    elif (y == 3):
-        return 1
+def valArToLabels(y, soft=False):
+    if soft is False:
+        if (y < 3):
+            return 0
+        elif (y == 3):
+            return 1
+        else:
+            return 2
+
     else:
-        return 2
+        if y >= 2 & y <= 4:
+            return np.array([0.1, 0.8, 0.1])
+        elif (y < 2):
+            return np.array([0.8, 0.2, 0])
+        else:
+            return np.array([0.0, 0.2, 0.8])
 
 
 def arToLabels(y):
