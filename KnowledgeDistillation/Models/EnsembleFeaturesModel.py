@@ -1,77 +1,76 @@
 import tensorflow as tf
-from Conf.Settings import EDA_N, PPG_N, Resp_N, ECG_Resp_N, ECG_N, EEG_N
 
 
 class EnsembleSeparateModel(tf.keras.Model):
 
-    def __init__(self, num_output=4, eda_length=1102, ecg_length=48, eeg_length=1330, features_length=2480):
+    def __init__(self, num_output=4, features_length=2480):
         super(EnsembleSeparateModel, self).__init__(self)
 
         # ensemble
         # EDA
         # encoder
-        self.eda_en_1 = tf.keras.layers.Dense(units=64, name="eda_en_1")
-        self.eda_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eda_en_2 = tf.keras.layers.Dense(units=32, name="eda_en_2")
-        self.eda_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eda_en_3 = tf.keras.layers.Dense(units=32, name="eda_en_3")
-        self.eda_en_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eda_en_4 = tf.keras.layers.Dense(units=16, name="eda_en_4")
-        self.eda_en_batch_4 = tf.keras.layers.BatchNormalization()
+        self.med_en_1 = tf.keras.layers.Dense(units=64, name="med_en_1")
+        self.med_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.med_en_2 = tf.keras.layers.Dense(units=32, name="med_en_2")
+        self.med_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.med_en_3 = tf.keras.layers.Dense(units=32, name="med_en_3")
+        self.med_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.med_en_4 = tf.keras.layers.Dense(units=16, name="med_en_4")
+        self.med_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.eda_de_1 = tf.keras.layers.Dense(units=32, name="eda_de_1")
-        self.eda_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eda_de_2 = tf.keras.layers.Dense(units=32, name="eda_de_2")
-        self.eda_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eda_de_3 = tf.keras.layers.Dense(units=64, name="eda_de_3")
-        self.eda_de_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eda_de_4 = tf.keras.layers.Dense(units=features_length, name="eda_de_4", activation=None)
+        self.med_de_1 = tf.keras.layers.Dense(units=32, name="med_de_1")
+        self.med_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.med_de_2 = tf.keras.layers.Dense(units=32, name="med_de_2")
+        self.med_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.med_de_3 = tf.keras.layers.Dense(units=64, name="med_de_3")
+        self.med_de_batch_3 = tf.keras.layers.BatchNormalization()
+        self.med_de_4 = tf.keras.layers.Dense(units=features_length, name="med_de_4", activation=None)
         # classifer
-        self.eda_class1 = tf.keras.layers.Dense(units=32, name="eda_de_3")
-        self.eda_ar_logit = tf.keras.layers.Dense(units=num_output, name="eda_ar_logit", activation=None)
-        self.eda_val_logit = tf.keras.layers.Dense(units=num_output, name="eda_val_logit", activation=None)
+        self.med_class1 = tf.keras.layers.Dense(units=32, name="med_de_3")
+        self.med_ar_logit = tf.keras.layers.Dense(units=num_output, name="med_ar_logit", activation=None)
+        self.med_val_logit = tf.keras.layers.Dense(units=num_output, name="med_val_logit", activation=None)
 
         # ECG
         # encoder
-        self.ecg_en_1 = tf.keras.layers.Dense(units=64, name="ecg_en_1")
-        self.ecg_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.ecg_en_2 = tf.keras.layers.Dense(units=32, name="ecg_en_2")
-        self.ecg_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.ecg_en_3 = tf.keras.layers.Dense(units=32, name="ecg_en_3")
-        self.ecg_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.small_en_1 = tf.keras.layers.Dense(units=64, name="small_en_1")
+        self.small_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.small_en_2 = tf.keras.layers.Dense(units=32, name="small_en_2")
+        self.small_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.small_en_3 = tf.keras.layers.Dense(units=32, name="small_en_3")
+        self.small_en_batch_3 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.ecg_de_1 = tf.keras.layers.Dense(units=32, name="ecg_de_1")
-        self.ecg_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.ecg_de_2 = tf.keras.layers.Dense(units=64, name="ecg_de_2")
-        self.ecg_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.ecg_de_3 = tf.keras.layers.Dense(units=features_length, name="ecg_de_3")
+        self.small_de_1 = tf.keras.layers.Dense(units=32, name="small_de_1")
+        self.small_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.small_de_2 = tf.keras.layers.Dense(units=64, name="small_de_2")
+        self.small_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.small_de_3 = tf.keras.layers.Dense(units=features_length, name="small_de_3")
         # classifier
-        self.ecg_class1 = tf.keras.layers.Dense(units=32, name="ecg_class1")
-        self.ecg_ar_logit = tf.keras.layers.Dense(units=num_output, name="ecg_ar_logit", activation=None)
-        self.ecg_val_logit = tf.keras.layers.Dense(units=num_output, name="ecg_val_logit", activation=None)
+        self.small_class1 = tf.keras.layers.Dense(units=32, name="small_class1")
+        self.small_ar_logit = tf.keras.layers.Dense(units=num_output, name="small_ar_logit", activation=None)
+        self.small_val_logit = tf.keras.layers.Dense(units=num_output, name="small_val_logit", activation=None)
 
         # EEG
         # encoder
-        self.eeg_en_1 = tf.keras.layers.Dense(units=128, name="eeg_en_1")
-        self.eeg_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_2 = tf.keras.layers.Dense(units=64, name="eeg_en_2")
-        self.eeg_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_3 = tf.keras.layers.Dense(units=32, name="eeg_en_3")
-        self.eeg_en_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_4 = tf.keras.layers.Dense(units=16, name="eeg_en_4")
-        self.eeg_en_batch_4 = tf.keras.layers.BatchNormalization()
+        self.large_en_1 = tf.keras.layers.Dense(units=128, name="large_en_1")
+        self.large_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.large_en_2 = tf.keras.layers.Dense(units=64, name="large_en_2")
+        self.large_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.large_en_3 = tf.keras.layers.Dense(units=32, name="large_en_3")
+        self.large_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.large_en_4 = tf.keras.layers.Dense(units=16, name="large_en_4")
+        self.large_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.eeg_de_1 = tf.keras.layers.Dense(units=32, name="eeg_de_1")
-        self.eeg_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_2 = tf.keras.layers.Dense(units=64, name="eeg_de_2")
-        self.eeg_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_3 = tf.keras.layers.Dense(units=128, name="eeg_de_3")
-        self.eeg_de_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_4 = tf.keras.layers.Dense(units=features_length, name="eeg_de_4")
+        self.large_de_1 = tf.keras.layers.Dense(units=32, name="large_de_1")
+        self.large_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.large_de_2 = tf.keras.layers.Dense(units=64, name="large_de_2")
+        self.large_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.large_de_3 = tf.keras.layers.Dense(units=128, name="large_de_3")
+        self.large_de_batch_3 = tf.keras.layers.BatchNormalization()
+        self.large_de_4 = tf.keras.layers.Dense(units=features_length, name="large_de_4")
         # classifier
-        self.eeg_class1 = tf.keras.layers.Dense(units=32, name="eeg_class1")
-        self.eeg_ar_logit = tf.keras.layers.Dense(units=num_output, name="eeg_ar_logit", activation=None)
-        self.eeg_val_logit = tf.keras.layers.Dense(units=num_output, name="eeg_val_logit", activation=None)
+        self.large_class1 = tf.keras.layers.Dense(units=32, name="large_class1")
+        self.large_ar_logit = tf.keras.layers.Dense(units=num_output, name="large_ar_logit", activation=None)
+        self.large_val_logit = tf.keras.layers.Dense(units=num_output, name="large_val_logit", activation=None)
 
         # activation
         self.activation = tf.keras.layers.ELU()
@@ -95,72 +94,72 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def forwardMedium(self, inputs):
         # encode
-        x = self.forward(inputs, self.eda_en_1, self.activation, batch_norm=self.eda_en_batch_1)
-        x = self.forward(x, self.eda_en_2, self.activation, batch_norm=self.eda_en_batch_2)
-        x = self.forward(x, self.eda_en_3, self.activation, batch_norm=self.eda_en_batch_3)
-        z = self.forward(x, self.eda_en_4, self.activation, batch_norm=self.eda_en_batch_4)
+        x = self.forward(inputs, self.med_en_1, self.activation, batch_norm=self.med_en_batch_1)
+        x = self.forward(x, self.med_en_2, self.activation, batch_norm=self.med_en_batch_2)
+        x = self.forward(x, self.med_en_3, self.activation, batch_norm=self.med_en_batch_3)
+        z = self.forward(x, self.med_en_4, self.activation, batch_norm=self.med_en_batch_4)
 
         # decode
-        x = self.forward(z, self.eda_de_1, self.activation, batch_norm=self.eda_de_batch_1)
-        x = self.forward(x, self.eda_de_2, self.activation, batch_norm=self.eda_de_batch_2)
-        x = self.forward(x, self.eda_de_3, self.activation, batch_norm=self.eda_de_batch_3)
-        x = self.eda_de_4(x)
+        x = self.forward(z, self.med_de_1, self.activation, batch_norm=self.med_de_batch_1)
+        x = self.forward(x, self.med_de_2, self.activation, batch_norm=self.med_de_batch_2)
+        x = self.forward(x, self.med_de_3, self.activation, batch_norm=self.med_de_batch_3)
+        x = self.med_de_4(x)
 
         # classify
-        z_eda = self.forward(z, self.eda_class1, self.activation, self.dropout2)
-        ar_logit = self.eda_ar_logit(z_eda)
-        val_logit = self.eda_val_logit(z_eda)
-        return ar_logit, val_logit, x, z_eda
+        z_med = self.forward(z, self.med_class1, self.activation, self.dropout2)
+        ar_logit = self.med_ar_logit(z_med)
+        val_logit = self.med_val_logit(z_med)
+        return ar_logit, val_logit, x, z_med
 
     def forwardSmall(self, inputs):
         # encode
-        x = self.forward(inputs, self.ecg_en_1, self.activation, batch_norm=self.ecg_en_batch_1)
-        x = self.forward(x, self.ecg_en_2, self.activation, batch_norm=self.ecg_en_batch_2)
-        z = self.forward(x, self.ecg_en_3, self.activation, batch_norm=self.ecg_en_batch_3)
+        x = self.forward(inputs, self.small_en_1, self.activation, batch_norm=self.small_en_batch_1)
+        x = self.forward(x, self.small_en_2, self.activation, batch_norm=self.small_en_batch_2)
+        z = self.forward(x, self.small_en_3, self.activation, batch_norm=self.small_en_batch_3)
 
         # decode
-        x = self.forward(z, self.ecg_de_1, self.activation, batch_norm=self.ecg_de_batch_1)
-        x = self.forward(x, self.ecg_de_2, self.activation, batch_norm=self.ecg_de_batch_2)
-        x = self.ecg_de_3(x)
+        x = self.forward(z, self.small_de_1, self.activation, batch_norm=self.small_de_batch_1)
+        x = self.forward(x, self.small_de_2, self.activation, batch_norm=self.small_de_batch_2)
+        x = self.small_de_3(x)
 
         # classify
-        z_ecg = self.forward(z, self.ecg_class1, self.activation, self.dropout2)
-        ar_logit = self.ecg_ar_logit(z_ecg)
-        val_logit = self.ecg_val_logit(z_ecg)
-        return ar_logit, val_logit, x, z_ecg
+        z_small = self.forward(z, self.small_class1, self.activation, self.dropout2)
+        ar_logit = self.small_ar_logit(z_small)
+        val_logit = self.small_val_logit(z_small)
+        return ar_logit, val_logit, x, z_small
 
     def forwardLarge(self, inputs):
         # encode
-        x = self.forward(inputs, self.eeg_en_1, self.activation, batch_norm=self.eeg_en_batch_1)
-        x = self.forward(x, self.eeg_en_2, self.activation, batch_norm=self.eeg_en_batch_2)
-        x = self.forward(x, self.eeg_en_3, self.activation, batch_norm=self.eeg_en_batch_3)
-        z = self.forward(x, self.eeg_en_4, self.activation, batch_norm=self.eeg_en_batch_4)
+        x = self.forward(inputs, self.large_en_1, self.activation, batch_norm=self.large_en_batch_1)
+        x = self.forward(x, self.large_en_2, self.activation, batch_norm=self.large_en_batch_2)
+        x = self.forward(x, self.large_en_3, self.activation, batch_norm=self.large_en_batch_3)
+        z = self.forward(x, self.large_en_4, self.activation, batch_norm=self.large_en_batch_4)
 
         # encode
-        x = self.forward(z, self.eeg_de_1, self.activation, batch_norm=self.eeg_de_batch_1)
-        x = self.forward(x, self.eeg_de_2, self.activation, batch_norm=self.eeg_de_batch_2)
-        x = self.forward(x, self.eeg_de_3, self.activation, batch_norm=self.eeg_de_batch_3)
-        x = self.eeg_de_4(x)
+        x = self.forward(z, self.large_de_1, self.activation, batch_norm=self.large_de_batch_1)
+        x = self.forward(x, self.large_de_2, self.activation, batch_norm=self.large_de_batch_2)
+        x = self.forward(x, self.large_de_3, self.activation, batch_norm=self.large_de_batch_3)
+        x = self.large_de_4(x)
 
         # decode
-        z_eeg = self.forward(z, self.eeg_class1, self.activation, self.dropout2)
-        ar_logit = self.eeg_ar_logit(z_eeg)
-        val_logit = self.eeg_val_logit(z_eeg)
-        return ar_logit, val_logit, x, z_eeg
+        z_large = self.forward(z, self.large_class1, self.activation, self.dropout2)
+        ar_logit = self.large_ar_logit(z_large)
+        val_logit = self.large_val_logit(z_large)
+        return ar_logit, val_logit, x, z_large
 
     def call(self, inputs, training=None, mask=None):
 
-        # print(EDA_x)
+        # print(med_x)
         # EDA
-        ar_logit_eda, val_logit_eda, x_eda, z_eda = self.forwardMedium(inputs)
+        ar_logit_med, val_logit_med, x_med, z_med = self.forwardMedium(inputs)
         # PPG, ECG
-        ar_logit_ecg, val_logit_ecg, x_ecg, z_ecg = self.forwardSmall(inputs)
+        ar_logit_small, val_logit_small, x_small, z_small = self.forwardSmall(inputs)
         # EEG
-        ar_logit_eeg, val_logit_eeg, x_eeg, z_eeg = self.forwardLarge(inputs)
+        ar_logit_large, val_logit_large, x_large, z_large = self.forwardLarge(inputs)
 
-        return [ar_logit_eda, ar_logit_ecg, ar_logit_eeg], [val_logit_eda, val_logit_ecg, val_logit_eeg], [x_eda, x_ecg,
-                                                                                                           x_eeg], [
-                   z_eda, z_ecg, z_eeg]
+        return [ar_logit_med, ar_logit_small, ar_logit_large], [val_logit_med, val_logit_small, val_logit_large], [x_med, x_small,
+                                                                                                           x_large], [
+                   z_med, z_small, z_large]
 
     def predictKD(self, X):
         logits = self.call(X, training=False)
@@ -175,15 +174,15 @@ class EnsembleSeparateModel(tf.keras.Model):
         # compute AR and VAL logits
         logits = self.call(X, training)
 
-        ar_logit_eda, ar_logit_ecg, ar_logit_eeg = logits[0]
-        val_logit_eda, val_logit_ecg, val_logit_eeg = logits[1]
-        x_eda, x_ecg, x_eeg = logits[2]
+        ar_logit_med, ar_logit_small, ar_logit_large = logits[0]
+        val_logit_med, val_logit_small, val_logit_large = logits[1]
+        x_med, x_small, x_large = logits[2]
 
-        # print(z_ecgResp_val.shape)
+        # print(z_smallResp_val.shape)
 
         # compute AR loss and AR acc
         losses_ar = tf.concat(
-            [self.loss(ar_logit_eda, y_ar), self.loss(ar_logit_ecg, y_ar), self.loss(ar_logit_eeg, y_ar)],
+            [self.loss(ar_logit_med, y_ar), self.loss(ar_logit_small, y_ar), self.loss(ar_logit_large, y_ar)],
             axis=-1)
 
         p_ar = tf.math.argmin(losses_ar, axis=1)
@@ -193,12 +192,12 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # compute VAL loss and VAL ACC
         losses_val = tf.concat(
-            [self.loss(val_logit_eda, y_val), self.loss(val_logit_ecg, y_val), self.loss(val_logit_eeg, y_val)],
+            [self.loss(val_logit_med, y_val), self.loss(val_logit_small, y_val), self.loss(val_logit_large, y_val)],
             axis=-1)
 
         # compute rec loss
 
-        losses_rec = 0.33 * (self.rs_loss(X, x_eda) + self.rs_loss(X, x_ecg) + self.rs_loss(X, x_eeg))
+        losses_rec = 0.33 * (self.rs_loss(X, x_med) + self.rs_loss(X, x_small) + self.rs_loss(X, x_large))
 
         p_val = tf.math.argmin(losses_val, axis=1)
         mask_val = tf.one_hot(p_val, losses_val.shape.as_list()[1]) + 0.3
@@ -211,8 +210,8 @@ class EnsembleSeparateModel(tf.keras.Model):
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
 
-        logits_ar = tf.concat([ar_logit_eda, ar_logit_ecg, ar_logit_ecg], axis=-1)
-        logits_val = tf.concat([val_logit_eda, val_logit_ecg, val_logit_eeg], axis=-1)
+        logits_ar = tf.concat([ar_logit_med, ar_logit_small, ar_logit_small], axis=-1)
+        logits_val = tf.concat([val_logit_med, val_logit_small, val_logit_large], axis=-1)
 
         predictions_ar = self.vote(logits_ar, th)
         predictions_val = self.vote(logits_val, th)
@@ -288,65 +287,68 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         # ensemble
         # EDA
         # encoder
-        self.eda_en_1 = tf.keras.layers.Dense(units=64, name="eda_en_1")
-        self.eda_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eda_en_2 = tf.keras.layers.Dense(units=32, name="eda_en_2")
-        self.eda_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eda_en_3 = tf.keras.layers.Dense(units=32, name="eda_en_3")
-        self.eda_en_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eda_en_4 = tf.keras.layers.Dense(units=16, name="eda_en_4")
-        self.eda_en_batch_4 = tf.keras.layers.BatchNormalization()
+        self.med_en_1 = tf.keras.layers.Dense(units=64, name="med_en_1")
+        self.med_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.med_en_2 = tf.keras.layers.Dense(units=32, name="med_en_2")
+        self.med_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.med_en_3 = tf.keras.layers.Dense(units=32, name="med_en_3")
+        self.med_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.med_en_4 = tf.keras.layers.Dense(units=16, name="med_en_4")
+        self.med_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.eda_de_1 = tf.keras.layers.Dense(units=32, name="eda_de_1")
-        self.eda_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eda_de_2 = tf.keras.layers.Dense(units=32, name="eda_de_2")
-        self.eda_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eda_de_3 = tf.keras.layers.Dense(units=64, name="eda_de_3")
-        self.eda_de_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eda_de_4 = tf.keras.layers.Dense(units=features_length, name="eda_de_4", activation=None)
+        self.med_de_1 = tf.keras.layers.Dense(units=32, name="med_de_1")
+        self.med_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.med_de_2 = tf.keras.layers.Dense(units=32, name="med_de_2")
+        self.med_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.med_de_3 = tf.keras.layers.Dense(units=64, name="med_de_3")
+        self.med_de_batch_3 = tf.keras.layers.BatchNormalization()
+        self.med_de_4 = tf.keras.layers.Dense(units=features_length, name="med_de_4", activation=None)
         # classifer
-        self.eda_class1 = tf.keras.layers.Dense(units=32, name="eda_de_3")
-        self.eda_logit = tf.keras.layers.Dense(units=num_output, name="eda_ar_logit", activation=None)
+        self.med_class1 = tf.keras.layers.Dense(units=32, name="med_de_3")
+        self.med_ar_logit = tf.keras.layers.Dense(units=num_output, name="med_ar_logit", activation=None)
+        self.med_val_logit = tf.keras.layers.Dense(units=num_output, name="med_val_logit", activation=None)
 
         # ECG
         # encoder
-        self.ecg_en_1 = tf.keras.layers.Dense(units=64, name="ecg_en_1")
-        self.ecg_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.ecg_en_2 = tf.keras.layers.Dense(units=32, name="ecg_en_2")
-        self.ecg_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.ecg_en_3 = tf.keras.layers.Dense(units=32, name="ecg_en_3")
-        self.ecg_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.small_en_1 = tf.keras.layers.Dense(units=64, name="small_en_1")
+        self.small_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.small_en_2 = tf.keras.layers.Dense(units=32, name="small_en_2")
+        self.small_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.small_en_3 = tf.keras.layers.Dense(units=32, name="small_en_3")
+        self.small_en_batch_3 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.ecg_de_1 = tf.keras.layers.Dense(units=32, name="ecg_de_1")
-        self.ecg_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.ecg_de_2 = tf.keras.layers.Dense(units=64, name="ecg_de_2")
-        self.ecg_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.ecg_de_3 = tf.keras.layers.Dense(units=features_length, name="ecg_de_3")
+        self.small_de_1 = tf.keras.layers.Dense(units=32, name="small_de_1")
+        self.small_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.small_de_2 = tf.keras.layers.Dense(units=64, name="small_de_2")
+        self.small_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.small_de_3 = tf.keras.layers.Dense(units=features_length, name="small_de_3")
         # classifier
-        self.ecg_class1 = tf.keras.layers.Dense(units=32, name="ecg_class1")
-        self.ecg_logit = tf.keras.layers.Dense(units=num_output, name="ecg_ar_logit", activation=None)
+        self.small_class1 = tf.keras.layers.Dense(units=32, name="small_class1")
+        self.small_ar_logit = tf.keras.layers.Dense(units=num_output, name="small_ar_logit", activation=None)
+        self.small_val_logit = tf.keras.layers.Dense(units=num_output, name="small_val_logit", activation=None)
 
         # EEG
         # encoder
-        self.eeg_en_1 = tf.keras.layers.Dense(units=128, name="eeg_en_1")
-        self.eeg_en_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_2 = tf.keras.layers.Dense(units=64, name="eeg_en_2")
-        self.eeg_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_3 = tf.keras.layers.Dense(units=32, name="eeg_en_3")
-        self.eeg_en_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eeg_en_4 = tf.keras.layers.Dense(units=16, name="eeg_en_4")
-        self.eeg_en_batch_4 = tf.keras.layers.BatchNormalization()
+        self.large_en_1 = tf.keras.layers.Dense(units=128, name="large_en_1")
+        self.large_en_batch_1 = tf.keras.layers.BatchNormalization()
+        self.large_en_2 = tf.keras.layers.Dense(units=64, name="large_en_2")
+        self.large_en_batch_2 = tf.keras.layers.BatchNormalization()
+        self.large_en_3 = tf.keras.layers.Dense(units=32, name="large_en_3")
+        self.large_en_batch_3 = tf.keras.layers.BatchNormalization()
+        self.large_en_4 = tf.keras.layers.Dense(units=16, name="large_en_4")
+        self.large_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.eeg_de_1 = tf.keras.layers.Dense(units=32, name="eeg_de_1")
-        self.eeg_de_batch_1 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_2 = tf.keras.layers.Dense(units=64, name="eeg_de_2")
-        self.eeg_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_3 = tf.keras.layers.Dense(units=128, name="eeg_de_3")
-        self.eeg_de_batch_3 = tf.keras.layers.BatchNormalization()
-        self.eeg_de_4 = tf.keras.layers.Dense(units=features_length, name="eeg_de_4")
+        self.large_de_1 = tf.keras.layers.Dense(units=32, name="large_de_1")
+        self.large_de_batch_1 = tf.keras.layers.BatchNormalization()
+        self.large_de_2 = tf.keras.layers.Dense(units=64, name="large_de_2")
+        self.large_de_batch_2 = tf.keras.layers.BatchNormalization()
+        self.large_de_3 = tf.keras.layers.Dense(units=128, name="large_de_3")
+        self.large_de_batch_3 = tf.keras.layers.BatchNormalization()
+        self.large_de_4 = tf.keras.layers.Dense(units=features_length, name="large_de_4")
         # classifier
-        self.eeg_class1 = tf.keras.layers.Dense(units=32, name="eeg_class1")
-        self.eeg_logit = tf.keras.layers.Dense(units=num_output, name="eeg_ar_logit", activation=None)
+        self.large_class1 = tf.keras.layers.Dense(units=32, name="large_class1")
+        self.large_ar_logit = tf.keras.layers.Dense(units=num_output, name="large_ar_logit", activation=None)
+        self.large_val_logit = tf.keras.layers.Dense(units=num_output, name="large_val_logit", activation=None)
 
         # activation
         self.activation = tf.keras.layers.ELU()
@@ -357,9 +359,11 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
+        self.multi_cross_loss = tf.losses.CategoricalCrossentropy(from_logits=True,
                                                                   reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+
+
 
     def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
         if activation is None:
@@ -370,125 +374,127 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
 
     def forwardMedium(self, inputs):
         # encode
-        x = self.forward(inputs, self.eda_en_1, self.activation, batch_norm=self.eda_en_batch_1)
-        x = self.forward(x, self.eda_en_2, self.activation, batch_norm=self.eda_en_batch_2)
-        x = self.forward(x, self.eda_en_3, self.activation, batch_norm=self.eda_en_batch_3)
-        z = self.forward(x, self.eda_en_4, self.activation, batch_norm=self.eda_en_batch_4)
+        x = self.forward(inputs, self.med_en_1, self.activation, batch_norm=self.med_en_batch_1)
+        x = self.forward(x, self.med_en_2, self.activation, batch_norm=self.med_en_batch_2)
+        x = self.forward(x, self.med_en_3, self.activation, batch_norm=self.med_en_batch_3)
+        z = self.forward(x, self.med_en_4, self.activation, batch_norm=self.med_en_batch_4)
 
         # decode
-        x = self.forward(z, self.eda_de_1, self.activation, batch_norm=self.eda_de_batch_1)
-        x = self.forward(x, self.eda_de_2, self.activation, batch_norm=self.eda_de_batch_2)
-        x = self.forward(x, self.eda_de_3, self.activation, batch_norm=self.eda_de_batch_3)
-        x = self.eda_de_4(x)
+        x = self.forward(z, self.med_de_1, self.activation, batch_norm=self.med_de_batch_1)
+        x = self.forward(x, self.med_de_2, self.activation, batch_norm=self.med_de_batch_2)
+        x = self.forward(x, self.med_de_3, self.activation, batch_norm=self.med_de_batch_3)
+        x = self.med_de_4(x)
 
         # classify
-        z_eda = self.forward(z, self.eda_class1, self.activation, self.dropout2)
-        logit = self.eda_logit(z_eda)
-        return logit, x, z_eda
+        z_med = self.forward(z, self.med_class1, self.activation, self.dropout2)
+        ar_logit = self.med_ar_logit(z_med)
+        val_logit = self.med_val_logit(z_med)
+        return ar_logit, val_logit, x, z_med
 
     def forwardSmall(self, inputs):
         # encode
-        x = self.forward(inputs, self.ecg_en_1, self.activation, batch_norm=self.ecg_en_batch_1)
-        x = self.forward(x, self.ecg_en_2, self.activation, batch_norm=self.ecg_en_batch_2)
-        z = self.forward(x, self.ecg_en_3, self.activation, batch_norm=self.ecg_en_batch_3)
+        x = self.forward(inputs, self.small_en_1, self.activation, batch_norm=self.small_en_batch_1)
+        x = self.forward(x, self.small_en_2, self.activation, batch_norm=self.small_en_batch_2)
+        z = self.forward(x, self.small_en_3, self.activation, batch_norm=self.small_en_batch_3)
 
         # decode
-        x = self.forward(z, self.ecg_de_1, self.activation, batch_norm=self.ecg_de_batch_1)
-        x = self.forward(x, self.ecg_de_2, self.activation, batch_norm=self.ecg_de_batch_2)
-        x = self.ecg_de_3(x)
+        x = self.forward(z, self.small_de_1, self.activation, batch_norm=self.small_de_batch_1)
+        x = self.forward(x, self.small_de_2, self.activation, batch_norm=self.small_de_batch_2)
+        x = self.small_de_3(x)
 
         # classify
-        z_ecg = self.forward(z, self.ecg_class1, self.activation, self.dropout2)
-        logit = self.ecg_logit(z_ecg)
-        return logit, x, z_ecg
+        z_small = self.forward(z, self.small_class1, self.activation, self.dropout2)
+        ar_logit = self.small_ar_logit(z_small)
+        val_logit = self.small_val_logit(z_small)
+        return ar_logit, val_logit, x, z_small
 
     def forwardLarge(self, inputs):
         # encode
-        x = self.forward(inputs, self.eeg_en_1, self.activation, batch_norm=self.eeg_en_batch_1)
-        x = self.forward(x, self.eeg_en_2, self.activation, batch_norm=self.eeg_en_batch_2)
-        x = self.forward(x, self.eeg_en_3, self.activation, batch_norm=self.eeg_en_batch_3)
-        z = self.forward(x, self.eeg_en_4, self.activation, batch_norm=self.eeg_en_batch_4)
+        x = self.forward(inputs, self.large_en_1, self.activation, batch_norm=self.large_en_batch_1)
+        x = self.forward(x, self.large_en_2, self.activation, batch_norm=self.large_en_batch_2)
+        x = self.forward(x, self.large_en_3, self.activation, batch_norm=self.large_en_batch_3)
+        z = self.forward(x, self.large_en_4, self.activation, batch_norm=self.large_en_batch_4)
 
         # encode
-        x = self.forward(z, self.eeg_de_1, self.activation, batch_norm=self.eeg_de_batch_1)
-        x = self.forward(x, self.eeg_de_2, self.activation, batch_norm=self.eeg_de_batch_2)
-        x = self.forward(x, self.eeg_de_3, self.activation, batch_norm=self.eeg_de_batch_3)
-        x = self.eeg_de_4(x)
+        x = self.forward(z, self.large_de_1, self.activation, batch_norm=self.large_de_batch_1)
+        x = self.forward(x, self.large_de_2, self.activation, batch_norm=self.large_de_batch_2)
+        x = self.forward(x, self.large_de_3, self.activation, batch_norm=self.large_de_batch_3)
+        x = self.large_de_4(x)
 
         # decode
-        z_eeg = self.forward(z, self.eeg_class1, self.activation, self.dropout2)
-        logit = self.eeg_logit(z_eeg)
-        return logit, x, z_eeg
+        z_large = self.forward(z, self.large_class1, self.activation, self.dropout2)
+        ar_logit = self.large_ar_logit(z_large)
+        val_logit = self.large_val_logit(z_large)
+        return ar_logit, val_logit, x, z_large
 
     def call(self, inputs, training=None, mask=None):
 
-        # print(EDA_x)
-        # EDA
-        logit_eda, x_eda, z_eda = self.forwardMedium(inputs)
-        # PPG, ECG
-        logit_ecg, x_ecg, z_ecg = self.forwardSmall(inputs)
-        # EEG
-        logit_eeg, x_eeg, z_eeg = self.forwardLarge(inputs)
+        # print(med_x)
 
-        return [logit_eda, logit_ecg, logit_eeg], [x_eda,
-                                                   x_ecg,
-                                                   x_eeg], [
-                   z_eda, z_ecg, z_eeg]
+        # small
+        ar_logit_small, val_logit_small, x_small, z_small = self.forwardSmall(inputs)
+        # med
+        ar_logit_med, val_logit_med, x_med, z_med = self.forwardMedium(inputs)
+        # big
+        ar_logit_large, val_logit_large, x_large, z_large = self.forwardLarge(inputs)
+
+        ar_logits = [ar_logit_small, ar_logit_med, ar_logit_large]
+        val_logits = [val_logit_small, val_logit_med, val_logit_large]
+        decs = [x_small, x_med, x_large]
+        latents = [z_small,  z_med, z_large]
+        return ar_logits, val_logits, decs, latents
 
     def predictKD(self, X):
         logits = self.call(X, training=False)
 
-        logit = tf.reduce_mean(logits[0], axis=0)
+        ar_logit = tf.reduce_mean(logits[0], axis=0)
+        val_logit = tf.reduce_mean(logits[1], axis=0)
 
-        z = tf.reduce_mean(logits[2], axis=0)
+        z = tf.reduce_mean(logits[3], axis=0)
 
-        return logit, z
+        return ar_logit, val_logit, z
 
-    def trainSMCL(self, X, y, th, global_batch_size, training=False):
+    def train(self, X, y_ar, y_val, th, global_batch_size, training=False):
         # compute AR and VAL logits
         logits = self.call(X, training)
 
-        logit_eda, logit_ecg, logit_eeg = logits[0]
-        x_eda, x_ecg, x_eeg = logits[1]
+        ar_logit_small, ar_logit_med, ar_logit_large = logits[0]
+        val_logit_small, val_logit_med, val_logit_large = logits[1]
+        x_med, x_small, x_large = logits[2]
 
-        # print(z_ecgResp_val.shape)
+        # logit mean
+        logit_ar_mean = tf.reduce_mean(logits[0], -1)
+        logit_val_mean = tf.reduce_mean(logits[1], -1)
 
         # compute AR loss and AR acc
-        losses = tf.concat(
-            [self.loss(logit_eda, y), self.loss(logit_ecg, y), self.loss(logit_eeg, y)],
-            axis=-1)
-
-        p = tf.math.argmin(losses, axis=1)
-        mask = tf.one_hot(p, losses.shape.as_list()[1]) + 0.3
-        # mask AVG
-        average_mask = tf.ones_like(mask) / 3.
+        losses_ar = self.multi_cross_loss(y_ar, logit_ar_mean)
+        losses_val = self.multi_cross_loss(y_val, logit_val_mean)
 
         # compute rec loss
 
-        losses_rec = 0.33 * (self.rs_loss(X, x_eda) + self.rs_loss(X, x_ecg) + self.rs_loss(X, x_eeg))
+        losses_rec = 0.33 * (self.rs_loss(X, x_med) + self.rs_loss(X, x_small) + self.rs_loss(X, x_large))
 
-        final_losses = tf.nn.compute_average_loss(losses, sample_weight=mask,
-                                                  global_batch_size=global_batch_size)
+
+        final_losses_ar = tf.nn.compute_average_loss(losses_ar,
+                                                     global_batch_size=global_batch_size)
+        final_losses_val = tf.nn.compute_average_loss(losses_val,
+                                                      global_batch_size=global_batch_size)
 
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
 
-        logits = tf.concat([tf.expand_dims(logit_eda, -1), tf.expand_dims(logit_ecg, -1), tf.expand_dims(logit_eeg, -1)], axis=-1)
+        predictions_ar = self.vote(logit_ar_mean, th)
+        predictions_val = self.vote(logit_val_mean, th)
 
-        predictions = self.avgMultiple(logits)
+        final_loss_train = final_losses_ar + final_losses_val + final_rec_loss
 
-        # average loss
 
-        avg_losses_ar = tf.nn.compute_average_loss(losses, sample_weight=average_mask,
-                                                   global_batch_size=global_batch_size)
+        return final_loss_train, predictions_ar, predictions_val
 
-        final_loss_train = final_losses + final_rec_loss
-        final_loss_ori = avg_losses_ar
-
-        return final_loss_train, predictions, final_loss_ori
 
     def loss(self, y, t):
-        return tf.expand_dims(self.cross_loss(t, y), -1)
+
+        return tf.expand_dims(self.multi_cross_loss(t, y), -1)
 
     def vote(self, y, th):
         predictions = tf.cast(tf.nn.sigmoid(y) >= th, dtype=tf.float32)

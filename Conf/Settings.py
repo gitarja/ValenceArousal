@@ -8,7 +8,8 @@ STRIDE = 0.1
 EXTENTION_TIME = 2.5
 
 # Features
-FEATURES_N = 2480
+# FEATURES_N = 2480
+FEATURES_N = 13
 ECG_RAW_N = 10935
 # ECG_RAW_N = 11125
 
@@ -31,7 +32,7 @@ ECG_PATH = RESULTS_PATH + "ECG\\"
 ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
 ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ECG_resp\\"
-TENSORBOARD_PATH = "D:\\usr\\pras\\result\\tensor-board\\ValenceArousal\\sMCL\\"
+TENSORBOARD_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\tensorboard\\sMCL\\"
 
 #results raw
 RESULTS_RAW_PATH = "\\results_raw\\"
@@ -44,4 +45,4 @@ ECG_RAW_RESP_PATH = RESULTS_RAW_PATH + "ECG_resp\\"
 
 
 #manager
-CHECK_POINT_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\sMCL\\"
+CHECK_POINT_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\model\\sMCL\\"
