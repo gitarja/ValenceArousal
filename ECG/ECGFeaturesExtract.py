@@ -10,8 +10,8 @@ import glob
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
 
-for folder in glob.glob(DATASET_PATH + "*"):
-    for subject in glob.glob(folder + "\\*-2020-10-*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
             os.makedirs(subject + ECG_PATH, exist_ok=True)

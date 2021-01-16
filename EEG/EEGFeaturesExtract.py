@@ -2,23 +2,23 @@ from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
 import glob
 from Libs.Utils import timeToInt
-from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH, DATASET_PATH
+from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_R_PATH, EEG_PATH, DATASET_PATH
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 import os
 from scipy import signal
 
-data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 eeg_file = "\\EEG\\"
 game_result = "\\*_gameResults.csv"
 min_eeg_len = SPLIT_TIME * FS_EEG - 100
 downsample_eeg_len = SPLIT_TIME * 200
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-10-*"):
 
-    for subject in glob.glob(folder + "\\*-2020-10-*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
             os.makedirs(subject + EEG_PATH, exist_ok=True)
+            os.makedirs(subject + EEG_R_PATH, exist_ok=True)
             data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
 
             data_EmotionTest.loc[:, 'Time_Start'] = data_EmotionTest.loc[:, 'Time_Start'].apply(timeToInt)
@@ -63,7 +63,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
                                 [time_domain_features, freq_domain_features, plf_features, power_features])
                             if np.sum(np.isinf(eeg_features)) == 0 and np.sum(np.isinf(eeg_features)) == 0:
                                 np.save(subject + EEG_PATH + "eeg_" + str(idx) + ".npy", eeg_features)
-                                # np.save(subject + EEG_RAW_PATH + "eeg_" + str(idx) + ".npy", signal.resample(eeg_filtered, downsample_eeg_len))
+                                np.save(subject + EEG_R_PATH + "eeg_raw_" + str(idx) + ".npy", signal.resample(eeg_filtered, downsample_eeg_len))
                                 status = 1
 
                         # add object to dataframes
