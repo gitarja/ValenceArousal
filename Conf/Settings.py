@@ -8,8 +8,8 @@ STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
-# FEATURES_N = 2480
-FEATURES_N = 13
+FEATURES_N = 2480
+# FEATURES_N = 13
 ECG_RAW_N = 10935
 # ECG_RAW_N = 11125
 
@@ -46,3 +46,4 @@ ECG_RAW_RESP_PATH = RESULTS_RAW_PATH + "ECG_resp\\"
 
 #manager
 CHECK_POINT_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\model\\sMCL\\"
+TRAINING_RESULTS_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\"

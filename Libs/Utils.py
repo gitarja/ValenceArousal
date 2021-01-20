@@ -4,22 +4,24 @@ from datetime import datetime
 from scipy import signal
 
 
-def valArToLabels(y, soft=False):
-    if soft is False:
-        if (y < 3):
-            return 0
-        elif (y == 3):
-            return 1
-        else:
-            return 2
-
+def valToMLabels(y):
+    if (y > 3):
+        return np.array([0., 1.])
     else:
-        if y >= 2 & y <= 4:
-            return np.array([0.1, 0.8, 0.1])
-        elif (y < 2):
-            return np.array([0.8, 0.2, 0])
-        else:
-            return np.array([0.0, 0.2, 0.8])
+        return np.array([1., 0.])
+
+
+def arToMLabels(y):
+    if (y >= 3):
+        return np.array([0., 1.])
+    else:
+        return np.array([1., 0.])
+
+def arValToMLabels(y):
+    if (y >= 3):
+        return np.array([0., 1.])
+    else:
+        return np.array([1., 0.])
 
 
 def arToLabels(y):
@@ -38,11 +40,11 @@ def valToLabels(y):
 
 
 def arValMulLabels(ar, val):
-    if ar == 0 and val == 0:
+    if (ar == 0) and (val == 0):
         return 0
-    elif ar == 0 and val == 1:
+    elif (ar == 0) and (val == 1):
         return 1
-    elif ar == 1 and val == 0:
+    elif (ar == 1) and (val == 0):
         return 2
     else:
         return 3
