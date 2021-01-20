@@ -4,6 +4,12 @@ from datetime import datetime
 from scipy import signal
 
 
+def caseDifficulty(val, ar):
+    if (val >=2 & val<=4) or (ar >=2 & ar <=4):
+        return 0
+    else:
+        return 1
+
 def valToMLabels(y):
     if (y > 3):
         return np.array([0., 1.])

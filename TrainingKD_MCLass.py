@@ -59,26 +59,26 @@ validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
 testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, multiple=False, soft=True)
+                       ECG_N=ECG_RAW_N, KD=True, multiple=False, soft=True, curriculum=True)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N])))
+                   tf.TensorShape([ECG_RAW_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N])))
+                   tf.TensorShape([ECG_RAW_N]), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N])))
+                   tf.TensorShape([ECG_RAW_N]), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -134,7 +134,8 @@ with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
-        X = inputs[-1]
+        X = inputs[-2]
+        c_f = inputs[-1]
         # print(X)
         y_ar = tf.concat(inputs[1], -1)
         y_val = tf.concat(inputs[2], -1)
@@ -142,7 +143,7 @@ with strategy.scope():
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
 
-            final_loss, prediction_ar, prediction_val = model.trainM(X, y_ar, y_val, ar_logit, val_logit, T=2,
+            final_loss, prediction_ar, prediction_val = model.trainM(X, y_ar, y_val, ar_logit, val_logit, curriculum_weight=c_f, T=2,
                                                                      alpha=0.9, global_batch_size=
                                                                      GLOBAL_BATCH_SIZE, training=True)
 
@@ -159,12 +160,12 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = inputs[-1]
+        X = inputs[-2]
         # X = base_model.extractFeatures(inputs[-1])
         y_ar = tf.concat(inputs[1], -1)
         y_val = tf.concat(inputs[2], -1)
-
-        final_loss, prediction_ar, prediction_val = model.test(X, y_ar, y_val, GLOBAL_BATCH_SIZE, training=False)
+        c_f = inputs[-1]
+        final_loss, prediction_ar, prediction_val = model.test(X, y_ar, y_val, curriculum_weight=c_f, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         vald_loss(final_loss)
 
         vald_ar_acc(y_ar, prediction_ar)

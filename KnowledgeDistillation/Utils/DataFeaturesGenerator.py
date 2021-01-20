@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels
+from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels, caseDifficulty
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 class DataFetch:
 
-    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False, soft=False):
+    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False, soft=False, curriculum=False):
         utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
@@ -21,6 +21,8 @@ class DataFetch:
         self.multiple = multiple
         self.ECG_N = ECG_N
         self.soft = soft
+        self.curriculum = curriculum
+        self.w = 0
 
         self.data_train = self.readData(pd.read_csv(train_file), KD, True)
         self.data_val = self.readData(pd.read_csv(validation_file), KD)
@@ -48,22 +50,25 @@ class DataFetch:
         else:
             data_set = self.data_test
         i = 0
+
         # print(len(data_set))
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
             if self.multiple:
                 if self.KD:
-                    # print(len(data_i))
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[-1]
                 else:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[4]
+                    if self.curriculum:
+                        yield data_i[0], data_i[1], data_i[2], data_i[4] + self.w, data_i[-1]
+                    yield data_i[0], data_i[1], data_i[2], data_i[-1]
                 else:
                     yield data_i[0], data_i[1], data_i[2]
             i += 1
+        self.w = self.w + 1e-3
 
 
     def readData(self, features_list, KD, training=False):
@@ -97,7 +102,7 @@ class DataFetch:
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
             y_val = features_list.iloc[i]["Valence"]
-
+            c_f = caseDifficulty(y_val, y_ar)
             #convert the label either to binary class or three class
             if self.soft is False:
                 y_ar_bin = arToLabels(y_ar)
@@ -123,9 +128,9 @@ class DataFetch:
                     else:
                         ecg = ecg[-self.ECG_N:]
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class,  ecg])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
             else:
-                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class])
+                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set

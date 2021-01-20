@@ -138,10 +138,6 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         self.batch_5 = tf.keras.layers.BatchNormalization(name="batch_5")
         self.batch_6 = tf.keras.layers.BatchNormalization(name="batch_6")
 
-        #attention layer
-        self.att_ar = AttentionLayer(TIME_STEPS=15, name="att_ar")
-        self.att_val = AttentionLayer(TIME_STEPS=15, name="att_ar")
-
         # activation
         self.elu = tf.keras.layers.ELU()
 
@@ -190,13 +186,10 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
 
         # print(z.shape)
-        #att
-        z_ar = self.att_ar(z)
-        z_val = self.att_val(z)
 
         #flat logit
-        z_ar = self.dropout_1(self.flat(z_ar))
-        z_val = self.dropout_1(self.flat(z_val))
+        z_ar = self.dropout_1(self.flat(z))
+        z_val = self.dropout_1(self.flat(z))
 
         z_ar = self.elu(self.class_ar(z_ar))
         z_val = self.elu(self.class_val(z_val))
@@ -208,16 +201,16 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         return z_ar, z_val, z
 
     @tf.function
-    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, T, alpha, global_batch_size, training=False):
+    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, T, alpha, curriculum_weight, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
         y_ar_t = tf.nn.softmax(y_ar_t / T, -1)
         y_val_t = tf.nn.softmax(y_val_t / T, -1)
         beta = 1 - alpha
         final_loss_ar = tf.nn.compute_average_loss((alpha * self.multi_cross_loss(y_ar, tf.nn.sigmoid(z_ar))) + (
-                    beta * self.multi_cross_loss(y_ar_t, tf.nn.sigmoid(z_ar))), global_batch_size=global_batch_size)
+                    beta * self.multi_cross_loss(y_ar_t, tf.nn.sigmoid(z_ar))), sample_weight=curriculum_weight, global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
             (alpha * self.multi_cross_loss(y_val, tf.nn.sigmoid(z_val))) + (
-                    beta * self.multi_cross_loss(y_val_t, tf.nn.sigmoid(z_val))), global_batch_size=global_batch_size)
+                    beta * self.multi_cross_loss(y_val_t, tf.nn.sigmoid(z_val))), sample_weight=curriculum_weight, global_batch_size=global_batch_size)
 
         prediction_ar = tf.nn.sigmoid(z_ar)
         prediction_val = tf.nn.sigmoid(z_val)
@@ -226,12 +219,12 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         return final_loss, prediction_ar, prediction_val
 
     @tf.function
-    def test(self, X, y_ar, y_val, global_batch_size, training=False):
+    def test(self, X, y_ar, y_val, curriculum_weight, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
 
-        final_loss_ar = tf.nn.compute_average_loss(self.multi_cross_loss(y_ar,  tf.nn.sigmoid(z_ar)),
+        final_loss_ar = tf.nn.compute_average_loss(self.multi_cross_loss(y_ar,  tf.nn.sigmoid(z_ar)), sample_weight=curriculum_weight,
                                                    global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.multi_cross_loss(y_val,  tf.nn.sigmoid(z_val)),
+        final_loss_val = tf.nn.compute_average_loss(self.multi_cross_loss(y_val,  tf.nn.sigmoid(z_val)), sample_weight=curriculum_weight,
                                                     global_batch_size=global_batch_size)
         prediction_ar = tf.nn.sigmoid(z_ar)
         prediction_val = tf.nn.sigmoid(z_val)
