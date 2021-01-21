@@ -5,29 +5,31 @@ from scipy import signal
 
 
 def caseDifficulty(val, ar):
-    if (val >=2 & val<=4) or (ar >=2 & ar <=4):
+    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
         return 0
     else:
         return 1
 
 def valToMLabels(y):
-    if (y > 3):
-        return np.array([0., 1.])
+    if (y >= 3):
+        return np.array([0.5, 1.])
     else:
-        return np.array([1., 0.])
+        return np.array([1., 0.5])
 
 
 def arToMLabels(y):
     if (y >= 3):
-        return np.array([0., 1.])
+        return np.array([0.5, 1.])
     else:
-        return np.array([1., 0.])
+        return np.array([1., 0.5])
 
 def arValToMLabels(y):
-    if (y >= 3):
-        return np.array([0., 1.])
-    else:
-        return np.array([1., 0.])
+    if y == 3:
+        return np.array([1., 1., 1.])
+    elif y < 3:
+        return np.array([1., 1., 0.])
+    elif y > 3:
+        return np.array([0., 1., 1.])
 
 
 def arToLabels(y):

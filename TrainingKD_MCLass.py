@@ -26,8 +26,8 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output_val = 2
-num_output_ar = 2
+num_output_val = 3
+num_output_ar = 3
 initial_learning_rate = 5.5e-4
 EPOCHS = 500
 PRE_EPOCHS = 100
@@ -59,26 +59,26 @@ validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
 testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, multiple=False, soft=True, curriculum=True)
+                       ECG_N=ECG_RAW_N, KD=True, multiple=False, soft=True, curriculum=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N]), ()))
+                   tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N]), ()))
+                   tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val]),
-                   tf.TensorShape([ECG_RAW_N]), ()))
+                   tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -98,7 +98,6 @@ with strategy.scope():
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
                                                                    staircase=True)
-    # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
     optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
@@ -109,11 +108,11 @@ with strategy.scope():
     pre_trained_loss = tf.keras.metrics.Mean()
 
     # accuracy
-    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
 
-    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
 
     # precision
 
@@ -134,8 +133,7 @@ with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
-        X = inputs[-2]
-        c_f = inputs[-1]
+        X = inputs[-1]
         # print(X)
         y_ar = tf.concat(inputs[1], -1)
         y_val = tf.concat(inputs[2], -1)
@@ -143,7 +141,7 @@ with strategy.scope():
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
 
-            final_loss, prediction_ar, prediction_val = model.trainM(X, y_ar, y_val, ar_logit, val_logit, curriculum_weight=c_f, T=2,
+            final_loss, prediction_ar, prediction_val = model.trainM(X, y_ar, y_val, ar_logit, val_logit, T=2,
                                                                      alpha=0.9, global_batch_size=
                                                                      GLOBAL_BATCH_SIZE, training=True)
 
@@ -160,23 +158,22 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = inputs[-2]
+        X = inputs[-1]
         # X = base_model.extractFeatures(inputs[-1])
         y_ar = tf.concat(inputs[1], -1)
         y_val = tf.concat(inputs[2], -1)
-        c_f = inputs[-1]
-        final_loss, prediction_ar, prediction_val = model.test(X, y_ar, y_val, curriculum_weight=c_f, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        final_loss, prediction_ar, prediction_val = model.test(X, y_ar, y_val, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         vald_loss(final_loss)
 
         vald_ar_acc(y_ar, prediction_ar)
         vald_val_acc(y_val, prediction_val)
 
-        # precision
-        vald_ar_pre(tf.argmax(y_ar, -1), tf.argmax(prediction_ar, -1))
-        vald_val_pre(tf.argmax(y_val, -1), tf.argmax(prediction_val, -1))
-        # precision
-        vald_ar_rec(tf.argmax(y_ar, -1), tf.argmax(prediction_ar, -1))
-        vald_val_rec(tf.argmax(y_val, -1), tf.argmax(prediction_val, -1))
+        # # precision
+        # vald_ar_pre(tf.argmax(y_ar, -1), tf.argmax(prediction_ar, -1))
+        # vald_val_pre(tf.argmax(y_val, -1), tf.argmax(prediction_val, -1))
+        # # precision
+        # vald_ar_rec(tf.argmax(y_ar, -1), tf.argmax(prediction_ar, -1))
+        # vald_val_rec(tf.argmax(y_val, -1), tf.argmax(prediction_val, -1))
 
         return final_loss
 
@@ -255,17 +252,26 @@ with strategy.scope():
             wait_i += 1
         if (wait_i == wait):
             break
-        # reset state
+    # reset state
         train_reset_states()
         vald_reset_states()
 
     print("-------------------------------------------Testing----------------------------------------------")
+    checkpoint.restore(manager.latest_checkpoint)
+
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: loss: {}, arousal acc: {}, valence acc: {}")
+        "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
     print(template.format(
-        vald_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
+        vald_loss.result().numpy(),
+        vald_ar_acc.result().numpy(),
+        vald_ar_pre.result().numpy(),
+        vald_ar_rec.result().numpy(),
+        vald_val_acc.result().numpy(),
+        vald_val_pre.result().numpy(),
+        vald_val_rec.result().numpy(),
+    ))
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")

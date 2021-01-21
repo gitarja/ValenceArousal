@@ -23,6 +23,7 @@ class DataFetch:
         self.soft = soft
         self.curriculum = curriculum
         self.w = 0
+        self.j =0
 
         self.data_train = self.readData(pd.read_csv(train_file), KD, True)
         self.data_val = self.readData(pd.read_csv(validation_file), KD)
@@ -57,18 +58,24 @@ class DataFetch:
             data_i = data_set[i]
             if self.multiple:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[-1]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
                 else:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
                     if self.curriculum:
-                        yield data_i[0], data_i[1], data_i[2], data_i[4] + self.w, data_i[-1]
-                    yield data_i[0], data_i[1], data_i[2], data_i[-1]
+                        c_f = data_i[4]
+                        if c_f < 1:
+                            c_f += self.w
+                        yield data_i[0], data_i[1], data_i[2], data_i[5],  c_f
+                    else:
+                        yield data_i[0], data_i[1], data_i[2], data_i[5]
                 else:
                     yield data_i[0], data_i[1], data_i[2]
             i += 1
-        self.w = self.w + 1e-3
+        self.j+=1
+        if (self.j > 10) and (self.w < 1):
+            self.w += 5e-2
 
 
     def readData(self, features_list, KD, training=False):
@@ -109,12 +116,8 @@ class DataFetch:
                 y_val_bin = valToLabels(y_val)
                 m_class = arValMulLabels(y_ar_bin, y_val_bin)
             else:
-                if self.KD:
-                    y_ar_bin = arValToMLabels(y_ar)
-                    y_val_bin = arValToMLabels(y_val)
-                else:
-                    y_ar_bin = arValToMLabels(y_ar)
-                    y_val_bin = arValToMLabels(y_val)
+                y_ar_bin = arValToMLabels(y_ar)
+                y_val_bin = arValToMLabels(y_val)
                 m_class = 0
 
 
@@ -128,7 +131,9 @@ class DataFetch:
                     else:
                         ecg = ecg[-self.ECG_N:]
                     # ecg = ecg /  2.0861534577149707
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f, ecg])
+                    # if training and self.soft == False and y_val_bin == 0:
+                    #     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])

@@ -26,8 +26,8 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output_val = 2
-num_output_ar = 2
+num_output_val = 3
+num_output_ar = 3
 initial_learning_rate = 5.5e-4
 EPOCHS = 50
 BATCH_SIZE = 64
@@ -38,6 +38,7 @@ wait = 5
 
 # setting
 fold = str(sys.argv[1])
+# fold = 1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "three-class\\fold_" + str(fold) + "\\"
@@ -95,10 +96,10 @@ with strategy.scope():
     vald_loss = tf.keras.metrics.Mean()
 
     # accuracy
-    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
 
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)

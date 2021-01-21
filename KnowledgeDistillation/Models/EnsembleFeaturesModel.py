@@ -9,20 +9,20 @@ class EnsembleSeparateModel(tf.keras.Model):
         # ensemble
         # EDA
         # encoder
-        self.med_en_1 = tf.keras.layers.Dense(units=64, name="med_en_1")
+        self.med_en_1 = tf.keras.layers.Dense(units=32, name="med_en_1")
         self.med_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.med_en_2 = tf.keras.layers.Dense(units=32, name="med_en_2")
         self.med_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.med_en_3 = tf.keras.layers.Dense(units=32, name="med_en_3")
+        self.med_en_3 = tf.keras.layers.Dense(units=16, name="med_en_3")
         self.med_en_batch_3 = tf.keras.layers.BatchNormalization()
         self.med_en_4 = tf.keras.layers.Dense(units=16, name="med_en_4")
         self.med_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.med_de_1 = tf.keras.layers.Dense(units=32, name="med_de_1")
+        self.med_de_1 = tf.keras.layers.Dense(units=16, name="med_de_1")
         self.med_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.med_de_2 = tf.keras.layers.Dense(units=32, name="med_de_2")
         self.med_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.med_de_3 = tf.keras.layers.Dense(units=64, name="med_de_3")
+        self.med_de_3 = tf.keras.layers.Dense(units=32, name="med_de_3")
         self.med_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.med_de_4 = tf.keras.layers.Dense(units=features_length, name="med_de_4", activation=None)
         # classifer
@@ -36,7 +36,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.small_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.small_en_2 = tf.keras.layers.Dense(units=32, name="small_en_2")
         self.small_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.small_en_3 = tf.keras.layers.Dense(units=32, name="small_en_3")
+        self.small_en_3 = tf.keras.layers.Dense(units=16, name="small_en_3")
         self.small_en_batch_3 = tf.keras.layers.BatchNormalization()
         # decoder
         self.small_de_1 = tf.keras.layers.Dense(units=32, name="small_de_1")
@@ -51,7 +51,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # EEG
         # encoder
-        self.large_en_1 = tf.keras.layers.Dense(units=128, name="large_en_1")
+        self.large_en_1 = tf.keras.layers.Dense(units=64, name="large_en_1")
         self.large_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.large_en_2 = tf.keras.layers.Dense(units=64, name="large_en_2")
         self.large_en_batch_2 = tf.keras.layers.BatchNormalization()
@@ -64,7 +64,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.large_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.large_de_2 = tf.keras.layers.Dense(units=64, name="large_de_2")
         self.large_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.large_de_3 = tf.keras.layers.Dense(units=128, name="large_de_3")
+        self.large_de_3 = tf.keras.layers.Dense(units=64, name="large_de_3")
         self.large_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.large_de_4 = tf.keras.layers.Dense(units=features_length, name="large_de_4")
         # classifier
@@ -76,7 +76,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.activation = tf.keras.layers.ELU()
         # dropout
         self.dropout1 = tf.keras.layers.Dropout(0.0)
-        self.dropout2 = tf.keras.layers.Dropout(0.15)
+        self.dropout2 = tf.keras.layers.Dropout(0.5)
         # avg
         self.avg = tf.keras.layers.Average()
 
@@ -85,9 +85,13 @@ class EnsembleSeparateModel(tf.keras.Model):
                                                        reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.01)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
+
     def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
+
         if activation is None:
             return droput(dense(x))
+        if droput is None:
+            return activation(dense(x))
         if batch_norm is None:
             return droput(activation(dense(x)))
         return activation(batch_norm(dense(x)))
@@ -106,7 +110,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         x = self.med_de_4(x)
 
         # classify
-        z_med = self.forward(z, self.med_class1, self.activation, self.dropout2)
+        z_med = self.forward(self.dropout2(z), self.med_class1, self.activation)
         ar_logit = self.med_ar_logit(z_med)
         val_logit = self.med_val_logit(z_med)
         return ar_logit, val_logit, x, z_med
@@ -123,7 +127,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         x = self.small_de_3(x)
 
         # classify
-        z_small = self.forward(z, self.small_class1, self.activation, self.dropout2)
+        z_small = self.forward(self.dropout2(z), self.small_class1, self.activation)
         ar_logit = self.small_ar_logit(z_small)
         val_logit = self.small_val_logit(z_small)
         return ar_logit, val_logit, x, z_small
@@ -142,7 +146,7 @@ class EnsembleSeparateModel(tf.keras.Model):
         x = self.large_de_4(x)
 
         # decode
-        z_large = self.forward(z, self.large_class1, self.activation, self.dropout2)
+        z_large = self.forward(self.dropout2(z), self.large_class1, self.activation)
         ar_logit = self.large_ar_logit(z_large)
         val_logit = self.large_val_logit(z_large)
         return ar_logit, val_logit, x, z_large
@@ -238,20 +242,20 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         # ensemble
         # EDA
         # encoder
-        self.med_en_1 = tf.keras.layers.Dense(units=64, name="med_en_1")
+        self.med_en_1 = tf.keras.layers.Dense(units=32, name="med_en_1")
         self.med_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.med_en_2 = tf.keras.layers.Dense(units=32, name="med_en_2")
         self.med_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.med_en_3 = tf.keras.layers.Dense(units=32, name="med_en_3")
+        self.med_en_3 = tf.keras.layers.Dense(units=16, name="med_en_3")
         self.med_en_batch_3 = tf.keras.layers.BatchNormalization()
         self.med_en_4 = tf.keras.layers.Dense(units=16, name="med_en_4")
         self.med_en_batch_4 = tf.keras.layers.BatchNormalization()
         # decoder
-        self.med_de_1 = tf.keras.layers.Dense(units=32, name="med_de_1")
+        self.med_de_1 = tf.keras.layers.Dense(units=16, name="med_de_1")
         self.med_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.med_de_2 = tf.keras.layers.Dense(units=32, name="med_de_2")
         self.med_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.med_de_3 = tf.keras.layers.Dense(units=64, name="med_de_3")
+        self.med_de_3 = tf.keras.layers.Dense(units=32, name="med_de_3")
         self.med_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.med_de_4 = tf.keras.layers.Dense(units=features_length, name="med_de_4", activation=None)
         # classifer
@@ -265,7 +269,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.small_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.small_en_2 = tf.keras.layers.Dense(units=32, name="small_en_2")
         self.small_en_batch_2 = tf.keras.layers.BatchNormalization()
-        self.small_en_3 = tf.keras.layers.Dense(units=32, name="small_en_3")
+        self.small_en_3 = tf.keras.layers.Dense(units=16, name="small_en_3")
         self.small_en_batch_3 = tf.keras.layers.BatchNormalization()
         # decoder
         self.small_de_1 = tf.keras.layers.Dense(units=32, name="small_de_1")
@@ -280,7 +284,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
 
         # EEG
         # encoder
-        self.large_en_1 = tf.keras.layers.Dense(units=128, name="large_en_1")
+        self.large_en_1 = tf.keras.layers.Dense(units=64, name="large_en_1")
         self.large_en_batch_1 = tf.keras.layers.BatchNormalization()
         self.large_en_2 = tf.keras.layers.Dense(units=64, name="large_en_2")
         self.large_en_batch_2 = tf.keras.layers.BatchNormalization()
@@ -293,7 +297,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.large_de_batch_1 = tf.keras.layers.BatchNormalization()
         self.large_de_2 = tf.keras.layers.Dense(units=64, name="large_de_2")
         self.large_de_batch_2 = tf.keras.layers.BatchNormalization()
-        self.large_de_3 = tf.keras.layers.Dense(units=128, name="large_de_3")
+        self.large_de_3 = tf.keras.layers.Dense(units=64, name="large_de_3")
         self.large_de_batch_3 = tf.keras.layers.BatchNormalization()
         self.large_de_4 = tf.keras.layers.Dense(units=features_length, name="large_de_4")
         # classifier
@@ -305,20 +309,23 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.activation = tf.keras.layers.ELU()
         # dropout
         self.dropout1 = tf.keras.layers.Dropout(0.0)
-        self.dropout2 = tf.keras.layers.Dropout(0.3)
+        self.dropout2 = tf.keras.layers.Dropout(0.5)
         # avg
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=False,
+        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                                   reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
 
 
     def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
+
         if activation is None:
             return droput(dense(x))
+        if droput is None:
+            return activation(dense(x))
         if batch_norm is None:
             return droput(activation(dense(x)))
         return activation(batch_norm(dense(x)))
@@ -337,7 +344,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         x = self.med_de_4(x)
 
         # classify
-        z_med = self.forward(z, self.med_class1, self.activation, self.dropout2)
+        z_med = self.forward(self.dropout2(z), self.med_class1, self.activation)
         ar_logit = self.med_ar_logit(z_med)
         val_logit = self.med_val_logit(z_med)
         return ar_logit, val_logit, x, z_med
@@ -354,7 +361,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         x = self.small_de_3(x)
 
         # classify
-        z_small = self.forward(z, self.small_class1, self.activation, self.dropout2)
+        z_small = self.forward(self.dropout2(z), self.small_class1, self.activation)
         ar_logit = self.small_ar_logit(z_small)
         val_logit = self.small_val_logit(z_small)
         return ar_logit, val_logit, x, z_small
@@ -373,7 +380,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         x = self.large_de_4(x)
 
         # decode
-        z_large = self.forward(z, self.large_class1, self.activation, self.dropout2)
+        z_large = self.forward(self.dropout2(z), self.large_class1, self.activation)
         ar_logit = self.large_ar_logit(z_large)
         val_logit = self.large_val_logit(z_large)
         return ar_logit, val_logit, x, z_large
@@ -416,8 +423,8 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         logit_val_mean = tf.reduce_mean(logits[1], 0)
 
         # compute AR loss and AR acc
-        losses_ar = self.multi_cross_loss(y_ar, tf.nn.sigmoid(logit_ar_mean))
-        losses_val = self.multi_cross_loss(y_val, tf.nn.sigmoid(logit_val_mean))
+        losses_ar = self.multi_cross_loss(y_ar, logit_ar_mean)
+        losses_val = self.multi_cross_loss(y_val, logit_val_mean)
 
         # compute rec loss
 

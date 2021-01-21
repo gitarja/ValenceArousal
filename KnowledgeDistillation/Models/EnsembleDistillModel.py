@@ -30,13 +30,30 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # activation
         self.elu = tf.keras.layers.ELU()
 
+        #attention
+        self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
+        self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
+
         # classify
         self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
         self.class_val = tf.keras.layers.Dense(units=32, name="class_val")
 
+
+        self.class_ar_h2 = tf.keras.layers.Dense(units=64, name="class_ar_h2")
+        self.class_val_h2 = tf.keras.layers.Dense(units=64, name="class_val_h2")
+
+        self.class_ar_h3 = tf.keras.layers.Dense(units=128, name="class_ar_h3")
+        self.class_val_h3 = tf.keras.layers.Dense(units=128, name="class_val_h3")
+
         # logit
         self.logit_ar = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar")
         self.logit_val = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val")
+
+        self.logit_ar_h2 = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h2")
+        self.logit_val_h2 = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h2")
+
+        self.logit_ar_h3 = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h3")
+        self.logit_val_h3 = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h3")
 
         # flattent
         self.flat = tf.keras.layers.Flatten()
@@ -47,12 +64,11 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.3)
 
-        # loss
+        # avg
+        self.avg = tf.keras.layers.Average()
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                        reduction=tf.keras.losses.Reduction.NONE)
-        self.multi_cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
-                                                                        reduction=tf.keras.losses.Reduction.NONE)
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
         self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
 
@@ -72,13 +88,38 @@ class EnsembleStudentOneDim(tf.keras.Model):
         x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
         z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
 
-        # print(z.shape)
-        logit = self.dropout_1(self.flat(z))
-        z_ar = self.elu(self.class_ar(logit))
-        z_val = self.elu(self.class_val(logit))
+        # flat logit
+        z_ar = self.att_ar(z)
+        z_val = self.att_val(z)
 
-        z_ar = self.logit_ar(z_ar)
-        z_val = self.logit_val(z_val)
+        z_ar = self.dropout_1(self.flat(z_ar))
+        z_val = self.dropout_1(self.flat(z_val))
+
+        #head 1
+        z_ar_h1 = self.elu(self.class_ar(z_ar))
+        z_val_h1 = self.elu(self.class_val(z_val))
+
+        z_ar_h1 = self.logit_ar(z_ar_h1)
+        z_val_h1 = self.logit_val(z_val_h1)
+
+        #head 2
+
+        z_ar_h2 = self.elu(self.class_ar_h2(z_ar))
+        z_val_h2 = self.elu(self.class_val_h2(z_val))
+
+        z_ar_h2 = self.logit_ar_h2(z_ar_h2)
+        z_val_h2 = self.logit_val_h2(z_val_h2)
+
+        # head 3
+
+        z_ar_h3 = self.elu(self.class_ar_h3(z_ar))
+        z_val_h3 = self.elu(self.class_val_h3(z_val))
+
+        z_ar_h3 = self.logit_ar_h3(z_ar_h3)
+        z_val_h3 = self.logit_val_h3(z_val_h3)
+
+        z_ar = self.avg([z_ar_h1, z_ar_h2, z_ar_h3])
+        z_val = self.avg([z_val_h1, z_val_h2, z_val_h3])
 
         return z_ar, z_val, z
 
@@ -97,8 +138,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        final_loss = (final_loss_ar + final_loss_val)
-        return final_loss, predictions_ar, predictions_val
+        # final_loss = (final_loss_ar + final_loss_val)
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
 
     @tf.function
     def test(self, X, y_ar, y_val, th, global_batch_size, training=False):
@@ -110,8 +151,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        final_loss = final_loss_ar + final_loss_val
-        return final_loss, predictions_ar, predictions_val
+        # final_loss = final_loss_ar + final_loss_val
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
 
 
 class EnsembleStudentOneDim_MClass(tf.keras.Model):
@@ -141,10 +182,15 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         # activation
         self.elu = tf.keras.layers.ELU()
 
+
         # dense 1
         self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
         self.class_val = tf.keras.layers.Dense(units=32, name="class_val")
 
+
+        #attention
+        self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
+        self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
 
         # logit
 
@@ -163,9 +209,10 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
         # loss
 
-        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=False,
+        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                              reduction=tf.keras.losses.Reduction.NONE)
-        self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+
+        self.kld_loss = tf.losses.KLDivergence(reduction=tf.keras.losses.Reduction.NONE)
 
     def forward(self, x, dense, norm=None, activation=None):
         if norm is None:
@@ -184,12 +231,12 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
 
 
-
-        # print(z.shape)
-
         #flat logit
-        z_ar = self.dropout_1(self.flat(z))
-        z_val = self.dropout_1(self.flat(z))
+        z_ar = self.att_ar(z)
+        z_val = self.att_val(z)
+
+        z_ar = self.dropout_1(self.flat(z_ar))
+        z_val = self.dropout_1(self.flat(z_val))
 
         z_ar = self.elu(self.class_ar(z_ar))
         z_val = self.elu(self.class_val(z_val))
@@ -201,16 +248,16 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         return z_ar, z_val, z
 
     @tf.function
-    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, T, alpha, curriculum_weight, global_batch_size, training=False):
+    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, T, alpha, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
         y_ar_t = tf.nn.softmax(y_ar_t / T, -1)
         y_val_t = tf.nn.softmax(y_val_t / T, -1)
         beta = 1 - alpha
-        final_loss_ar = tf.nn.compute_average_loss((alpha * self.multi_cross_loss(y_ar, tf.nn.sigmoid(z_ar))) + (
-                    beta * self.multi_cross_loss(y_ar_t, tf.nn.sigmoid(z_ar))), sample_weight=curriculum_weight, global_batch_size=global_batch_size)
+        final_loss_ar = tf.nn.compute_average_loss((alpha * self.multi_cross_loss(y_ar, z_ar)) + (
+                    beta * self.multi_cross_loss(y_ar_t, z_ar)), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.multi_cross_loss(y_val, tf.nn.sigmoid(z_val))) + (
-                    beta * self.multi_cross_loss(y_val_t, tf.nn.sigmoid(z_val))), sample_weight=curriculum_weight, global_batch_size=global_batch_size)
+            (alpha * self.multi_cross_loss(y_val, z_val)) + (
+                    beta * self.multi_cross_loss(y_val_t, z_val)), global_batch_size=global_batch_size)
 
         prediction_ar = tf.nn.sigmoid(z_ar)
         prediction_val = tf.nn.sigmoid(z_val)
@@ -219,12 +266,12 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         return final_loss, prediction_ar, prediction_val
 
     @tf.function
-    def test(self, X, y_ar, y_val, curriculum_weight, global_batch_size, training=False):
+    def test(self, X, y_ar, y_val, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
 
-        final_loss_ar = tf.nn.compute_average_loss(self.multi_cross_loss(y_ar,  tf.nn.sigmoid(z_ar)), sample_weight=curriculum_weight,
+        final_loss_ar = tf.nn.compute_average_loss(self.multi_cross_loss(y_ar,  z_ar),
                                                    global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.multi_cross_loss(y_val,  tf.nn.sigmoid(z_val)), sample_weight=curriculum_weight,
+        final_loss_val = tf.nn.compute_average_loss(self.multi_cross_loss(y_val,  z_val),
                                                     global_batch_size=global_batch_size)
         prediction_ar = tf.nn.sigmoid(z_ar)
         prediction_val = tf.nn.sigmoid(z_val)

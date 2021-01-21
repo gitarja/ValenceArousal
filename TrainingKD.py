@@ -7,7 +7,7 @@ import datetime
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -38,6 +38,7 @@ wait = 10
 
 # setting
 fold = str(sys.argv[1])
+# fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -97,8 +98,10 @@ with strategy.scope():
 
     # ---------------------------Epoch&Loss--------------------------#
     # loss
-    train_loss = tf.keras.metrics.Mean()
-    val_loss = tf.keras.metrics.Mean()
+    train_ar_loss = tf.keras.metrics.Mean()
+    train_val_loss = tf.keras.metrics.Mean()
+    vald_ar_loss = tf.keras.metrics.Mean()
+    vald_val_loss = tf.keras.metrics.Mean()
 
     pre_trained_loss = tf.keras.metrics.Mean()
 
@@ -139,16 +142,17 @@ with strategy.scope():
 
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
-            loss, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit,
-                                                               th=0.55, alpha=0.9,
+            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit,
+                                                               th=0.5, alpha=0.9,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
-            final_loss = loss
+            final_loss = loss_ar + (1.5 * loss_val)
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        train_loss(loss)
+        train_ar_loss(loss_ar)
+        train_val_loss(loss_val)
         train_ar_acc(y_ar_bin, prediction_ar)
         train_val_acc(y_val_bin, prediction_val)
 
@@ -160,7 +164,7 @@ with strategy.scope():
         train_ar_rec(y_ar_bin, prediction_ar)
         train_val_rec(y_val_bin, prediction_val)
 
-        return loss
+        return final_loss
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
@@ -169,10 +173,12 @@ with strategy.scope():
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
 
-        loss, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,
-                                                         0.55,
-                                                         GLOBAL_BATCH_SIZE, training=False)
-        val_loss(loss)
+        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,
+                                                         th=0.5,
+                                                         global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        final_loss = loss_ar + loss_val
+        vald_ar_loss(loss_ar)
+        vald_val_loss(loss_val)
 
         vald_ar_acc(y_ar_bin, prediction_ar)
         vald_val_acc(y_val_bin, prediction_val)
@@ -184,11 +190,12 @@ with strategy.scope():
         vald_ar_rec(y_ar_bin, prediction_ar)
         vald_val_rec(y_val_bin, prediction_val)
 
-        return loss
+        return final_loss
 
 
     def train_reset_states():
-        train_loss.reset_states()
+        train_ar_loss.reset_states()
+        train_val_loss.reset_states()
         train_ar_acc.reset_states()
         train_val_acc.reset_states()
         # precision
@@ -201,7 +208,8 @@ with strategy.scope():
 
 
     def vald_reset_states():
-        val_loss.reset_states()
+        vald_ar_loss.reset_states()
+        vald_val_loss.reset_states()
         vald_ar_acc.reset_states()
         vald_val_acc.reset_states()
 
@@ -244,7 +252,8 @@ with strategy.scope():
             it += 1
 
         with train_summary_writer.as_default():
-            tf.summary.scalar('Loss', train_loss.result(), step=epoch)
+            tf.summary.scalar('Arousal loss', train_ar_loss.result(), step=epoch)
+            tf.summary.scalar('Valence loss', train_val_loss.result(), step=epoch)
             tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
             tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
             tf.summary.scalar('Arousal precision', train_ar_pre.result(), step=epoch)
@@ -256,7 +265,8 @@ with strategy.scope():
             distributed_test_step(val, data_fetch.val_n)
 
         with test_summary_writer.as_default():
-            tf.summary.scalar('Loss', val_loss.result(), step=epoch)
+            tf.summary.scalar('Arousal loss', vald_ar_loss.result(), step=epoch)
+            tf.summary.scalar('Valence loss', vald_val_loss.result(), step=epoch)
             tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
             tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
             tf.summary.scalar('Arousal precision', vald_ar_pre.result(), step=epoch)
@@ -266,12 +276,14 @@ with strategy.scope():
 
         template = (
             "epoch {} | Train_loss: {} | Val_loss: {}")
-        print(template.format(epoch + 1, train_loss.result().numpy(), val_loss.result().numpy()))
+        train_loss = train_ar_loss.result().numpy() + train_val_loss.result().numpy()
+        vald_loss = vald_ar_loss.result().numpy() + vald_val_loss.result().numpy()
+        print(template.format(epoch + 1, train_loss, vald_loss))
 
         # Save model
 
-        if (prev_val_loss > val_loss.result().numpy()):
-            prev_val_loss = val_loss.result().numpy()
+        if (prev_val_loss > vald_loss):
+            prev_val_loss = vald_loss
             wait_i = 0
             manager.save()
         else:
@@ -283,13 +295,14 @@ with strategy.scope():
         vald_reset_states()
 
     print("-------------------------------------------Testing----------------------------------------------")
-    vald_reset_states()
+    checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
         "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
+    vald_loss = vald_ar_loss.result().numpy() + vald_val_loss.result().numpy()
     print(template.format(
-        val_loss.result().numpy(),
+        vald_loss,
         vald_ar_acc.result().numpy(),
         vald_ar_pre.result().numpy(),
         vald_ar_rec.result().numpy(),

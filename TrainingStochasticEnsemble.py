@@ -36,7 +36,7 @@ wait = 5
 
 # setting
 fold = str(sys.argv[1])
-
+# fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
