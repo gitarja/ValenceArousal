@@ -47,3 +47,6 @@ ECG_RAW_RESP_PATH = RESULTS_RAW_PATH + "ECG_resp\\"
 #manager
 CHECK_POINT_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\model\\sMCL\\"
 TRAINING_RESULTS_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\"
+
+#road test
+ROAD_ECG = "D:\\usr\\pras\\data\\YAMAHA\\road_test\\"

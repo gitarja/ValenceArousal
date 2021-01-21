@@ -3,8 +3,8 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels, caseDifficulty
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG
+from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels, caseDifficulty, timeToInt
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
@@ -215,4 +215,44 @@ class DataFetchPreTrain:
                     # data_set.append([ecg[-self.ECG_N:], concat_features[1]])
 
         return data_set
+
+
+
+class DataFetchRoad:
+
+    def __init__(self, gps_file, ecg_file, ecg_n=45, split_time = 45, stride=0.2):
+
+        self.gps_file = gps_file
+        self.ecg_file = ecg_file
+        self.ecg_n = ecg_n
+        self.stride = stride
+
+        self.data_set = self.readData()
+        self.test_n = len(self.data_set)
+
+    def fetch(self):
+        i = 0
+        while i < len(self.data_set):
+            data_i = self.data_set[i]
+            yield data_i
+            i+=1
+
+    def readData(self):
+        data_set = []
+        gps_data = pd.read_csv(self.gps_file)
+        ecg_data = pd.read_csv(self.ecg_file)
+        ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
+        gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
+
+        for j in range(1, len(gps_data)):
+            start = gps_data.loc[j]["timestamp"]
+            end = start + (SPLIT_TIME+1)
+            ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
+            if len(ecg) >= self.ecg_n:
+
+                ecg = (ecg - 1223.901793051745) / 1068.7720750244841
+                data_set.append(ecg[:self.ecg_n])
+            # print(ecg)
+        return data_set
+
 

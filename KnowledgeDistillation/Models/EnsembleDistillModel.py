@@ -154,6 +154,14 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # final_loss = final_loss_ar + final_loss_val
         return final_loss_ar, final_loss_val, predictions_ar, predictions_val
 
+    @tf.function
+    def predict(self, X, global_batch_size, training=False):
+        z_ar, z_val, z = self.call(X, training=training)
+        predictions_ar = tf.nn.sigmoid(z_ar)
+        predictions_val = tf.nn.sigmoid(z_val)
+
+        return predictions_ar, predictions_val
+
 
 class EnsembleStudentOneDim_MClass(tf.keras.Model):
 
