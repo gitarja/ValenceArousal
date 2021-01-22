@@ -6,7 +6,7 @@ from scipy import signal
 
 def caseDifficulty(val, ar):
     if (val >=2 and val<=4) or (ar >=2 and ar <=4):
-        return 0
+        return 0.5
     else:
         return 1
 
@@ -39,12 +39,14 @@ def arToLabels(y):
         return 1
 
 
+
 def valToLabels(y):
     if (y < 3):
         return 0
 
     else:
         return 1
+
 
 
 def arValMulLabels(ar, val):

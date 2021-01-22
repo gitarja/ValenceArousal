@@ -63,19 +63,12 @@ class DataFetch:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
-                    if self.curriculum:
-                        c_f = data_i[4]
-                        if c_f < 1:
-                            c_f += self.w
-                        yield data_i[0], data_i[1], data_i[2], data_i[5],  c_f
-                    else:
-                        yield data_i[0], data_i[1], data_i[2], data_i[5]
+                    yield data_i[0], data_i[1], data_i[2], data_i[5], data_i[4]
                 else:
-                    yield data_i[0], data_i[1], data_i[2]
+                    yield data_i[0], data_i[1], data_i[2], data_i[-1]
             i += 1
         self.j+=1
-        if (self.j > 10) and (self.w < 1):
-            self.w += 5e-2
+
 
 
     def readData(self, features_list, KD, training=False):
@@ -124,7 +117,7 @@ class DataFetch:
             if KD :
                 if len(ecg) >= self.ECG_N:
                     # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
-                    ecg = (ecg -  1223.901793051745) / 1068.7720750244841
+                    ecg = (ecg -  2140.397356669409) / 370.95493558685325
                     # ecg = ecg / (4095 - 0)
                     if training:
                         ecg = self.randomECG(ecg)
@@ -132,8 +125,8 @@ class DataFetch:
                         ecg = ecg[-self.ECG_N:]
                     # ecg = ecg /  2.0861534577149707
                     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f, ecg])
-                    # if training and self.soft == False and y_val_bin == 0:
-                    #     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
+                    if training and y_val_bin == 0:
+                        data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
@@ -220,10 +213,11 @@ class DataFetchPreTrain:
 
 class DataFetchRoad:
 
-    def __init__(self, gps_file, ecg_file, ecg_n=45, split_time = 45, stride=0.2):
+    def __init__(self, gps_file, ecg_file, mask_file, ecg_n=45, split_time = 45, stride=0.2):
 
         self.gps_file = gps_file
         self.ecg_file = ecg_file
+        self.mask_file = mask_file
         self.ecg_n = ecg_n
         self.stride = stride
 
@@ -241,16 +235,16 @@ class DataFetchRoad:
         data_set = []
         gps_data = pd.read_csv(self.gps_file)
         ecg_data = pd.read_csv(self.ecg_file)
+        # mask_file = pd.read_csv(self.mask_file)
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
-
+        # ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
             end = start + (SPLIT_TIME+1)
             ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
             if len(ecg) >= self.ecg_n:
-
-                ecg = (ecg - 1223.901793051745) / 1068.7720750244841
+                ecg = (ecg - 2140.397356669409) / 370.95493558685325
                 data_set.append(ecg[:self.ecg_n])
             # print(ecg)
         return data_set

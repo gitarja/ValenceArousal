@@ -67,7 +67,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # avg
         self.avg = tf.keras.layers.Average()
         # loss
-        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.4,
                                                        reduction=tf.keras.losses.Reduction.NONE)
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
         self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
@@ -124,16 +124,16 @@ class EnsembleStudentOneDim(tf.keras.Model):
         return z_ar, z_val, z
 
     @tf.function
-    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, alpha, global_batch_size, training=False):
+    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, c_f, alpha, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
         y_ar_t = tf.nn.sigmoid(y_ar_t)
         y_val_t = tf.nn.sigmoid(y_val_t)
         beta = 1 - alpha
         final_loss_ar = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)),
+            (alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=c_f,
             global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)),
+            (alpha * self.cross_loss(y_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=c_f,
             global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
@@ -142,11 +142,11 @@ class EnsembleStudentOneDim(tf.keras.Model):
         return final_loss_ar, final_loss_val, predictions_ar, predictions_val
 
     @tf.function
-    def test(self, X, y_ar, y_val, th, global_batch_size, training=False):
+    def test(self, X, y_ar, y_val, th, c_f, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
 
-        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val), global_batch_size=global_batch_size)
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), sample_weight=c_f, global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),  sample_weight=c_f, global_batch_size=global_batch_size)
 
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)

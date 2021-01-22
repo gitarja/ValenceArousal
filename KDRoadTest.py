@@ -7,7 +7,7 @@ import datetime
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -38,17 +38,17 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=1
+fold=2
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\v2-exp-final\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student"
 
 # datagenerator
-ecg_data = ROAD_ECG + "20201119_105644_698_HB_PW.csv"
-gps_data = ROAD_ECG + "20201119_105644_698_GPS.csv"
-
-data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
+ecg_data = ROAD_ECG + "E6\\20201119_105644_698_HB_PW.csv"
+gps_data = ROAD_ECG + "E6\\20201119_105644_698_GPS.csv"
+mask_data = ROAD_ECG + "20201027_161000_536_HB_PW.csv"
+data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
 generator = data_fetch.fetch
 
 

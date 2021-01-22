@@ -82,7 +82,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.01)
+                                                       reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.4)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
 
@@ -174,7 +174,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return ar_logit, val_logit, z
     @tf.function
-    def trainSMCL(self, X, y_ar, y_val, th, global_batch_size, training=False):
+    def trainSMCL(self, X, y_ar, y_val, th, c_f, global_batch_size, training=False):
         # compute AR and VAL logits
         logits = self.call(X, training)
 
@@ -196,12 +196,12 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         losses_rec = 0.33 * (self.rs_loss(X, x_med) + self.rs_loss(X, x_small) + self.rs_loss(X, x_large))
 
-        final_losses_ar = tf.nn.compute_average_loss(losses_ar,
+        final_losses_ar = tf.nn.compute_average_loss(losses_ar, sample_weight=c_f,
                                                      global_batch_size=global_batch_size)
-        final_losses_val = tf.nn.compute_average_loss(losses_val,
+        final_losses_val = tf.nn.compute_average_loss(losses_val, sample_weight=c_f,
                                                       global_batch_size=global_batch_size)
 
-        final_rec_loss = tf.nn.compute_average_loss(losses_rec,
+        final_rec_loss = tf.nn.compute_average_loss(losses_rec, sample_weight=c_f,
                                                     global_batch_size=global_batch_size)
 
 

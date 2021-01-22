@@ -62,18 +62,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -126,6 +126,23 @@ with strategy.scope():
     vald_ar_rec = tf.keras.metrics.Recall()
     vald_val_rec = tf.keras.metrics.Recall()
 
+    #validation tp
+    vald_ar_tp = tf.keras.metrics.TruePositives()
+    vald_val_tp = tf.keras.metrics.TruePositives()
+
+    # validation tn
+    vald_ar_tn = tf.keras.metrics.TrueNegatives()
+    vald_val_tn = tf.keras.metrics.TrueNegatives()
+
+    # validation fp
+    vald_ar_fp = tf.keras.metrics.FalsePositives()
+    vald_val_fp = tf.keras.metrics.FalsePositives()
+
+    # validation fn
+    vald_ar_fn = tf.keras.metrics.FalseNegatives()
+    vald_val_fn = tf.keras.metrics.FalseNegatives()
+
+
 # Manager
 checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, base_model=model)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
@@ -135,24 +152,28 @@ with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
-        X = inputs[-1]
+        X = inputs[-2]
         # print(X)
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
+        c_f = inputs[-1]
 
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
-            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit,
+            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, c_f=c_f,
                                                                th=0.5, alpha=0.9,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
-            final_loss = loss_ar + (1.5 * loss_val)
+            final_loss = loss_ar + loss_val
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
+
         train_ar_loss(loss_ar)
         train_val_loss(loss_val)
+
+
         train_ar_acc(y_ar_bin, prediction_ar)
         train_val_acc(y_val_bin, prediction_val)
 
@@ -168,12 +189,13 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = inputs[-1]
+        X = inputs[-2]
         # X = base_model.extractFeatures(inputs[-1])
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
+        c_f = inputs[-1]
 
-        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,
+        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,c_f=c_f,
                                                          th=0.5,
                                                          global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         final_loss = loss_ar + loss_val
@@ -189,6 +211,22 @@ with strategy.scope():
         # precision
         vald_ar_rec(y_ar_bin, prediction_ar)
         vald_val_rec(y_val_bin, prediction_val)
+
+        # validation tp
+        vald_ar_tp(y_ar_bin, prediction_ar)
+        vald_val_tp(y_val_bin, prediction_val)
+
+        # validation tn
+        vald_ar_tn(y_ar_bin, prediction_ar)
+        vald_val_tn(y_val_bin, prediction_val)
+
+        # validation fp
+        vald_ar_fp(y_ar_bin, prediction_ar)
+        vald_val_fp(y_val_bin, prediction_val)
+
+        # validation fn
+        vald_ar_fn(y_ar_bin, prediction_ar)
+        vald_val_fn(y_val_bin, prediction_val)
 
         return final_loss
 
@@ -219,6 +257,22 @@ with strategy.scope():
         # precision
         vald_ar_rec.reset_states()
         vald_val_rec.reset_states()
+
+        # validation tp
+        vald_ar_tp.reset_states()
+        vald_val_tp.reset_states()
+
+        # validation tn
+        vald_ar_tn.reset_states()
+        vald_val_tn.reset_states()
+
+        # validation fp
+        vald_ar_fp.reset_states()
+        vald_val_fp.reset_states()
+
+        # validation fn
+        vald_ar_fn.reset_states()
+        vald_val_fn.reset_states()
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
@@ -300,7 +354,14 @@ with strategy.scope():
         distributed_test_step(test, data_fetch.test_n)
     template = (
         "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
+    template_detail = ("true_ar_acc: {}, false_ar_acc: {}, true_val_acc: {}, false_val_acc: {}")
     vald_loss = vald_ar_loss.result().numpy() + vald_val_loss.result().numpy()
+
+    true_ar_acc = vald_ar_tp.result().numpy() / (vald_ar_tp.result().numpy() + vald_ar_fp.result().numpy())
+    false_ar_acc = vald_ar_tn.result().numpy() / ( vald_ar_tn.result().numpy() +  vald_ar_fn.result().numpy())
+
+    true_val_acc = vald_val_tp.result().numpy()  / (vald_val_tp.result().numpy() + vald_val_fp.result().numpy())
+    false_val_acc = vald_val_tn.result().numpy()  /(vald_val_tn.result().numpy() + vald_val_fn.result().numpy())
     print(template.format(
         vald_loss,
         vald_ar_acc.result().numpy(),
@@ -310,6 +371,8 @@ with strategy.scope():
         vald_val_pre.result().numpy(),
         vald_val_rec.result().numpy(),
     ))
+
+    print(template_detail.format(true_ar_acc,false_ar_acc,true_val_acc, false_val_acc ))
 
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")
