@@ -87,7 +87,8 @@ class DataFetch:
             if KD:
                 files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features, ecg_raw]
                 features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
-                ecg = features[6]
+                ecg = ecg_raw
+                # ecg = features[6]
             else:
                 files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features
                          ]

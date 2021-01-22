@@ -2,6 +2,124 @@ import tensorflow as tf
 import math
 from KnowledgeDistillation.Layers.AttentionLayer import AttentionLayer
 
+class EnsembleStudentOneDimF(tf.keras.Model):
+
+    def __init__(self, num_output_ar=4, num_output_val=4, pretrain=True):
+        super(EnsembleStudentOneDimF, self).__init__(self)
+
+        # dense 1
+        self.small_en_1 = tf.keras.layers.Dense(units=16, name="small_en_1")
+        self.small_en_2 = tf.keras.layers.Dense(units=32, name="small_en_2")
+        self.small_en_3 = tf.keras.layers.Dense(units=64, name="small_en_3")
+        self.small_ar_logit = tf.keras.layers.Dense(units=num_output_ar, name="small_ar_logit", activation=None)
+        self.small_val_logit = tf.keras.layers.Dense(units=num_output_val, name="small_val_logit", activation=None)
+
+        # dense 2
+        self.med_en_1 = tf.keras.layers.Dense(units=16, name="med_en_1")
+        self.med_en_2 = tf.keras.layers.Dense(units=16, name="med_en_2")
+        self.med_en_3 = tf.keras.layers.Dense(units=32, name="med_en_3")
+        self.med_en_4 = tf.keras.layers.Dense(units=32, name="med_en_4")
+        self.med_ar_logit = tf.keras.layers.Dense(units=num_output_ar, name="med_ar_logit", activation=None)
+        self.med_val_logit = tf.keras.layers.Dense(units=num_output_val, name="med_val_logit", activation=None)
+
+        # big
+        self.large_en_1 = tf.keras.layers.Dense(units=32, name="large_en_1")
+        self.large_en_2 = tf.keras.layers.Dense(units=64, name="large_en_2")
+        self.large_en_3 = tf.keras.layers.Dense(units=64, name="large_en_3")
+        self.large_ar_logit = tf.keras.layers.Dense(units=num_output_ar, name="large_ar_logit", activation=None)
+        self.large_val_logit = tf.keras.layers.Dense(units=num_output_val, name="large_val_logit", activation=None)
+
+
+       # activation
+        self.elu = tf.keras.layers.ELU()
+        # dropout
+        self.dropout1 = tf.keras.layers.Dropout(0.0)
+        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        # avg
+        self.avg = tf.keras.layers.Average()
+
+        # loss
+        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+                                                                  reduction=tf.keras.losses.Reduction.NONE)
+
+
+    def smallForward(self, x):
+        x = self.dropout2(self.elu(self.small_en_1(x)))
+        x = self.dropout2(self.elu(self.small_en_2(x)))
+        x = self.dropout2(self.elu(self.small_en_3(x)))
+        ar_logit = self.small_ar_logit(x)
+        val_logit = self.small_val_logit(x)
+        return ar_logit, val_logit
+
+    def mediumForward(self, x):
+        x = self.dropout2(self.elu(self.med_en_1(x)))
+        x = self.dropout2(self.elu(self.med_en_2(x)))
+        x = self.dropout2(self.elu(self.med_en_3(x)))
+        x = self.dropout2(self.elu(self.med_en_4(x)))
+        ar_logit = self.med_ar_logit(x)
+        val_logit = self.med_val_logit(x)
+
+        return ar_logit, val_logit
+
+    def largeForward(self, x):
+        x = self.dropout2(self.elu(self.large_en_1(x)))
+        x = self.dropout2(self.elu(self.large_en_2(x)))
+        x = self.dropout2(self.elu(self.large_en_3(x)))
+        ar_logit = self.large_ar_logit(x)
+        val_logit = self.large_val_logit(x)
+
+        return ar_logit, val_logit
+    def call(self, inputs, training=None, mask=None):
+        # small
+        ar_logit_small, val_logit_small = self.smallForward(inputs)
+        # med
+        ar_logit_med, val_logit_med = self.mediumForward(inputs)
+        # big
+        ar_logit_large, val_logit_large = self.largeForward(inputs)
+        ar_logits = [ar_logit_small, ar_logit_med, ar_logit_large]
+        val_logits = [val_logit_small, val_logit_med, val_logit_large]
+
+        return ar_logits, val_logits
+
+    @tf.function
+    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, c_f, alpha, global_batch_size, training=False):
+        z_ar, z_val  = self.call(X, training=training)
+        y_ar_t = tf.nn.sigmoid(y_ar_t)
+        y_val_t = tf.nn.sigmoid(y_val_t)
+        beta = 1 - alpha
+        final_loss_ar = tf.nn.compute_average_loss(
+            (alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=c_f,
+            global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(
+            (alpha * self.cross_loss(y_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=c_f,
+            global_batch_size=global_batch_size)
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+
+        # final_loss = (final_loss_ar + final_loss_val)
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+
+    @tf.function
+    def test(self, X, y_ar, y_val, th, c_f, global_batch_size, training=False):
+        z_ar, z_val = self.call(X, training=training)
+
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), sample_weight=c_f, global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),  sample_weight=c_f, global_batch_size=global_batch_size)
+
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+
+        # final_loss = final_loss_ar + final_loss_val
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+
+    @tf.function
+    def predict(self, X, global_batch_size, training=False):
+        z_ar, z_val = self.call(X, training=training)
+        predictions_ar = tf.nn.sigmoid(z_ar)
+        predictions_val = tf.nn.sigmoid(z_val)
+
+        return predictions_ar, predictions_val
+
 
 class EnsembleStudentOneDim(tf.keras.Model):
 
