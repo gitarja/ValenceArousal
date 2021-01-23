@@ -5,6 +5,8 @@ from scipy import signal
 
 
 def caseDifficulty(val, ar):
+    if val == 3 or ar == 3:
+        return 0.3
     if (val >=2 and val<=4) or (ar >=2 and ar <=4):
         return 0.5
     else:
@@ -66,6 +68,9 @@ def convertLabels(ar, val):
     labels[(ar == 1) & (val == 0)] = 2
     labels[(ar == 1) & (val == 1)] = 3
     return labels
+
+def convertLabelsRaw(ar, val):
+    return ar + val
 
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):

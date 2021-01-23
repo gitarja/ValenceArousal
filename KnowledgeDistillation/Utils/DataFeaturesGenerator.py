@@ -4,7 +4,7 @@ import numpy as np
 import random
 from scipy import signal
 from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels, caseDifficulty, timeToInt
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
@@ -25,6 +25,16 @@ class DataFetch:
         self.w = 0
         self.j =0
 
+        #normalization ecg features
+        self.ecg_mean = np.array([2.18785670e+02, 5.34106162e+01, 1.22772848e+01, 8.87240641e+00,
+       1.23045575e+01, 8.19622448e+00, 2.80084568e+02, 1.51193876e+01,
+       3.36927105e+01, 6.63072895e+01, 7.52327656e-01, 1.85165308e+00,
+       1.42787092e-01])
+
+        self.ecg_std = np.array([28.6904681 ,  7.2190369 ,  8.96941273,  8.57895833, 13.34906982,
+       10.67710367, 36.68525696,  9.31097392, 21.09139643, 21.09139643,
+        0.88959446,  0.48770451,  0.08282199])
+
         self.data_train = self.readData(pd.read_csv(train_file), KD, True)
         self.data_val = self.readData(pd.read_csv(validation_file), KD)
         self.data_test = self.readData(pd.read_csv(test_file), KD)
@@ -35,6 +45,8 @@ class DataFetch:
         self.train_n = len(self.data_train)
         self.val_n = len(self.data_val)
         self.test_n = len(self.data_test)
+
+
 
 
 
@@ -87,8 +99,7 @@ class DataFetch:
             if KD:
                 files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features, ecg_raw]
                 features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
-                ecg = ecg_raw
-                # ecg = features[6]
+                ecg = features[6]
             else:
                 files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features
                          ]
@@ -119,15 +130,17 @@ class DataFetch:
                 if len(ecg) >= self.ECG_N:
                     # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
                     ecg = (ecg -  2140.397356669409) / 370.95493558685325
+                    # ecg = signal.resample(ecg[:int(FS_ECG * SPLIT_TIME)], FS_ECG_ROAD * SPLIT_TIME)
                     # ecg = ecg / (4095 - 0)
                     if training:
                         ecg = self.randomECG(ecg)
                     else:
                         ecg = ecg[-self.ECG_N:]
                     # ecg = ecg /  2.0861534577149707
+                    # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
                     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f, ecg])
-                    if training and y_val_bin == 0:
-                        data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
+                    # if training and y_val_bin == 0:
+                    #     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
@@ -222,8 +235,21 @@ class DataFetchRoad:
         self.ecg_n = ecg_n
         self.stride = stride
 
+        self.featuresExct = ECGFeatures(FS_ECG)
+
+        # normalization ecg features
+        self.ecg_mean = np.array([2.18785670e+02, 5.34106162e+01, 1.22772848e+01, 8.87240641e+00,
+                                  1.23045575e+01, 8.19622448e+00, 2.80084568e+02, 1.51193876e+01,
+                                  3.36927105e+01, 6.63072895e+01, 7.52327656e-01, 1.85165308e+00,
+                                  1.42787092e-01])
+
+        self.ecg_std = np.array([28.6904681, 7.2190369, 8.96941273, 8.57895833, 13.34906982,
+                                 10.67710367, 36.68525696, 9.31097392, 21.09139643, 21.09139643,
+                                 0.88959446, 0.48770451, 0.08282199])
+
         self.data_set = self.readData()
         self.test_n = len(self.data_set)
+
 
     def fetch(self):
         i = 0
@@ -236,7 +262,7 @@ class DataFetchRoad:
         data_set = []
         gps_data = pd.read_csv(self.gps_file)
         ecg_data = pd.read_csv(self.ecg_file)
-        # mask_file = pd.read_csv(self.mask_file)
+        mask_file = pd.read_csv(self.mask_file)
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
         # ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
@@ -245,7 +271,18 @@ class DataFetchRoad:
             end = start + (SPLIT_TIME+1)
             ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
             if len(ecg) >= self.ecg_n:
+                ecg = ecg[:self.ecg_n]
+
+                #extract ECG features
+                # time_domain = self.featuresExct.extractTimeDomain(ecg)
+                # freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
+                # nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
+                # concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
+                # data_set.append(concatenate_features)
+
+                #raw ecg
                 ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                # ecg = signal.resample(ecg, FS_ECG_ROAD * SPLIT_TIME)
                 data_set.append(ecg[:self.ecg_n])
             # print(ecg)
         return data_set

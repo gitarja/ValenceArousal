@@ -1,7 +1,7 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim, EnsembleStudentOneDimF
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 import datetime
 import os
@@ -41,13 +41,13 @@ wait = 10
 fold=2
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\v2-exp-final\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student"
 
 # datagenerator
-ecg_data = ROAD_ECG + "E6\\20201119_105644_698_HB_PW.csv"
-gps_data = ROAD_ECG + "E6\\20201119_105644_698_GPS.csv"
-mask_data = ROAD_ECG + "20201027_161000_536_HB_PW.csv"
+ecg_data = ROAD_ECG + "E5\\20201119_140344_493_HB_PW.csv"
+gps_data = ROAD_ECG + "E5\\20201119_140344_493_GPS.csv"
+mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
 data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
 generator = data_fetch.fetch
 

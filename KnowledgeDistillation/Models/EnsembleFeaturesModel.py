@@ -82,7 +82,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.4)
+                                                       reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.2)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
 
@@ -196,12 +196,12 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         losses_rec = 0.33 * (self.rs_loss(X, x_med) + self.rs_loss(X, x_small) + self.rs_loss(X, x_large))
 
-        final_losses_ar = tf.nn.compute_average_loss(losses_ar, sample_weight=c_f,
+        final_losses_ar = tf.nn.compute_average_loss(losses_ar,
                                                      global_batch_size=global_batch_size)
         final_losses_val = tf.nn.compute_average_loss(losses_val, sample_weight=c_f,
                                                       global_batch_size=global_batch_size)
 
-        final_rec_loss = tf.nn.compute_average_loss(losses_rec, sample_weight=c_f,
+        final_rec_loss = tf.nn.compute_average_loss(losses_rec,
                                                     global_batch_size=global_batch_size)
 
 

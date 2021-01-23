@@ -39,7 +39,7 @@ class EnsembleStudentOneDimF(tf.keras.Model):
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                                   reduction=tf.keras.losses.Reduction.NONE)
 
 
@@ -76,8 +76,8 @@ class EnsembleStudentOneDimF(tf.keras.Model):
         ar_logit_med, val_logit_med = self.mediumForward(inputs)
         # big
         ar_logit_large, val_logit_large = self.largeForward(inputs)
-        ar_logits = [ar_logit_small, ar_logit_med, ar_logit_large]
-        val_logits = [val_logit_small, val_logit_med, val_logit_large]
+        ar_logits = self.avg([ar_logit_small, ar_logit_med, ar_logit_large])
+        val_logits = self.avg([val_logit_small, val_logit_med, val_logit_large])
 
         return ar_logits, val_logits
 
@@ -149,8 +149,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.elu = tf.keras.layers.ELU()
 
         #attention
-        self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
-        self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
+        self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=12)
+        self.att_val = AttentionLayer(name="att_val", TIME_STEPS=12)
 
         # classify
         self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
@@ -185,7 +185,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # avg
         self.avg = tf.keras.layers.Average()
         # loss
-        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.4,
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.2,
                                                        reduction=tf.keras.losses.Reduction.NONE)
         self.mean_square_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
         self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)

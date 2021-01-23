@@ -116,6 +116,23 @@ with strategy.scope():
     vald_ar_rec = tf.keras.metrics.Recall()
     vald_val_rec = tf.keras.metrics.Recall()
 
+    #validation tp
+    vald_ar_tp = tf.keras.metrics.TruePositives()
+    vald_val_tp = tf.keras.metrics.TruePositives()
+
+    # validation tn
+    vald_ar_tn = tf.keras.metrics.TrueNegatives()
+    vald_val_tn = tf.keras.metrics.TrueNegatives()
+
+    # validation fp
+    vald_ar_fp = tf.keras.metrics.FalsePositives()
+    vald_val_fp = tf.keras.metrics.FalsePositives()
+
+    # validation fn
+    vald_ar_fn = tf.keras.metrics.FalseNegatives()
+    vald_val_fn = tf.keras.metrics.FalseNegatives()
+
+
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)
     manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
@@ -176,6 +193,22 @@ with strategy.scope():
         vald_ar_rec(y_ar, prediction_ar)
         vald_val_rec(y_val, prediction_val)
 
+        # validation tp
+        vald_ar_tp(y_ar, prediction_ar)
+        vald_val_tp(y_val, prediction_val)
+
+        # validation tn
+        vald_ar_tn(y_ar, prediction_ar)
+        vald_val_tn(y_val, prediction_val)
+
+        # validation fp
+        vald_ar_fp(y_ar, prediction_ar)
+        vald_val_fp(y_val, prediction_val)
+
+        # validation fn
+        vald_ar_fn(y_ar, prediction_ar)
+        vald_val_fn(y_val, prediction_val)
+
         return final_loss
 
 
@@ -202,6 +235,22 @@ with strategy.scope():
         # precision
         vald_ar_rec.reset_states()
         vald_val_rec.reset_states()
+
+        # validation tp
+        vald_ar_tp.reset_states()
+        vald_val_tp.reset_states()
+
+        # validation tn
+        vald_ar_tn.reset_states()
+        vald_val_tn.reset_states()
+
+        # validation fp
+        vald_ar_fp.reset_states()
+        vald_val_fp.reset_states()
+
+        # validation fn
+        vald_ar_fn.reset_states()
+        vald_val_fn.reset_states()
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
@@ -273,8 +322,24 @@ with strategy.scope():
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test_loss: {:.4f}, Test_ar: {:.4f}, Test_val: {:.4f}")
-    print(template.format(vald_loss.result().numpy(), vald_ar_acc.result().numpy(), vald_val_acc.result().numpy()))
+        "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
+    template_detail = ("true_ar_acc: {}, false_ar_acc: {}, true_val_acc: {}, false_val_acc: {}")
+    loss = vald_loss.result().numpy()
 
+    true_ar_acc = vald_ar_tp.result().numpy() / (vald_ar_tp.result().numpy() + vald_ar_fp.result().numpy())
+    false_ar_acc = vald_ar_tn.result().numpy() / ( vald_ar_tn.result().numpy() +  vald_ar_fn.result().numpy())
+
+    true_val_acc = vald_val_tp.result().numpy()  / (vald_val_tp.result().numpy() + vald_val_fp.result().numpy())
+    false_val_acc = vald_val_tn.result().numpy()  /(vald_val_tn.result().numpy() + vald_val_fn.result().numpy())
+    print(template.format(
+        loss,
+        vald_ar_acc.result().numpy(),
+        vald_ar_pre.result().numpy(),
+        vald_ar_rec.result().numpy(),
+        vald_val_acc.result().numpy(),
+        vald_val_pre.result().numpy(),
+        vald_val_rec.result().numpy(),
+    ))
+    print(template_detail.format(true_ar_acc,false_ar_acc,true_val_acc, false_val_acc ))
     vald_reset_states()
     print("-----------------------------------------------------------------------------------------")

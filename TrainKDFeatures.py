@@ -7,7 +7,7 @@ import datetime
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -37,8 +37,8 @@ ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
