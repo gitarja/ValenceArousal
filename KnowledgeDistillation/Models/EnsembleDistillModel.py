@@ -120,6 +120,84 @@ class EnsembleStudentOneDimF(tf.keras.Model):
 
         return predictions_ar, predictions_val
 
+class BaseStudentOneDim(tf.keras.Model):
+
+    def __init__(self, pretrain=True):
+        super(BaseStudentOneDim, self).__init__(self)
+        #encoder
+        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation="elu", name="en_conv1",
+                                               padding="same", trainable=pretrain)
+        self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation="elu", name="en_conv2",
+                                               padding="same", trainable=pretrain)
+        self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation="elu", name="en_conv3",
+                                               padding="same", trainable=pretrain)
+        self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation="elu", name="en_conv4",
+                                               padding="same", trainable=pretrain)
+        self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation="elu", name="en_conv5",
+                                               padding="same", trainable=pretrain)
+        self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation="elu", name="en_conv6",
+                                               padding="same", trainable=pretrain)
+
+        #decoder
+        self.de_conv1 = tf.keras.layers.Conv1DTranspose(filters=32, kernel_size=5, strides=1, activation="elu", name="de_conv1",
+                                               padding="same", trainable=pretrain)
+        self.de_conv2 = tf.keras.layers.Conv1DTranspose(filters=32, kernel_size=5, strides=1, activation="elu", name="de_conv2",
+                                               padding="same", trainable=pretrain)
+        self.de_conv3 = tf.keras.layers.Conv1DTranspose(filters=16, kernel_size=5, strides=1, activation="elu", name="de_conv3",
+                                               padding="same", trainable=pretrain)
+        self.de_conv4 = tf.keras.layers.Conv1DTranspose(filters=16, kernel_size=5, strides=1, activation="elu", name="de_conv4",
+                                               padding="same", trainable=pretrain)
+        self.de_conv5 = tf.keras.layers.Conv1DTranspose(filters=8, kernel_size=5, strides=1, activation="elu", name="de_conv5",
+                                               padding="same", trainable=pretrain)
+        self.de_conv6 = tf.keras.layers.Conv1DTranspose(filters=8, kernel_size=5, strides=1, activation="elu", name="de_conv6",
+                                               padding="same", trainable=pretrain)
+
+        self.de_conv7 = tf.keras.layers.Conv1DTranspose(filters=1, kernel_size=5, strides=1, activation="elu", name="de_conv7",
+                                               padding="same", trainable=pretrain)
+
+
+
+        # pool
+        self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3)
+        self.up_pool = tf.keras.layers.UpSampling1D(size=3)
+
+        # loss
+        self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+                                                       reduction=tf.keras.losses.Reduction.NONE)
+
+
+    def call(self, inputs, training=None, mask=None):
+
+        x = self.max_pool(self.en_conv1(inputs))
+        x = self.max_pool(self.en_conv2(x))
+        x = self.max_pool(self.en_conv3(x))
+        x = self.max_pool(self.en_conv4(x))
+        x = self.max_pool(self.en_conv5(x))
+        z = self.max_pool(self.en_conv6(x))
+
+        x = self.up_pool(self.de_conv1(z))
+        x = self.up_pool(self.de_conv2(x))
+        x = self.up_pool(self.de_conv3(x))
+        x = self.up_pool(self.de_conv4(x))
+        x = self.up_pool(self.de_conv5(x))
+        x = self.up_pool(self.de_conv6(x))
+        x = self.de_conv7(x)
+
+
+        return x, z
+
+
+
+    def train(self, inputs, t, global_batch_size, training=False):
+        x, _ = self(inputs, training)
+        loss = self.loss(t, x)
+        final_loss_val = tf.nn.compute_average_loss(loss,
+            global_batch_size=global_batch_size)
+
+        return final_loss_val
+
+
+
 
 class EnsembleStudentOneDim(tf.keras.Model):
 
@@ -279,6 +357,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
         predictions_val = tf.nn.sigmoid(z_val)
 
         return predictions_ar, predictions_val
+
+
 
 
 class EnsembleStudentOneDim_MClass(tf.keras.Model):
