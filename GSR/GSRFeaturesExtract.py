@@ -16,7 +16,7 @@ eda_features_exct = EDAFeatures(FS_GSR)
 ppg_features_exct = PPGFeatures(FS_GSR)
 min_eda_len = (FS_GSR * SPLIT_TIME) - 50
 
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:

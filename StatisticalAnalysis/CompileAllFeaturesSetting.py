@@ -26,7 +26,7 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
 
 all_features = []
 all_ori_features = []
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")

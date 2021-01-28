@@ -14,7 +14,7 @@ resp_features_exct = RespFeatures(FS_RESP)
 ecg_features_exct = ECGFeatures(FS_RESP)
 min_len = FS_RESP * (SPLIT_TIME + 1)
 
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
@@ -72,8 +72,8 @@ for folder in glob.glob(DATASET_PATH + "*"):
                             if not os.path.isdir(subject + ECG_RR_PATH):
                                 os.mkdir(subject + ECG_RR_PATH )
                             np.save(subject + ECG_RR_PATH+ "ecg_raw_" + str(idx) + ".npy", ecg_resp)
-                            # np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
-                            # np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
+                            np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
                             # np.save(subject + RESP_RAW_PATH + "resp_" + str(idx) + ".npy", resp)
                             # np.save(subject + ECG_RAW_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_resp)
                             status = 1
