@@ -4,22 +4,34 @@ from datetime import datetime
 from scipy import signal
 
 
-def valArToLabels(y, soft=False):
-    if soft is False:
-        if (y < 3):
-            return 0
-        elif (y == 3):
-            return 1
-        else:
-            return 2
-
+def caseDifficulty(val, ar):
+    if val == 3 or ar == 3:
+        return 0.3
+    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
+        return 0.5
     else:
-        if y >= 2 & y <= 4:
-            return np.array([0.1, 0.8, 0.1])
-        elif (y < 2):
-            return np.array([0.8, 0.2, 0])
-        else:
-            return np.array([0.0, 0.2, 0.8])
+        return 1
+
+def valToMLabels(y):
+    if (y >= 3):
+        return np.array([0.5, 1.])
+    else:
+        return np.array([1., 0.5])
+
+
+def arToMLabels(y):
+    if (y >= 3):
+        return np.array([0.5, 1.])
+    else:
+        return np.array([1., 0.5])
+
+def arValToMLabels(y):
+    if y == 3:
+        return np.array([1., 1., 1.])
+    elif y < 3:
+        return np.array([1., 1., 0.])
+    elif y > 3:
+        return np.array([0., 1., 1.])
 
 
 def arToLabels(y):
@@ -27,6 +39,7 @@ def arToLabels(y):
         return 0
     else:
         return 1
+
 
 
 def valToLabels(y):
@@ -37,12 +50,13 @@ def valToLabels(y):
         return 1
 
 
+
 def arValMulLabels(ar, val):
-    if ar == 0 and val == 0:
+    if (ar == 0) and (val == 0):
         return 0
-    elif ar == 0 and val == 1:
+    elif (ar == 0) and (val == 1):
         return 1
-    elif ar == 1 and val == 0:
+    elif (ar == 1) and (val == 0):
         return 2
     else:
         return 3
@@ -54,6 +68,9 @@ def convertLabels(ar, val):
     labels[(ar == 1) & (val == 0)] = 2
     labels[(ar == 1) & (val == 1)] = 3
     return labels
+
+def convertLabelsRaw(ar, val):
+    return ar + val
 
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):

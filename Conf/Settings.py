@@ -1,5 +1,6 @@
 # ECG Const
 FS_ECG = 250
+FS_ECG_ROAD = 200
 FS_EEG = 1000
 FS_GSR = 256
 FS_RESP = 256
@@ -8,9 +9,9 @@ STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
-# FEATURES_N = 2480
-FEATURES_N = 13
-ECG_RAW_N = 10935
+FEATURES_N = 2480
+# FEATURES_N = 13
+ECG_RAW_N = 9000
 # ECG_RAW_N = 11125
 
 # features
@@ -47,3 +48,7 @@ ECG_RAW_RESP_PATH = RESULTS_RAW_PATH + "ECG_resp\\"
 
 #manager
 CHECK_POINT_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\model\\sMCL\\"
+TRAINING_RESULTS_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\"
+
+#road test
+ROAD_ECG = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\road_test\\"

@@ -3,7 +3,7 @@ import numpy as np
 from Libs.Utils import arToLabels, valToLabels
 from sklearn.preprocessing import StandardScaler
 from StatisticalAnalysis.FeaturesImportance import FeaturesImportance
-from Conf.Settings import ECG_PATH, STRIDE, DATASET_PATH_local, ROAD_TEST_PATH, SPLIT_TIME, FS_ECG, EXTENTION_TIME
+from Conf.Settings import ECG_PATH, STRIDE,  SPLIT_TIME, FS_ECG, EXTENTION_TIME
 from Libs.Utils import timeToInt
 from ECG.ECGFeatures import ECGFeatures
 from sklearn.decomposition import PCA
@@ -21,6 +21,8 @@ y_ar = []
 y_val = []
 ecg = []
 
+DATASET_PATH_local= "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
+ROAD_TEST_PATH = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Road-Test\\20201119-E-DATA\\"
 game_result = "\\*_gameResults.csv"
 path_result = "results\\"
 subject_name = "E1-2020-11-03"
@@ -53,7 +55,7 @@ time_end = np.max(ecg_road_data["timestamp"].values)
 tdelta = time_end - time_start
 
 #features extractor
-featuresExct = ECGFeatures(FS_ECG)
+featuresExct = ECGFeatures(200)
 
 #road test features
 road_test_features = []

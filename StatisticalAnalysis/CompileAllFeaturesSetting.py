@@ -43,7 +43,7 @@ df_ori = pd.concat(all_ori_features, ignore_index=True)
 y = convertLabels(df["Arousal"].values, df["Valence"].values)
 
 # #Split to train and test
-skf = StratifiedKFold(n_splits=5, shuffle=True)
+skf = StratifiedKFold(n_splits=5, shuffle=False)
 fold = 1
 for train_index, test_index in skf.split(df.index, y):
     X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=42)
