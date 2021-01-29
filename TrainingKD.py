@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim, BaseStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
@@ -43,6 +43,7 @@ prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student"
+
 # tensorboard
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 train_log_dir = result_path + "tensorboard_student\\" + current_time + '/train'
@@ -62,18 +63,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), tf.TensorShape([ECG_RAW_N]), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -88,13 +89,16 @@ with strategy.scope():
     # load pretrained model
     checkpoint_prefix_base = result_path + "model_teacher"
     teacher_model = EnsembleSeparateModel(num_output=1).loadBaseModel(checkpoint_prefix_base)
+    # encoder model
+    checkpoint_prefix_encoder = result_path + "model_base_student"
+    base_model = BaseStudentOneDim(pretrain=False).loadBaseModel(checkpoint_prefix_encoder)
     model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
 
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
     # loss
@@ -152,16 +156,19 @@ with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
-        X = inputs[-2]
+        X = tf.expand_dims(inputs[-1], -1)
         # print(X)
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
-        c_f = inputs[-1]
+        ar_weight = inputs[3]
+        val_weight = inputs[4]
 
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
-            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, c_f=c_f,
-                                                               th=0.5, alpha=0.9,
+            #using latent
+            _, latent = base_model(X)
+            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(latent, y_ar_bin, y_val_bin, ar_logit, val_logit, ar_weight=ar_weight, val_weight=val_weight,
+                                                               th=th, alpha=0.9,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
             final_loss = loss_ar + loss_val
 
@@ -189,14 +196,17 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = inputs[-2]
+        X = tf.expand_dims(inputs[-1], -1)
         # X = base_model.extractFeatures(inputs[-1])
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
-        c_f = inputs[-1]
+        ar_weight = inputs[3]
+        val_weight = inputs[4]
 
-        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,c_f=c_f,
-                                                         th=0.5,
+        # using latent
+        _, latent = base_model(X)
+        loss_ar, loss_val, prediction_ar, prediction_val = model.test(latent, y_ar_bin, y_val_bin, ar_weight=ar_weight, val_weight=val_weight,
+                                                         th=th,
                                                          global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         final_loss = loss_ar + loss_val
         vald_ar_loss(loss_ar)

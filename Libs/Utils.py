@@ -4,13 +4,26 @@ from datetime import datetime
 from scipy import signal
 
 
-def caseDifficulty(val, ar):
-    if val == 3 or ar == 3:
-        return 0.3
-    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
-        return 0.5
+
+def arWeight(ar):
+    if ar == 0:
+        return 1.486
     else:
-        return 1
+        return 0.753
+
+def valWeight(val):
+    if val == 0:
+        return 1.68
+    else:
+        return 0.71
+
+def caseDifficulty(val, ar):
+    if val < 2 or ar < 2:
+        return 0.6
+    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
+        return 0.3
+    else:
+        return 0.4
 
 def valToMLabels(y):
     if (y >= 3):

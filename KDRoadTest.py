@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim, EnsembleStudentOneDimF
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim, BaseStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
@@ -38,15 +38,15 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=2
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student"
 
 # datagenerator
-ecg_data = ROAD_ECG + "E5\\20201119_140344_493_HB_PW.csv"
-gps_data = ROAD_ECG + "E5\\20201119_140344_493_GPS.csv"
+ecg_data = ROAD_ECG + "E5\\20201119_110037_112_HB_PW.csv"
+gps_data = ROAD_ECG + "E5\\20201119_110037_112_GPS.csv"
 mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
 data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
 generator = data_fetch.fetch
@@ -62,6 +62,10 @@ test_data = test_generator.batch(BATCH_SIZE)
 
 with strategy.scope():
     # load pretrained model
+    # encoder model
+    checkpoint_prefix_encoder = result_path + "model_base_student"
+    base_model = BaseStudentOneDim(pretrain=False).loadBaseModel(checkpoint_prefix_encoder)
+
     model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
@@ -76,14 +80,15 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=
 checkpoint.restore(manager.latest_checkpoint)
 
 predictions = []
+print("Start testing")
 with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = tf.expand_dims(inputs[-1], 0)
+        X = tf.expand_dims(tf.expand_dims(inputs[-1], -1), 0)
+        _, latent = base_model(X)
 
-
-        prediction_ar, prediction_val = model.predict(X, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        prediction_ar, prediction_val = model.predict(latent, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
 
         return prediction_ar, prediction_val
 
