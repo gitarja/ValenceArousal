@@ -76,6 +76,53 @@ class ECGEEGEncoder:
         z_eeg = tf.keras.layers.Dense(units=self.dim_head_output)(x)
 
         return h_eeg, z_eeg
+    
+    def eegNet(self, input_tensor, c=19, T=128,
+               dp_rate=0.5, kern_length=64, f1=8,
+               d=2, f2=16, pretrain=True):
+        """
+          http://iopscience.iop.org/article/10.1088/1741-2552/aace8c/meta
+
+          Parameters:
+          c:    channels
+          T:    length of EEG
+          dp_rate:  drop out rate
+          d:    number of spatial  features
+          f1,f2:    number of temporal features
+        """
+
+        x = tf.keras.layers.Reshape((c, T, 1))(input_tensor)
+        ##################################################################
+        x = tf.keras.layers.Conv2D(f1, (1, kern_length), padding='same',
+                                   input_shape=(c, T, 1),
+                                   use_bias=False, trainable=pretrain)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.DepthwiseConv2D((c, 1), use_bias=False,
+                                            depth_multiplier=d,
+                                            depthwise_constraint=tf.keras.constraints.max_norm(1.), trainable=pretrain)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation('elu')(x)
+        x = tf.keras.layers.AveragePooling2D((1, 4))(x)
+        x = tf.keras.layers.Dropout(dp_rate)(x)
+
+        x = tf.keras.layers.SeparableConv2D(f2, (1, 16),
+                            use_bias=False, padding='same', trainable=pretrain)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation('elu')(x)
+        x = tf.keras.layers.AveragePooling2D((1, 8))(x)
+        x = tf.keras.layers.Dropout(dp_rate)(x)
+
+        x = tf.keras.layers.Flatten(name='flatten')(x)
+
+        # Head
+        for u in [128, 64, 32]:
+            x = tf.keras.layers.Dense(units=u)(x)
+            x = tf.keras.layers.ELU()(x)
+            x = tf.keras.layers.Dropout(0.15)(x)
+        z_eeg = tf.keras.layers.Dense(units=self.dim_head_output)(x)
+
+        return z_eeg
+
 
     def eegEncoder3D(self, input_tensor, pretrain=True):
 
