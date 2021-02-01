@@ -14,7 +14,7 @@ game_result = "\\*_gameResults.csv"
 
 
 for folder in glob.glob(DATASET_PATH + "*"):
-    for subject in glob.glob(folder + "\\*-2020-10-*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
             data =  pd.read_csv(glob.glob(subject + ecg_file + "*.csv")[0])

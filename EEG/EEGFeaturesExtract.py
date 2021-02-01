@@ -1,7 +1,7 @@
 from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
 import glob
-from Libs.Utils import timeToInt
+from Libs.Utils import timeToInt, arToLabels
 from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH, DATASET_PATH
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
@@ -14,7 +14,7 @@ min_eeg_len = SPLIT_TIME * FS_EEG - 100
 downsample_eeg_len = SPLIT_TIME * 200
 for folder in glob.glob(DATASET_PATH + "*"):
 
-    for subject in glob.glob(folder + "\\*D4-2020-*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
             data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
@@ -38,7 +38,18 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 print(i)
                 eeg["time"] = eeg["time"].apply(timeToInt)
                 # print(eeg["time"].values[0])
-                for j in np.arange(0., (tdelta // SPLIT_TIME), STRIDE):
+
+
+                #setting the end of extraction
+                bin_ar = arToLabels(arousal)
+                bin_val = arToLabels(valence)
+
+                if (bin_ar == 1) or (bin_val == 1):
+                    end_extract = 0.5 * (tdelta // SPLIT_TIME)#use only half of the data from the mid to  the last
+                else:
+                    end_extract = 0.3 * (tdelta // SPLIT_TIME)#use only 2/3 of the data
+
+                for j in np.arange(end_extract, (tdelta // SPLIT_TIME), STRIDE): #the window move backward
                     # take 2.5 sec after end
                     # end = time_end - ((j-1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)

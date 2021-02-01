@@ -20,6 +20,7 @@ class TeacherModel(tf.keras.Model):
         return z
 
 
+
 class StudentModel(tf.keras.Model):
     def __init__(self, class_num=10):
         super(StudentModel, self).__init__(self)
