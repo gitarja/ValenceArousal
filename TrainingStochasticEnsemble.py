@@ -6,7 +6,7 @@ import datetime
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -21,7 +21,7 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
+cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=1)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
@@ -35,17 +35,17 @@ wait = 5
 
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold = 1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
-checkpoint_prefix = result_path + "model_teacher"
-# tensorboard
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-train_log_dir = result_path + "tensorboard_teacher\\" + current_time + '/train'
-test_log_dir = result_path + "tensorboard_teacher\\" + current_time + '/test'
+result_path = TRAINING_RESULTS_PATH + "EnsembleLearning\\" + current_time + "\\fold_" + str(fold) + "\\"
+checkpoint_prefix = result_path + "checkpoint\\"
+# tensorboard
+train_log_dir = result_path + "tensorboard_teacher\\train\\"
+test_log_dir = result_path + "tensorboard_teacher\\test\\"
 train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 

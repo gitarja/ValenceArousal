@@ -12,7 +12,7 @@ from joblib import Parallel, delayed
 class DataFetch:
 
     def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False, soft=False, curriculum=False):
-        utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
+        utils_path = "G:\\usr\\nishihara\\GitHub\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
         self.std = np.load(utils_path+"std.npy")

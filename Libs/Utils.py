@@ -73,6 +73,16 @@ def convertLabelsRaw(ar, val):
     return ar + val
 
 
+def convertContrastiveLabels(time1, time2, sub1, sub2):
+    if sub1 == sub2:
+        if (time1 + 45 <= time2) or (time1 - 45 >= time2):
+            return 0
+        else:
+            return 1
+    else:
+        return 1
+
+
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
     b = signal.firwin(numtaps, cutoff, fs=fs, window='hamming', pass_zero='lowpass')
     y = lfilter(b, [1.0], x)
