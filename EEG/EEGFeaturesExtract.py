@@ -6,6 +6,8 @@ from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PA
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 from scipy import signal
+from os import path
+import os
 
 data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 eeg_file = "\\EEG\\"
@@ -71,6 +73,8 @@ for folder in glob.glob(DATASET_PATH + "*"):
                         if (time_domain_features.shape[0] != 0) and (freq_domain_features.shape[0] != 0) :
                             eeg_features = np.concatenate([time_domain_features, freq_domain_features, plf_features, power_features])
                             if np.sum(np.isinf(eeg_features)) == 0 and np.sum(np.isinf(eeg_features)) == 0:
+                                if not path.exists(subject + EEG_PATH):
+                                    os.mkdir(subject + EEG_PATH)
                                 np.save(subject + EEG_PATH + "eeg_" + str(idx) + ".npy", eeg_features)
                                 # np.save(subject + EEG_RAW_PATH + "eeg_" + str(idx) + ".npy", signal.resample(eeg_filtered, downsample_eeg_len))
                                 status = 1

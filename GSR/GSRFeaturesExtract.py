@@ -1,10 +1,12 @@
 from GSR.GSRFeatures import PPGFeatures, EDAFeatures
 import pandas as pd
 from datetime import datetime
-from Libs.Utils import timeToInt
+from Libs.Utils import timeToInt, arToLabels
 from Conf.Settings import FS_GSR, SPLIT_TIME, STRIDE, EXTENTION_TIME, EDA_RAW_PATH, PPG_RAW_PATH, EDA_PATH, PPG_PATH, DATASET_PATH
 import numpy as np
 import glob
+from os import path
+import os
 
 
 
@@ -17,7 +19,7 @@ ppg_features_exct = PPGFeatures(FS_GSR)
 min_eda_len = (FS_GSR * SPLIT_TIME) - 50
 
 for folder in glob.glob(DATASET_PATH + "*"):
-    for subject in glob.glob(folder + "\\*-2020-11-06*"):
+    for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         try:
 
@@ -39,7 +41,16 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 arousal = data_EmotionTest.iloc[i]["Arousal"]
                 emotion = data_EmotionTest.iloc[i]["Emotion"]
 
-                for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
+                # setting the end of extraction
+                bin_ar = arToLabels(arousal)
+                bin_val = arToLabels(valence)
+
+                if (bin_ar == 1) or (bin_val == 1):
+                    end_extract = 0.5 * (tdelta // SPLIT_TIME)  # use only half of the data from the mid to  the last
+                else:
+                    end_extract = 0.3 * (tdelta // SPLIT_TIME)  # use only 2/3 of the data
+
+                for j in np.arange(end_extract, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
                     # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)
@@ -72,6 +83,9 @@ for folder in glob.glob(DATASET_PATH + "*"):
                             if np.sum(np.isinf(ppg_features))== 0 and np.sum(np.isnan(ppg_features)) == 0 and np.sum(np.isinf(eda_features))== 0 and np.sum(np.isnan(eda_features)) == 0:
                                 # print(eda_features.shape)
                                 # save features
+                                if (not path.exists(subject + EDA_PATH)) or (not path.exists(subject + PPG_PATH)):
+                                    os.mkdir(subject + EDA_PATH)
+                                    os.mkdir(subject + PPG_PATH)
                                 np.save(subject + EDA_PATH + "eda_" + str(idx) + ".npy", eda_features)
                                 np.save(subject + PPG_PATH + "ppg_" + str(idx) + ".npy", ppg_features)
                                 # np.save(subject + EDA_RAW_PATH +"eda_" + str(idx) + ".npy", eda )

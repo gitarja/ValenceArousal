@@ -24,7 +24,7 @@ EEG_N = 912
 
 # Path Const
 DATASET_PATH = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
-RESULTS_PATH = "\\results_stride=0.5\\"
+RESULTS_PATH = "\\results_stride=0.1\\"
 EEG_PATH = RESULTS_PATH + "EEG\\"
 EDA_PATH = RESULTS_PATH + "eda\\"
 PPG_PATH = RESULTS_PATH + "ppg\\"
