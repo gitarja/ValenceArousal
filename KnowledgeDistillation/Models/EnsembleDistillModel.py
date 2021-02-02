@@ -213,25 +213,25 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     def __init__(self, num_output_ar=4, num_output_val=4, pretrain=True):
         super(EnsembleStudentOneDim, self).__init__(self)
-        # self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
-        #                                        padding="same", trainable=pretrain)
-        # self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
-        #                                        padding="same", trainable=pretrain)
-        # self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
-        #                                        padding="same", trainable=pretrain)
-        # self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
-        #                                        padding="same", trainable=pretrain)
-        # self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv5",
-        #                                        padding="same", trainable=pretrain)
-        # self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
-        #                                        padding="same", trainable=pretrain)
-        #
-        # self.batch_1 = tf.keras.layers.BatchNormalization(name="batch_1")
-        # self.batch_2 = tf.keras.layers.BatchNormalization(name="batch_2")
-        # self.batch_3 = tf.keras.layers.BatchNormalization(name="batch_3")
-        # self.batch_4 = tf.keras.layers.BatchNormalization(name="batch_4")
-        # self.batch_5 = tf.keras.layers.BatchNormalization(name="batch_5")
-        # self.batch_6 = tf.keras.layers.BatchNormalization(name="batch_6")
+        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
+                                               padding="same", trainable=pretrain)
+        self.en_conv2 = tf.keras.layers.SeparableConv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
+                                               padding="same", trainable=pretrain)
+        self.en_conv3 = tf.keras.layers.SeparableConv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
+                                               padding="same", trainable=pretrain)
+        self.en_conv4 = tf.keras.layers.SeparableConv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
+                                               padding="same", trainable=pretrain)
+        self.en_conv5 = tf.keras.layers.SeparableConv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv5",
+                                               padding="same", trainable=pretrain)
+        self.en_conv6 = tf.keras.layers.SeparableConv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
+                                               padding="same", trainable=pretrain)
+
+        self.batch_1 = tf.keras.layers.BatchNormalization(name="batch_1")
+        self.batch_2 = tf.keras.layers.BatchNormalization(name="batch_2")
+        self.batch_3 = tf.keras.layers.BatchNormalization(name="batch_3")
+        self.batch_4 = tf.keras.layers.BatchNormalization(name="batch_4")
+        self.batch_5 = tf.keras.layers.BatchNormalization(name="batch_5")
+        self.batch_6 = tf.keras.layers.BatchNormalization(name="batch_6")
 
         # activation
         self.elu = tf.keras.layers.ELU()
@@ -269,6 +269,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         # dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.15)
+        self.spatial_dropout = tf.keras.layers.SpatialDropout1D(0.2)
 
         # avg
         self.avg = tf.keras.layers.Average()
@@ -288,12 +289,14 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # x = tf.expand_dims(inputs, -1)
 
         # encoder
-        # x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu))
-        # x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
-        # z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
+        x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu))
+        x = self.spatial_dropout(x)
+        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu))
+        x = self.spatial_dropout(x)
+        x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu))
+        x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
+        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
 
         # flat logit
         z_ar = self.att_ar(z)

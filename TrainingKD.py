@@ -166,8 +166,8 @@ with strategy.scope():
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
             #using latent
-            _, latent = base_model(X)
-            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(latent, y_ar_bin, y_val_bin, ar_logit, val_logit, ar_weight=ar_weight, val_weight=val_weight,
+            # _, latent = base_model(X)
+            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, ar_weight=ar_weight, val_weight=val_weight,
                                                                th=th, alpha=0.9,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
             final_loss = loss_ar + loss_val
@@ -204,8 +204,8 @@ with strategy.scope():
         val_weight = inputs[4]
 
         # using latent
-        _, latent = base_model(X)
-        loss_ar, loss_val, prediction_ar, prediction_val = model.test(latent, y_ar_bin, y_val_bin, ar_weight=ar_weight, val_weight=val_weight,
+        # _, latent = base_model(X)
+        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin, ar_weight=ar_weight, val_weight=val_weight,
                                                          th=th,
                                                          global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         final_loss = loss_ar + loss_val
