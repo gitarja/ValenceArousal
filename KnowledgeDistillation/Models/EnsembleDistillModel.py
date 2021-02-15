@@ -1,6 +1,9 @@
 import tensorflow as tf
 import math
 from KnowledgeDistillation.Layers.AttentionLayer import AttentionLayer
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import math_ops
+import tensorflow.keras.backend as K
 
 class EnsembleStudentOneDimF(tf.keras.Model):
 
@@ -261,6 +264,17 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.logit_ar_h3 = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h3")
         self.logit_val_h3 = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h3")
 
+        # logit regression
+        # logit
+        self.logit_ar_r = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_r")
+        self.logit_val_r = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_r")
+
+        self.logit_ar_h2_r = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h2_r")
+        self.logit_val_h2_r = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h2_r")
+
+        self.logit_ar_h3_r = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h3_r")
+        self.logit_val_h3_r = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h3_r")
+
         # flattent
         self.flat = tf.keras.layers.Flatten()
 
@@ -276,7 +290,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                        reduction=tf.keras.losses.Reduction.NONE)
-        self.mean_loss = tf.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
+        self.mse_loss = tf.losses.MSE(reduction=tf.keras.losses.Reduction.NONE)
         self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
 
     def forward(self, x, dense, norm=None, activation=None, training=False):
@@ -309,52 +323,75 @@ class EnsembleStudentOneDim(tf.keras.Model):
         z_ar_h1 = self.elu(self.class_ar(z_ar))
         z_val_h1 = self.elu(self.class_val(z_val))
 
+        # reg
+        z_ar_h1_r = self.logit_ar_r(z_ar_h1)
+        z_val_h1_r = self.logit_val_r(z_val_h1)
+
         z_ar_h1 = self.logit_ar(z_ar_h1)
         z_val_h1 = self.logit_val(z_val_h1)
+
+
 
         #head 2
 
         z_ar_h2 = self.elu(self.class_ar_h2(z_ar))
         z_val_h2 = self.elu(self.class_val_h2(z_val))
 
+        # reg
+        z_ar_h2_r = self.logit_ar_h2_r(z_ar_h2)
+        z_val_h2_r = self.logit_ar_h2_r(z_val_h2)
+
         z_ar_h2 = self.logit_ar_h2(z_ar_h2)
         z_val_h2 = self.logit_val_h2(z_val_h2)
+
+
 
         # head 3
 
         z_ar_h3 = self.elu(self.class_ar_h3(z_ar))
         z_val_h3 = self.elu(self.class_val_h3(z_val))
 
+        # reg
+        z_ar_h3_r = self.logit_ar_h3_r(z_ar_h3)
+        z_val_h3_r = self.logit_ar_h3_r(z_val_h3)
+
         z_ar_h3 = self.logit_ar_h3(z_ar_h3)
         z_val_h3 = self.logit_val_h3(z_val_h3)
 
+
+
         z_ar = self.avg([z_ar_h1, z_ar_h2, z_ar_h3])
         z_val = self.avg([z_val_h1, z_val_h2, z_val_h3])
+        #regression
+        z_ar_r = self.avg([z_ar_h1_r, z_ar_h2_r, z_ar_h3_r])
+        z_val_r = self.avg([z_val_h1_r, z_val_h2_r, z_val_h3_r])
 
-        return z_ar, z_val, z
+        return z_ar, z_val, z_ar_r, z_val_r
 
     @tf.function
-    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, ar_weight, val_weight, alpha, global_batch_size, training=True):
-        z_ar, z_val, z = self.call(X, training=training)
+    def trainM(self, X, y_d_ar, y_d_val, y_ar_t, y_val_t, y_r_ar, y_r_val, th, ar_weight, val_weight, alpha, global_batch_size, training=True):
+        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
         y_ar_t = tf.nn.sigmoid(y_ar_t)
         y_val_t = tf.nn.sigmoid(y_val_t)
         beta = 1 - alpha
         final_loss_ar = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=ar_weight,
+            (alpha * self.cross_loss(y_d_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=ar_weight,
             global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=val_weight,
+            (alpha * self.cross_loss(y_d_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=val_weight,
             global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        # final_loss = (final_loss_ar + final_loss_val)
-        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+        #regression loss
+        res_loss = 0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r))
+
+        return final_loss_ar, final_loss_val, res_loss, predictions_ar, predictions_val
 
     @tf.function
-    def train(self, X, y_ar, y_val, th, global_batch_size,
+    def train(self, X, y_ar, y_val, y_r_ar, y_r_val, th, global_batch_size,
                training=True):
-        z_ar, z_val, z = self.call(X, training=training)
+        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
 
         final_loss_ar = tf.nn.compute_average_loss(
             (self.cross_loss(y_ar, z_ar)) ,
@@ -366,12 +403,14 @@ class EnsembleStudentOneDim(tf.keras.Model):
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
 
-        # final_loss = (final_loss_ar + final_loss_val)
-        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+        # regression loss
+        res_loss = 0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r))
+
+        return final_loss_ar, final_loss_val, res_loss, predictions_ar, predictions_val
 
     @tf.function
     def test(self, X, y_ar, y_val, th, ar_weight, val_weight, global_batch_size, training=False):
-        z_ar, z_val, z = self.call(X, training=training)
+        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
 
         final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),  global_batch_size=global_batch_size)
@@ -384,7 +423,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     @tf.function
     def predict(self, X, global_batch_size, training=False):
-        z_ar, z_val, z = self.call(X, training=training)
+        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
         predictions_ar = tf.nn.sigmoid(z_ar)
         predictions_val = tf.nn.sigmoid(z_val)
 
@@ -518,3 +557,38 @@ class EnsembleStudentOneDim_MClass(tf.keras.Model):
         prediction_val = tf.nn.sigmoid(z_val)
         final_loss = final_loss_ar + final_loss_val
         return final_loss, prediction_ar, prediction_val
+class PCCLoss(tf.keras.losses.Loss):
+    def __init__(self, reduction=tf.keras.losses.Reduction.AUTO, name='PCCLoss'):
+        super().__init__(reduction=reduction, name=name)
+
+    def call(self, y_true, y_pred):
+        y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
+        y_true = math_ops.cast(y_true, y_pred.dtype)
+
+        y_pred_mean = math_ops.mean(y_pred, axis=-2, keep_dims=True)
+        y_true_mean = math_ops.mean(y_true, axis=-2, keep_dims=True)
+        y_pred_var = math_ops.reduce_sum(math_ops.square(y_pred - y_pred_mean), axis=-2)
+        y_true_var = math_ops.reduce_sum(math_ops.square(y_true - y_true_mean), axis=-2)
+
+        cov = math_ops.reduce_sum((y_pred - y_pred_mean) * (y_true - y_true_mean), axis=-2)
+        corr = cov / math_ops.sqrt(y_pred_var * y_true_var)
+
+        return corr
+
+class CCCLoss(tf.keras.losses.Loss):
+    def __init__(self, reduction=tf.keras.losses.Reduction.AUTO, name='CCCLoss'):
+        super().__init__(reduction=reduction, name=name)
+        self.pcc = PCCLoss(reduction=reduction)
+
+
+    def call(self, y_true, y_pred):
+        y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
+        y_true = math_ops.cast(y_true, y_pred.dtype)
+
+        y_pred_mean = math_ops.mean(y_pred, axis=-2, keep_dims=True)
+        y_true_mean = math_ops.mean(y_true, axis=-2, keep_dims=True)
+        y_pred_var = math_ops.reduce_sum(math_ops.square(y_pred - y_pred_mean), axis=-2)
+        y_true_var = math_ops.reduce_sum(math_ops.square(y_true - y_true_mean), axis=-2)
+
+        pearson = self.pcc(y_true, y_pred)
+        return (2.0 * pearson * y_pred_var * y_true_var) / (math_ops.square(y_pred_var) + math_ops.square(y_true_var) + math_ops.square(tf.squeeze(y_pred_mean - y_true_mean, axis=-1)))

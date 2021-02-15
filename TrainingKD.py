@@ -64,18 +64,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -161,21 +161,23 @@ with strategy.scope():
         # print(X)
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
-        ar_weight = inputs[3]
-        val_weight = inputs[4]
+        y_ar = tf.expand_dims(inputs[1], -1)
+        y_val = tf.expand_dims(inputs[2], -1)
+        ar_weight = inputs[5]
+        val_weight = inputs[6]
 
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
             #using latent
             # _, latent = base_model(X)
-            loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, ar_weight=ar_weight, val_weight=val_weight,
+            loss_ar, loss_val, res_loss, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, y_r_ar=y_ar, y_r_val=y_val, ar_weight=ar_weight, val_weight=val_weight,
                                                                th=th, alpha=alpha,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
 
             # loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
             #                                                    th=th,
             #                                                    global_batch_size=GLOBAL_BATCH_SIZE, training=True)
-            final_loss = loss_ar + loss_val
+            final_loss = (0.5 * loss_ar + loss_val) + res_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
@@ -205,12 +207,14 @@ with strategy.scope():
         # X = base_model.extractFeatures(inputs[-1])
         y_ar_bin = tf.expand_dims(inputs[1], -1)
         y_val_bin = tf.expand_dims(inputs[2], -1)
-        ar_weight = inputs[3]
-        val_weight = inputs[4]
+        y_ar = tf.expand_dims(inputs[1], -1)
+        y_val = tf.expand_dims(inputs[2], -1)
+        ar_weight = inputs[5]
+        val_weight = inputs[6]
 
         # using latent
         # _, latent = base_model(X)
-        loss_ar, loss_val, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin, ar_weight=ar_weight, val_weight=val_weight,
+        loss_ar, loss_val, res_loss, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,  y_r_ar=y_ar, y_r_val=y_val, ar_weight=ar_weight, val_weight=val_weight,
                                                          th=th,
                                                          global_batch_size=GLOBAL_BATCH_SIZE, training=False)
         final_loss = loss_ar + loss_val

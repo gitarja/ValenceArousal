@@ -75,7 +75,7 @@ class DataFetch:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[5]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[5], data_i[6], data_i[7]
                 else:
                     yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
             i += 1
@@ -132,7 +132,7 @@ class DataFetch:
                     ecg = (ecg - 2140.397356669409) / 370.95493558685325
                     ecg = ecg[-self.ECG_N:]
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, ar_weight, val_weight, ecg])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar, y_val, ar_weight, val_weight, ecg])
 
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, ar_weight, val_weight])
