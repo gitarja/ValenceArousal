@@ -5,7 +5,7 @@ FS_EEG = 1000
 FS_GSR = 256
 FS_RESP = 256
 SPLIT_TIME = 45
-STRIDE = 0.1
+STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
@@ -24,7 +24,7 @@ EEG_N = 912
 
 # Path Const
 DATASET_PATH = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
-RESULTS_PATH = "\\results_stride=0.1\\"
+RESULTS_PATH = "\\results_stride=0.5\\"
 EEG_PATH = RESULTS_PATH + "EEG\\"
 EDA_PATH = RESULTS_PATH + "eda\\"
 PPG_PATH = RESULTS_PATH + "ppg\\"
@@ -51,3 +51,7 @@ TRAINING_RESULTS_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\"
 
 #road test
 ROAD_ECG = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\road_test\\"
+
+#proportion
+HIGH_PROP = 0.5
+LOW_PROP = 0.3

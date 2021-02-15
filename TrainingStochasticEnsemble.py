@@ -51,9 +51,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, KD=False)

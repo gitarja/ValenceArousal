@@ -213,7 +213,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     def __init__(self, num_output_ar=4, num_output_val=4, pretrain=True):
         super(EnsembleStudentOneDim, self).__init__(self)
-        self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
+        self.en_conv1 = tf.keras.layers.SeparableConv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
                                                padding="same", trainable=pretrain)
         self.en_conv2 = tf.keras.layers.SeparableConv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
                                                padding="same", trainable=pretrain)
@@ -279,31 +279,31 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.mean_loss = tf.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
         self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
 
-    def forward(self, x, dense, norm=None, activation=None):
+    def forward(self, x, dense, norm=None, activation=None, training=False):
         if norm is None:
             return activation(dense(x))
-        return activation(norm(dense(x)))
+        return activation(norm(dense(x), training=training))
 
     def call(self, inputs, training=None, mask=None):
-        z = inputs
+        # z = inputs
         # x = tf.expand_dims(inputs, -1)
 
         # encoder
-        x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu))
-        x = self.spatial_dropout(x)
-        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu))
-        x = self.spatial_dropout(x)
-        x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
+        x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu, training))
+        # x = self.spatial_dropout(x, training=training)
+        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu, training))
+        # x = self.spatial_dropout(x, training=training)
+        x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu, training))
+        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu, training))
+        x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu, training))
+        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu, training))
 
         # flat logit
         z_ar = self.att_ar(z)
         z_val = self.att_val(z)
 
-        z_ar = self.dropout_1(self.flat(z_ar))
-        z_val = self.dropout_1(self.flat(z_val))
+        z_ar = self.dropout_1(self.flat(z_ar), training=training)
+        z_val = self.dropout_1(self.flat(z_val), training=training)
 
         #head 1
         z_ar_h1 = self.elu(self.class_ar(z_ar))
@@ -334,16 +334,34 @@ class EnsembleStudentOneDim(tf.keras.Model):
         return z_ar, z_val, z
 
     @tf.function
-    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, ar_weight, val_weight, alpha, global_batch_size, training=False):
+    def trainM(self, X, y_ar, y_val, y_ar_t, y_val_t, th, ar_weight, val_weight, alpha, global_batch_size, training=True):
         z_ar, z_val, z = self.call(X, training=training)
         y_ar_t = tf.nn.sigmoid(y_ar_t)
         y_val_t = tf.nn.sigmoid(y_val_t)
         beta = 1 - alpha
         final_loss_ar = tf.nn.compute_average_loss(
-            (alpha * self.mean_loss(y_ar, z_ar)) + (beta * self.symmtericLoss(y_ar_t, z_ar)), sample_weight=ar_weight,
+            (alpha * self.cross_loss(y_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=ar_weight,
             global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.mean_loss(y_val, z_val)) + (beta * self.symmtericLoss(y_val_t, z_val)), sample_weight=val_weight,
+            (alpha * self.cross_loss(y_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=val_weight,
+            global_batch_size=global_batch_size)
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+
+        # final_loss = (final_loss_ar + final_loss_val)
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+
+    @tf.function
+    def train(self, X, y_ar, y_val, th, global_batch_size,
+               training=True):
+        z_ar, z_val, z = self.call(X, training=training)
+
+        final_loss_ar = tf.nn.compute_average_loss(
+            (self.cross_loss(y_ar, z_ar)) ,
+            global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(
+            (self.cross_loss(y_val, z_val)) ,
+
             global_batch_size=global_batch_size)
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
@@ -355,8 +373,8 @@ class EnsembleStudentOneDim(tf.keras.Model):
     def test(self, X, y_ar, y_val, th, ar_weight, val_weight, global_batch_size, training=False):
         z_ar, z_val, z = self.call(X, training=training)
 
-        final_loss_ar = tf.nn.compute_average_loss(self.symmtericLoss(y_ar, z_ar), global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.symmtericLoss(y_val, z_val),  global_batch_size=global_batch_size)
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),  global_batch_size=global_batch_size)
 
         predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
         predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)

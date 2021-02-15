@@ -85,6 +85,7 @@ class DataFetch:
 
     def readData(self, features_list, KD, training=False):
         data_set = []
+        features_list = features_list.sample(frac=1.)
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][

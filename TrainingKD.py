@@ -28,13 +28,14 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 # setting
 num_output_ar = 1
 num_output_val = 1
-initial_learning_rate = 1e-3
-EPOCHS = 200
+initial_learning_rate = 5.5e-4
+EPOCHS = 500
 PRE_EPOCHS = 100
 BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
+alpha = 0.9
 
 # setting
 fold = str(sys.argv[1])
@@ -53,9 +54,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, KD=True)
@@ -168,8 +169,12 @@ with strategy.scope():
             #using latent
             # _, latent = base_model(X)
             loss_ar, loss_val, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, ar_weight=ar_weight, val_weight=val_weight,
-                                                               th=th, alpha=0.9,
+                                                               th=th, alpha=alpha,
                                                                global_batch_size=GLOBAL_BATCH_SIZE, training=True)
+
+            # loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
+            #                                                    th=th,
+            #                                                    global_batch_size=GLOBAL_BATCH_SIZE, training=True)
             final_loss = loss_ar + loss_val
 
         # update gradient

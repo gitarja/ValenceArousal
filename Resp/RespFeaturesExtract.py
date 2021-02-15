@@ -75,12 +75,13 @@ for folder in glob.glob(DATASET_PATH + "*"):
                         ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         # print(np.sum(np.isinf(ecg_features)))
                         if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
-                            if (not os.path.isdir(subject + ECG_RR_PATH)) or (not os.path.isdir(subject + RESP_PATH)):
-                                os.mkdir(subject + ECG_RR_PATH )
-                                os.mkdir(subject + RESP_PATH)
+                            if (not os.path.isdir(subject + ECG_RR_PATH)) or (not os.path.isdir(subject + RESP_PATH)) or (not os.path.isdir(subject + ECG_RESP_PATH)):
+                                # os.mkdir(subject + ECG_RR_PATH )
+                                # os.mkdir(subject + RESP_PATH)
+                                os.mkdir(subject + ECG_RESP_PATH)
                             np.save(subject + ECG_RR_PATH+ "ecg_raw_" + str(idx) + ".npy", ecg_resp)
                             np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
-                            # np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
+                            np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
                             # np.save(subject + RESP_RAW_PATH + "resp_" + str(idx) + ".npy", resp)
                             # np.save(subject + ECG_RAW_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_resp)
                             status = 1
