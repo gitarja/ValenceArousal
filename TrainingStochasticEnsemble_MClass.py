@@ -96,10 +96,10 @@ with strategy.scope():
     vald_loss = tf.keras.metrics.Mean()
 
     # accuracy
-    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
-    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
-    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
-    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=2)
+    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
 
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)

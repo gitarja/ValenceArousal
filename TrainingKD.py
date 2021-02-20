@@ -1,12 +1,13 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim, BaseStudentOneDim
+from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
+from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
 import os
 import sys
-import tensorflow_addons as tfa
+from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
@@ -65,18 +66,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (),  tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -93,7 +94,7 @@ with strategy.scope():
     teacher_model = EnsembleSeparateModel(num_output=1).loadBaseModel(checkpoint_prefix_base)
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
-    base_model = BaseStudentOneDim(pretrain=False).loadBaseModel(checkpoint_prefix_encoder)
+
     model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
 
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
@@ -103,50 +104,35 @@ with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
-    # loss
-    train_ar_loss = tf.keras.metrics.Mean()
-    train_val_loss = tf.keras.metrics.Mean()
-    vald_ar_loss = tf.keras.metrics.Mean()
-    vald_val_loss = tf.keras.metrics.Mean()
+    # metrics
+    # train
+    loss_train = tf.keras.metrics.Mean()
+    # arousal
+    rmse_ar_train = tf.keras.metrics.RootMeanSquaredError()
+    pcc_ar_train = PCC()
+    ccc_ar_train = CCC()
+    sagr_ar_train = SAGR()
+    # valence
+    rmse_val_train = tf.keras.metrics.RootMeanSquaredError()
+    pcc_val_train = PCC()
+    ccc_val_train = CCC()
+    sagr_val_train = SAGR()
 
-    pre_trained_loss = tf.keras.metrics.Mean()
+    # test
+    loss_test = tf.keras.metrics.Mean()
+    # arousal
+    rmse_ar_test = tf.keras.metrics.RootMeanSquaredError()
+    pcc_ar_test = PCC()
+    ccc_ar_test = CCC()
+    sagr_ar_test = SAGR()
+    # valence
+    rmse_val_test = tf.keras.metrics.RootMeanSquaredError()
+    pcc_val_test = PCC()
+    ccc_val_test = CCC()
+    sagr_val_test = SAGR()
 
-    # accuracy
-    train_ar_acc = tf.keras.metrics.BinaryAccuracy()
-    train_val_acc = tf.keras.metrics.BinaryAccuracy()
 
-    vald_ar_acc = tf.keras.metrics.BinaryAccuracy()
-    vald_val_acc = tf.keras.metrics.BinaryAccuracy()
 
-    # precision
-    train_ar_pre = tf.keras.metrics.Precision()
-    train_val_pre = tf.keras.metrics.Precision()
-
-    vald_ar_pre = tf.keras.metrics.Precision()
-    vald_val_pre = tf.keras.metrics.Precision()
-
-    # recall
-    train_ar_rec = tf.keras.metrics.Recall()
-    train_val_rec = tf.keras.metrics.Recall()
-
-    vald_ar_rec = tf.keras.metrics.Recall()
-    vald_val_rec = tf.keras.metrics.Recall()
-
-    #validation tp
-    vald_ar_tp = tf.keras.metrics.TruePositives()
-    vald_val_tp = tf.keras.metrics.TruePositives()
-
-    # validation tn
-    vald_ar_tn = tf.keras.metrics.TrueNegatives()
-    vald_val_tn = tf.keras.metrics.TrueNegatives()
-
-    # validation fp
-    vald_ar_fp = tf.keras.metrics.FalsePositives()
-    vald_val_fp = tf.keras.metrics.FalsePositives()
-
-    # validation fn
-    vald_ar_fn = tf.keras.metrics.FalseNegatives()
-    vald_val_fn = tf.keras.metrics.FalseNegatives()
 
 
 # Manager
@@ -160,10 +146,14 @@ with strategy.scope():
         X_t = inputs[0]
         X = tf.expand_dims(inputs[-1], -1)
         # print(X)
-        y_ar_bin = tf.expand_dims(inputs[1], -1)
-        y_val_bin = tf.expand_dims(inputs[2], -1)
-        y_ar = tf.expand_dims(inputs[1], -1)
-        y_val = tf.expand_dims(inputs[2], -1)
+
+        y_d_ar = tf.expand_dims(classifLabelsConv(inputs[1]), -1)
+        y_d_val = tf.expand_dims(classifLabelsConv(inputs[2]), -1)
+
+        y_r_ar = tf.expand_dims(regressLabelsConv(inputs[1]), -1)
+        y_r_val = tf.expand_dims(regressLabelsConv(inputs[2]), -1)
+
+        #weights
         ar_weight = inputs[5]
         val_weight = inputs[6]
 
@@ -172,128 +162,130 @@ with strategy.scope():
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
             #using latent
             # _, latent = base_model(X)
-            loss_ar, loss_val, res_loss, prediction_ar, prediction_val = model.trainM(X, y_ar_bin, y_val_bin, ar_logit, val_logit, y_r_ar=y_ar, y_r_val=y_val, ar_weight=ar_weight, val_weight=val_weight,
-                                                               th=th, alpha=alpha,
-                                                               global_batch_size=GLOBAL_BATCH_SIZE, training=True)
+            z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
+            classific_loss = model.classificationLoss( z_ar, z_val, y_d_ar, y_d_val, ar_logit, val_logit, alpha)
+            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val)
 
-            # loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
-            #                                                    th=th,
-            #                                                    global_batch_size=GLOBAL_BATCH_SIZE, training=True)
-            final_loss = 0.5 * (loss_ar + loss_val) + res_loss
+
+            final_loss = classific_loss + regress_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
+        update_train_metrics(regress_loss, z = [z_r_ar, z_r_val], y =[ y_r_ar, y_r_val])
 
-        train_ar_loss(loss_ar)
-        train_val_loss(loss_val)
-
-
-        train_ar_acc(y_ar_bin, prediction_ar)
-        train_val_acc(y_val_bin, prediction_val)
-
-        # precision
-        train_ar_pre(y_ar_bin, prediction_ar)
-        train_val_pre(y_val_bin, prediction_val)
-
-        # recall
-        train_ar_rec(y_ar_bin, prediction_ar)
-        train_val_rec(y_val_bin, prediction_val)
 
         return final_loss
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = tf.expand_dims(inputs[-1], -1)
-        # X = base_model.extractFeatures(inputs[-1])
-        y_ar_bin = tf.expand_dims(inputs[1], -1)
-        y_val_bin = tf.expand_dims(inputs[2], -1)
-        y_ar = tf.expand_dims(inputs[1], -1)
-        y_val = tf.expand_dims(inputs[2], -1)
-        ar_weight = inputs[5]
-        val_weight = inputs[6]
 
-        # using latent
-        # _, latent = base_model(X)
-        loss_ar, loss_val, res_loss, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,  y_r_ar=y_ar, y_r_val=y_val, ar_weight=ar_weight, val_weight=val_weight,
-                                                         th=th,
-                                                         global_batch_size=GLOBAL_BATCH_SIZE, training=False)
-        final_loss = 0.5 * (loss_ar + loss_val) + res_loss
-        vald_ar_loss(loss_ar)
-        vald_val_loss(loss_val)
+        y_r_ar = tf.expand_dims(regressLabelsConv(inputs[1]), -1)
+        y_r_val = tf.expand_dims(regressLabelsConv(inputs[2]), -1)
 
-        vald_ar_acc(y_ar_bin, prediction_ar)
-        vald_val_acc(y_val_bin, prediction_val)
 
-        # precision
-        vald_ar_pre(y_ar_bin, prediction_ar)
-        vald_val_pre(y_val_bin, prediction_val)
-        # precision
-        vald_ar_rec(y_ar_bin, prediction_ar)
-        vald_val_rec(y_val_bin, prediction_val)
+        z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
+        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val)
 
-        # validation tp
-        vald_ar_tp(y_ar_bin, prediction_ar)
-        vald_val_tp(y_val_bin, prediction_val)
+        final_loss = regress_loss
 
-        # validation tn
-        vald_ar_tn(y_ar_bin, prediction_ar)
-        vald_val_tn(y_val_bin, prediction_val)
 
-        # validation fp
-        vald_ar_fp(y_ar_bin, prediction_ar)
-        vald_val_fp(y_val_bin, prediction_val)
 
-        # validation fn
-        vald_ar_fn(y_ar_bin, prediction_ar)
-        vald_val_fn(y_val_bin, prediction_val)
+        update_test_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
 
         return final_loss
 
 
-    def train_reset_states():
-        train_ar_loss.reset_states()
-        train_val_loss.reset_states()
-        train_ar_acc.reset_states()
-        train_val_acc.reset_states()
-        # precision
-        train_ar_pre.reset_states()
-        train_val_pre.reset_states()
+    def reset_metrics():
+        # train
+        loss_train.reset_states()
+        # arousal
+        rmse_ar_train.reset_states()
+        pcc_ar_train.reset_states()
+        ccc_ar_train.reset_states()
+        sagr_ar_train.reset_states()
+        # valence
+        rmse_val_train.reset_states()
+        pcc_val_train.reset_states()
+        ccc_val_train.reset_states()
+        sagr_val_train.reset_states()
 
-        # recall
-        train_ar_rec.reset_states()
-        train_val_rec.reset_states()
+        # test
+        loss_test.reset_states()
+        # arousal
+        rmse_ar_test.reset_states()
+        pcc_ar_test.reset_states()
+        ccc_ar_test.reset_states()
+        sagr_ar_test.reset_states()
+        # valence
+        rmse_val_test.reset_states()
+        pcc_val_test.reset_states()
+        ccc_val_test.reset_states()
+        sagr_val_test.reset_states()
 
 
-    def vald_reset_states():
-        vald_ar_loss.reset_states()
-        vald_val_loss.reset_states()
-        vald_ar_acc.reset_states()
-        vald_val_acc.reset_states()
+    def update_train_metrics(loss, y, z):
+        z_r_ar, z_r_val = z  # logits
+        y_r_ar, y_r_val = y  # ground truth
+        # train
+        loss_train(loss)
+        # arousal
+        rmse_ar_train(y_r_ar, z_r_ar)
+        pcc_ar_train(y_r_ar, z_r_ar)
+        ccc_ar_train(y_r_ar, z_r_ar)
+        sagr_ar_train(y_r_ar, z_r_ar)
+        # valence
+        rmse_val_train(y_r_val, z_r_val)
+        pcc_val_train(y_r_val, z_r_val)
+        ccc_val_train(y_r_val, z_r_val)
+        sagr_val_train(y_r_val, z_r_val)
 
-        # precision
-        vald_ar_pre.reset_states()
-        vald_val_pre.reset_states()
-        # precision
-        vald_ar_rec.reset_states()
-        vald_val_rec.reset_states()
 
-        # validation tp
-        vald_ar_tp.reset_states()
-        vald_val_tp.reset_states()
+    def update_test_metrics(loss, y, z):
+        z_r_ar, z_r_val = z  # logit
+        y_r_ar, y_r_val = y  # ground truth
+        # train
+        loss_test(loss)
+        # arousal
+        rmse_ar_test(y_r_ar, z_r_ar)
+        pcc_ar_test(y_r_ar, z_r_ar)
+        ccc_ar_test(y_r_ar, z_r_ar)
 
-        # validation tn
-        vald_ar_tn.reset_states()
-        vald_val_tn.reset_states()
+        sagr_ar_test(y_r_ar, z_r_ar)
+        # valence
+        rmse_val_test(y_r_val, z_r_val)
+        pcc_val_test(y_r_val, z_r_val)
+        ccc_val_test(y_r_val, z_r_val)
+        sagr_val_test(y_r_val, z_r_val)
 
-        # validation fp
-        vald_ar_fp.reset_states()
-        vald_val_fp.reset_states()
 
-        # validation fn
-        vald_ar_fn.reset_states()
-        vald_val_fn.reset_states()
+    def write_train_tensorboard(epoch):
+        tf.summary.scalar('Loss', loss_train.result(), step=epoch)
+        # arousal
+        tf.summary.scalar('RMSE arousal', rmse_ar_train.result(), step=epoch)
+        tf.summary.scalar('PCC arousal', pcc_ar_train.result(), step=epoch)
+        tf.summary.scalar('CCC arousal', ccc_ar_train.result(), step=epoch)
+        tf.summary.scalar('SAGR arousal', sagr_ar_train.result(), step=epoch)
+        # valence
+        tf.summary.scalar('RMSE valence', rmse_val_train.result(), step=epoch)
+        tf.summary.scalar('PCC valence', pcc_val_train.result(), step=epoch)
+        tf.summary.scalar('CCC valence', ccc_val_train.result(), step=epoch)
+        tf.summary.scalar('SAGR valence', sagr_val_train.result(), step=epoch)
+
+
+    def write_test_tensorboard(epoch):
+        tf.summary.scalar('Loss', loss_test.result(), step=epoch)
+        # arousal
+        tf.summary.scalar('RMSE arousal', rmse_ar_test.result(), step=epoch)
+        tf.summary.scalar('PCC arousal', pcc_ar_test.result(), step=epoch)
+        tf.summary.scalar('CCC arousal', ccc_ar_test.result(), step=epoch)
+        tf.summary.scalar('SAGR arousal', sagr_ar_test.result(), step=epoch)
+        # valence
+        tf.summary.scalar('RMSE valence', rmse_val_test.result(), step=epoch)
+        tf.summary.scalar('PCC valence', pcc_val_test.result(), step=epoch)
+        tf.summary.scalar('CCC valence', ccc_val_test.result(), step=epoch)
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
@@ -326,39 +318,20 @@ with strategy.scope():
             distributed_train_step(train, ALL_BATCH_SIZE)
             it += 1
 
-        with train_summary_writer.as_default():
-            tf.summary.scalar('Arousal loss', train_ar_loss.result(), step=epoch)
-            tf.summary.scalar('Valence loss', train_val_loss.result(), step=epoch)
-            tf.summary.scalar('Arousal accuracy', train_ar_acc.result(), step=epoch)
-            tf.summary.scalar('Valence accuracy', train_val_acc.result(), step=epoch)
-            tf.summary.scalar('Arousal precision', train_ar_pre.result(), step=epoch)
-            tf.summary.scalar('Valence precision', train_val_pre.result(), step=epoch)
-            tf.summary.scalar('Arousal recall', train_ar_rec.result(), step=epoch)
-            tf.summary.scalar('Valence recall', train_val_rec.result(), step=epoch)
 
         for step, val in enumerate(val_data):
             distributed_test_step(val, data_fetch.val_n)
 
-        with test_summary_writer.as_default():
-            tf.summary.scalar('Arousal loss', vald_ar_loss.result(), step=epoch)
-            tf.summary.scalar('Valence loss', vald_val_loss.result(), step=epoch)
-            tf.summary.scalar('Arousal accuracy', vald_ar_acc.result(), step=epoch)
-            tf.summary.scalar('Valence accuracy', vald_val_acc.result(), step=epoch)
-            tf.summary.scalar('Arousal precision', vald_ar_pre.result(), step=epoch)
-            tf.summary.scalar('Valence precision', vald_val_pre.result(), step=epoch)
-            tf.summary.scalar('Arousal recall', vald_ar_rec.result(), step=epoch)
-            tf.summary.scalar('Valence recall', vald_val_rec.result(), step=epoch)
-
         template = (
             "epoch {} | Train_loss: {} | Val_loss: {}")
-        train_loss = train_ar_loss.result().numpy() + train_val_loss.result().numpy()
-        vald_loss = vald_ar_loss.result().numpy() + vald_val_loss.result().numpy()
-        print(template.format(epoch + 1, train_loss, vald_loss))
+        train_loss = loss_train.result().numpy()
+        test_loss = loss_test.result().numpy()
+        print(template.format(epoch + 1, train_loss, test_loss))
 
         # Save model
 
-        if (prev_val_loss > vald_loss):
-            prev_val_loss = vald_loss
+        if (prev_val_loss > test_loss):
+            prev_val_loss = test_loss
             wait_i = 0
             manager.save()
         else:
@@ -366,34 +339,26 @@ with strategy.scope():
         if (wait_i == wait):
             break
         # reset state
-        train_reset_states()
-        vald_reset_states()
+        reset_metrics()
+
 
     print("-------------------------------------------Testing----------------------------------------------")
     checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
-    template_detail = ("true_ar_acc: {}, false_ar_acc: {}, true_val_acc: {}, false_val_acc: {}")
-    vald_loss = vald_ar_loss.result().numpy() + vald_val_loss.result().numpy()
+        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {}, sagr_val: {}")
 
-    true_ar_acc = vald_ar_tp.result().numpy() / (vald_ar_tp.result().numpy() + vald_ar_fp.result().numpy())
-    false_ar_acc = vald_ar_tn.result().numpy() / ( vald_ar_tn.result().numpy() +  vald_ar_fn.result().numpy())
-
-    true_val_acc = vald_val_tp.result().numpy()  / (vald_val_tp.result().numpy() + vald_val_fp.result().numpy())
-    false_val_acc = vald_val_tn.result().numpy()  /(vald_val_tn.result().numpy() + vald_val_fn.result().numpy())
     print(template.format(
-        vald_loss,
-        vald_ar_acc.result().numpy(),
-        vald_ar_pre.result().numpy(),
-        vald_ar_rec.result().numpy(),
-        vald_val_acc.result().numpy(),
-        vald_val_pre.result().numpy(),
-        vald_val_rec.result().numpy(),
+        loss_test.result().numpy(),
+        ccc_ar_test.result().numpy(),
+        pcc_ar_test.result().numpy(),
+        sagr_ar_test.result().numpy(),
+        ccc_val_train.result().numpy(),
+        pcc_val_test.result().numpy(),
+        sagr_val_test.result().numpy(),
     ))
 
-    print(template_detail.format(true_ar_acc,false_ar_acc,true_val_acc, false_val_acc ))
 
-    vald_reset_states()
+    reset_metrics()
     print("-----------------------------------------------------------------------------------------")

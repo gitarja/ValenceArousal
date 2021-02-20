@@ -76,7 +76,7 @@ class DataFetch:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[5], data_i[6], data_i[7]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
                 else:
                     yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
             i += 1
@@ -118,14 +118,12 @@ class DataFetch:
             y_val = features_list.iloc[i]["Valence"]
 
             #convert the label either to binary class or three class
-            if self.soft is False:
-                y_ar_bin = arToLabels(y_ar)
-                y_val_bin = valToLabels(y_val)
-                ar_weight = arWeight(y_ar_bin)
-                val_weight = valWeight(y_val_bin)
-            else:
-                y_ar_bin = arValToMLabels(y_ar)
-                y_val_bin = arValToMLabels(y_val)
+
+            y_ar_bin = arToLabels(y_ar)
+            y_val_bin = valToLabels(y_val)
+            ar_weight = arWeight(y_ar_bin)
+            val_weight = valWeight(y_val_bin)
+
 
 
             if KD :
@@ -135,10 +133,10 @@ class DataFetch:
                     # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                     # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar/7., y_val/7., ar_weight, val_weight, ecg])
+                    data_set.append([concat_features_norm, y_ar, y_val, ar_weight, val_weight, ecg])
 
             else:
-                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, ar_weight, val_weight])
+                data_set.append([concat_features_norm, y_ar, y_val, ar_weight, val_weight])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set

@@ -320,7 +320,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+        self.multi_cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
                                                                   reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 

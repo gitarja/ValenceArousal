@@ -17,35 +17,6 @@ def valWeight(val):
     else:
         return 0.7676357417699872
 
-def caseDifficulty(val, ar):
-    if val < 2 or ar < 2:
-        return 0.6
-    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
-        return 0.3
-    else:
-        return 0.4
-
-def valToMLabels(y):
-    if (y >= 3):
-        return np.array([0.5, 1.])
-    else:
-        return np.array([1., 0.5])
-
-
-def arToMLabels(y):
-    if (y >= 3):
-        return np.array([0.5, 1.])
-    else:
-        return np.array([1., 0.5])
-
-def arValToMLabels(y):
-    if y == 3:
-        return np.array([1., 1., 1.])
-    elif y < 3:
-        return np.array([1., 1., 0.])
-    elif y > 3:
-        return np.array([0., 1., 1.])
-
 
 def arToLabels(y):
     if (y < 3):
@@ -62,28 +33,20 @@ def valToLabels(y):
     else:
         return 1
 
+def classifLabelsConv(y):
+    y [(y==0) | (y == 1)] = -2
+    y[y == 2] = -1
+    y[y == 3] = 0
+    y[y == 4] = 1
+    y[(y==5) | (y == 6)] = 2
+    return y
 
 
-def arValMulLabels(ar, val):
-    if (ar == 0) and (val == 0):
-        return 0
-    elif (ar == 0) and (val == 1):
-        return 1
-    elif (ar == 1) and (val == 0):
-        return 2
-    else:
-        return 3
-
-
-def convertLabels(ar, val):
-    labels = np.ones_like(ar)
-    labels[(ar == 0) & (val == 1)] = 1
-    labels[(ar == 1) & (val == 0)] = 2
-    labels[(ar == 1) & (val == 1)] = 3
-    return labels
-
-def convertLabelsRaw(ar, val):
-    return ar + val
+def regressLabelsConv(y):
+    y[(y == 0) | (y == 1) | (y == 2)] = 0
+    y[y == 3] = 1
+    y[(y == 4) | (y == 5) | (y == 6)] = 2
+    return y
 
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
