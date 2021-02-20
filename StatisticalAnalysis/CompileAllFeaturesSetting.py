@@ -44,13 +44,13 @@ for folder in glob.glob(DATASET_PATH + "*"):
 df = pd.concat(all_features, ignore_index=True)
 
 #resample
-df_postivie_ar = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 1) ].sample(frac=.7)
-df_postivie_val = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 0) ].sample(frac=.7)
-
-df_negative_ar = df[(df["Arousal_convert"].values == 0) & (df["Valence_convert"].values == 1) ].sample(frac=.7)
-df_negative_val = df[(df["Arousal_convert"].values == 0) & (df["Valence_convert"].values == 0) ].sample(frac=1.)
+# df_postivie_ar = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 1) ].sample(frac=.7)
+# df_postivie_val = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 0) ].sample(frac=1.)
 #
-df = pd.concat([df_postivie_ar, df_postivie_val, df_negative_ar, df_negative_val])
+# df_negative_ar = df[(df["Arousal_convert"].values == 0) & (df["Valence_convert"].values == 1) ].sample(frac=1.)
+# df_negative_val = df[(df["Arousal_convert"].values == 0) & (df["Valence_convert"].values == 0) ].sample(frac=1.)
+# #
+# df = pd.concat([df_postivie_ar, df_postivie_val, df_negative_ar, df_negative_val])
 
 #compute label porpotion
 

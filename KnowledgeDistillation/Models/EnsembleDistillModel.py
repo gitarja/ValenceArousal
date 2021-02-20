@@ -216,17 +216,17 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     def __init__(self, num_output_ar=4, num_output_val=4, pretrain=True):
         super(EnsembleStudentOneDim, self).__init__(self)
-        self.en_conv1 = tf.keras.layers.SeparableConv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
+        self.en_conv1 = tf.keras.layers.Conv1D(filters=4, kernel_size=5, strides=1, activation=None, name="en_conv1",
                                                padding="same", trainable=pretrain)
-        self.en_conv2 = tf.keras.layers.SeparableConv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
+        self.en_conv2 = tf.keras.layers.Conv1D(filters=4, kernel_size=5, strides=1, activation=None, name="en_conv2",
                                                padding="same", trainable=pretrain)
-        self.en_conv3 = tf.keras.layers.SeparableConv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
+        self.en_conv3 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv3",
                                                padding="same", trainable=pretrain)
-        self.en_conv4 = tf.keras.layers.SeparableConv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
+        self.en_conv4 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv4",
                                                padding="same", trainable=pretrain)
-        self.en_conv5 = tf.keras.layers.SeparableConv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv5",
+        self.en_conv5 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv5",
                                                padding="same", trainable=pretrain)
-        self.en_conv6 = tf.keras.layers.SeparableConv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
+        self.en_conv6 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv6",
                                                padding="same", trainable=pretrain)
 
         self.batch_1 = tf.keras.layers.BatchNormalization(name="batch_1")
@@ -280,9 +280,10 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         # pool
         self.max_pool = tf.keras.layers.MaxPool1D(pool_size=3)
+        self.avg_pool = tf.keras.layers.AveragePooling1D(pool_size=3)
 
         # dropout
-        self.dropout_1 = tf.keras.layers.Dropout(0.15)
+        self.dropout_1 = tf.keras.layers.Dropout(0.2)
         self.spatial_dropout = tf.keras.layers.SpatialDropout1D(0.2)
 
         # avg
@@ -290,8 +291,9 @@ class EnsembleStudentOneDim(tf.keras.Model):
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
                                                        reduction=tf.keras.losses.Reduction.NONE)
-        self.mse_loss = tf.losses.MSE(reduction=tf.keras.losses.Reduction.NONE)
-        self.cos_loss = tf.keras.losses.CosineSimilarity(reduction=tf.keras.losses.Reduction.NONE)
+        self.mse_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+        self.pcc_loss = PCCLoss(reduction=tf.keras.losses.Reduction.NONE)
+        self.ccc_loss = CCCLoss(reduction=tf.keras.losses.Reduction.NONE)
 
     def forward(self, x, dense, norm=None, activation=None, training=False):
         if norm is None:
@@ -313,11 +315,11 @@ class EnsembleStudentOneDim(tf.keras.Model):
         z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu, training))
 
         # flat logit
-        z_ar = self.att_ar(z)
-        z_val = self.att_val(z)
+        z_ar = self.spatial_dropout(self.att_ar(z), training=training)
+        z_val = self.spatial_dropout(self.att_val(z), training=training)
 
-        z_ar = self.dropout_1(self.flat(z_ar), training=training)
-        z_val = self.dropout_1(self.flat(z_val), training=training)
+        z_ar = self.flat(z_ar)
+        z_val = self.flat(z_val)
 
         #head 1
         z_ar_h1 = self.elu(self.class_ar(z_ar))
@@ -375,21 +377,26 @@ class EnsembleStudentOneDim(tf.keras.Model):
         y_val_t = tf.nn.sigmoid(y_val_t)
         beta = 1 - alpha
         final_loss_ar = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_d_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)), sample_weight=ar_weight,
+            (alpha * self.cross_loss(y_d_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar)),
             global_batch_size=global_batch_size)
         final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.cross_loss(y_d_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)), sample_weight=val_weight,
+            (alpha * self.cross_loss(y_d_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val)),
             global_batch_size=global_batch_size)
-        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
-        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) > th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) > th, dtype=tf.float32)
 
         #regression loss
-        res_loss = 0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r))
+        mse_loss = tf.nn.compute_average_loss(0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r)),  global_batch_size=global_batch_size)
+        pcc_loss =  tf.nn.compute_average_loss(1 - (0.5* (self.pcc_loss(y_r_ar, z_ar_r) + self.pcc_loss(y_r_val, z_val_r))),  global_batch_size=global_batch_size)
 
-        return final_loss_ar, final_loss_val, res_loss, predictions_ar, predictions_val
+        # regr_loss = tf.nn.compute_average_loss(self.losses)
+
+        reg_loss = 0.5 * (mse_loss + pcc_loss)
+
+        return final_loss_ar, final_loss_val, reg_loss, predictions_ar, predictions_val
 
     @tf.function
-    def train(self, X, y_ar, y_val, y_r_ar, y_r_val, th, global_batch_size,
+    def train(self, X, y_ar, y_val, th, global_batch_size,
                training=True):
         z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
 
@@ -400,26 +407,36 @@ class EnsembleStudentOneDim(tf.keras.Model):
             (self.cross_loss(y_val, z_val)) ,
 
             global_batch_size=global_batch_size)
-        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
-        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) > th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) > th, dtype=tf.float32)
 
-        # regression loss
-        res_loss = 0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r))
 
-        return final_loss_ar, final_loss_val, res_loss, predictions_ar, predictions_val
+
+        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
 
     @tf.function
-    def test(self, X, y_ar, y_val, th, ar_weight, val_weight, global_batch_size, training=False):
+    def test(self, X, y_ar, y_val, y_r_ar, y_r_val, th, ar_weight, val_weight, global_batch_size, training=False):
         z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
 
-        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar), global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),  global_batch_size=global_batch_size)
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar, z_ar),  global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val, z_val),   global_batch_size=global_batch_size)
 
-        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) >= th, dtype=tf.float32)
-        predictions_val = tf.cast(tf.nn.sigmoid(z_val) >= th, dtype=tf.float32)
+        predictions_ar = tf.cast(tf.nn.sigmoid(z_ar) > th, dtype=tf.float32)
+        predictions_val = tf.cast(tf.nn.sigmoid(z_val) > th, dtype=tf.float32)
 
-        # final_loss = final_loss_ar + final_loss_val
-        return final_loss_ar, final_loss_val, predictions_ar, predictions_val
+        # regression loss
+        # regression loss
+        mse_loss = tf.nn.compute_average_loss(0.5 * (self.mse_loss(y_r_ar, z_ar_r) + self.mse_loss(y_r_val, z_val_r)),
+                                              global_batch_size=global_batch_size)
+        pcc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.pcc_loss(y_r_ar, z_ar_r) + self.pcc_loss(y_r_val, z_val_r))),
+            global_batch_size=global_batch_size)
+
+
+        reg_loss = 0.5 * (mse_loss + pcc_loss)
+
+        return final_loss_ar, final_loss_val, reg_loss, predictions_ar, predictions_val
+
 
     @tf.function
     def predict(self, X, global_batch_size, training=False):

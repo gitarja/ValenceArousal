@@ -7,15 +7,15 @@ from scipy import signal
 
 def arWeight(ar):
     if ar == 0:
-        return 1.3898698884758363
+        return 1.2843347639484979
     else:
-        return 0.7809399477806789
+        return 0.8187414500683995
 
 def valWeight(val):
     if val == 0:
-        return 1.5354209445585216
+        return 1.4341054313099042
     else:
-        return 0.7414476945959345
+        return 0.7676357417699872
 
 def caseDifficulty(val, ar):
     if val < 2 or ar < 2:

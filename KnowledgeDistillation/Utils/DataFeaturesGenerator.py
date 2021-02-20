@@ -24,6 +24,7 @@ class DataFetch:
         self.curriculum = curriculum
         self.w = 0
         self.j =0
+        self.ecg_features = ECGFeatures(fs=FS_ECG)
 
         #normalization ecg features
         self.ecg_mean = np.array([2.18785670e+02, 5.34106162e+01, 1.22772848e+01, 8.87240641e+00,
@@ -131,8 +132,10 @@ class DataFetch:
                 if len(ecg) >= self.ECG_N:
                     ecg = (ecg - 2140.397356669409) / 370.95493558685325
                     ecg = ecg[-self.ECG_N:]
+                    # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
+                    # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar, y_val, ar_weight, val_weight, ecg])
+                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, y_ar/7., y_val/7., ar_weight, val_weight, ecg])
 
             else:
                 data_set.append([concat_features_norm, y_ar_bin, y_val_bin, ar_weight, val_weight])

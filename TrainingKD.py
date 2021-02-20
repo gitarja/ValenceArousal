@@ -6,6 +6,7 @@ from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 import datetime
 import os
 import sys
+import tensorflow_addons as tfa
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
@@ -28,7 +29,7 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 # setting
 num_output_ar = 1
 num_output_val = 1
-initial_learning_rate = 5.5e-4
+initial_learning_rate = 1.e-3
 EPOCHS = 500
 PRE_EPOCHS = 100
 BATCH_SIZE = 128
@@ -166,6 +167,7 @@ with strategy.scope():
         ar_weight = inputs[5]
         val_weight = inputs[6]
 
+
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
             #using latent
@@ -177,7 +179,7 @@ with strategy.scope():
             # loss_ar, loss_val, prediction_ar, prediction_val = model.train(X, y_ar_bin, y_val_bin,
             #                                                    th=th,
             #                                                    global_batch_size=GLOBAL_BATCH_SIZE, training=True)
-            final_loss = (0.5 * loss_ar + loss_val) + res_loss
+            final_loss = 0.5 * (loss_ar + loss_val) + res_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
@@ -217,7 +219,7 @@ with strategy.scope():
         loss_ar, loss_val, res_loss, prediction_ar, prediction_val = model.test(X, y_ar_bin, y_val_bin,  y_r_ar=y_ar, y_r_val=y_val, ar_weight=ar_weight, val_weight=val_weight,
                                                          th=th,
                                                          global_batch_size=GLOBAL_BATCH_SIZE, training=False)
-        final_loss = loss_ar + loss_val
+        final_loss = 0.5 * (loss_ar + loss_val) + res_loss
         vald_ar_loss(loss_ar)
         vald_val_loss(loss_val)
 
