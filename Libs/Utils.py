@@ -34,18 +34,27 @@ def valToLabels(y):
         return 1
 
 def classifLabelsConv(y):
-    y [(y==0) | (y == 1)] = -2
-    y[y == 2] = -1
-    y[y == 3] = 0
-    y[y == 4] = 1
-    y[(y==5) | (y == 6)] = 2
+    if y == 0 or y == 1 or y == 2:
+        return 0
+    if y == 3:
+        return 1
+    if y == 4 or y ==5 or y==6:
+        return 2
+
     return y
 
 
 def regressLabelsConv(y):
-    y[(y == 0) | (y == 1) | (y == 2)] = 0
-    y[y == 3] = 1
-    y[(y == 4) | (y == 5) | (y == 6)] = 2
+    if y == 0 or y == 1:
+        return -2
+    if y == 2:
+        return -1
+    if y == 3:
+        return 0
+    if y == 4:
+        return 1
+    if y ==5 or y==6:
+        return 2
     return y
 
 

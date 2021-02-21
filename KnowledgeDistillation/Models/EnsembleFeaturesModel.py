@@ -315,7 +315,7 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.activation = tf.keras.layers.ELU()
         # dropout
         self.dropout1 = tf.keras.layers.Dropout(0.0)
-        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        self.dropout2 = tf.keras.layers.Dropout(0.35)
         # avg
         self.avg = tf.keras.layers.Average()
 
@@ -459,10 +459,10 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         return tf.expand_dims(self.multi_cross_loss(t, y), -1)
 
     def avgMultiple(self, predictions):
-        prob = tf.nn.sigmoid(predictions)
-        labels = prob
+        prob = tf.nn.softmax(predictions, -1)
+        labels = tf.argmax(prob, -1)
 
-        return labels
+        return tf.expand_dims(labels, -1)
 
     def tfCount(self, t, val):
         elements_equal_to_value = tf.equal(t, val)

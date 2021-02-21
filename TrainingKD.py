@@ -1,6 +1,6 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel_MClass
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
@@ -28,12 +28,12 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output_ar = 1
-num_output_val = 1
+num_output_ar = 3
+num_output_val = 3
 initial_learning_rate = 1.e-3
 EPOCHS = 500
 PRE_EPOCHS = 100
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
@@ -61,7 +61,7 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True)
+                       ECG_N=ECG_RAW_N, KD=True, multiple=True)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
@@ -91,7 +91,7 @@ with strategy.scope():
 
     # load pretrained model
     checkpoint_prefix_base = result_path + "model_teacher"
-    teacher_model = EnsembleSeparateModel(num_output=1).loadBaseModel(checkpoint_prefix_base)
+    teacher_model = EnsembleSeparateModel_MClass(num_output_val=3., num_output_ar=3).loadBaseModel(checkpoint_prefix_base)
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
 
@@ -101,7 +101,7 @@ with strategy.scope():
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
@@ -141,21 +141,19 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=
 # checkpoint.restore(manager.latest_checkpoint)
 
 with strategy.scope():
-    def train_step(inputs, GLOBAL_BATCH_SIZE=0):
+    def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE):
         # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
         X = tf.expand_dims(inputs[-1], -1)
         # print(X)
 
-        y_d_ar = tf.expand_dims(classifLabelsConv(inputs[1]), -1)
-        y_d_val = tf.expand_dims(classifLabelsConv(inputs[2]), -1)
+        y_d_ar = tf.expand_dims(inputs[1], -1)
+        y_d_val = tf.expand_dims(inputs[2], -1)
 
-        y_r_ar = tf.expand_dims(regressLabelsConv(inputs[1]), -1)
-        y_r_val = tf.expand_dims(regressLabelsConv(inputs[2]), -1)
+        y_r_ar = tf.expand_dims(inputs[3], -1)
+        y_r_val = tf.expand_dims(inputs[4], -1)
 
-        #weights
-        ar_weight = inputs[5]
-        val_weight = inputs[6]
+
 
 
         with tf.GradientTape() as tape:
@@ -163,8 +161,8 @@ with strategy.scope():
             #using latent
             # _, latent = base_model(X)
             z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
-            classific_loss = model.classificationLoss( z_ar, z_val, y_d_ar, y_d_val, ar_logit, val_logit, alpha)
-            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val)
+            classific_loss = model.classificationLoss( z_ar, z_val, y_d_ar, y_d_val, ar_logit, val_logit, alpha, global_batch_size=GLOBAL_BATCH_SIZE)
+            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params , global_batch_size=GLOBAL_BATCH_SIZE)
 
 
             final_loss = classific_loss + regress_loss
@@ -179,15 +177,14 @@ with strategy.scope():
         return final_loss
 
 
-    def test_step(inputs, GLOBAL_BATCH_SIZE=0):
+    def test_step(inputs, GLOBAL_BATCH_SIZE):
         X = tf.expand_dims(inputs[-1], -1)
 
-        y_r_ar = tf.expand_dims(regressLabelsConv(inputs[1]), -1)
-        y_r_val = tf.expand_dims(regressLabelsConv(inputs[2]), -1)
-
+        y_r_ar = tf.expand_dims(inputs[3], -1)
+        y_r_val = tf.expand_dims(inputs[4], -1)
 
         z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
-        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val)
+        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False, global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss
 
@@ -286,15 +283,16 @@ with strategy.scope():
         tf.summary.scalar('RMSE valence', rmse_val_test.result(), step=epoch)
         tf.summary.scalar('PCC valence', pcc_val_test.result(), step=epoch)
         tf.summary.scalar('CCC valence', ccc_val_test.result(), step=epoch)
+        tf.summary.scalar('SAGR valence', sagr_val_test.result(), step=epoch)
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
     # with the distributed input.
 
     @tf.function
-    def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
+    def distributed_train_step(dataset_inputs, shake_params, GLOBAL_BATCH_SIZE):
         per_replica_losses = strategy.run(train_step,
-                                          args=(dataset_inputs, GLOBAL_BATCH_SIZE))
+                                          args=(dataset_inputs, shake_params, GLOBAL_BATCH_SIZE))
         return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                axis=None)
 
@@ -313,14 +311,20 @@ with strategy.scope():
         # TRAIN LOOP
         total_loss = 0.0
         num_batches = 0
+        shake_params = tf.random.uniform(shape=(3, ), minval=0.1, maxval=1)
         for step, train in enumerate(train_data):
             # print(tf.reduce_max(train[0][0]))
-            distributed_train_step(train, ALL_BATCH_SIZE)
+            distributed_train_step(train, shake_params, ALL_BATCH_SIZE)
             it += 1
 
 
         for step, val in enumerate(val_data):
             distributed_test_step(val, data_fetch.val_n)
+
+        with train_summary_writer.as_default():
+            write_train_tensorboard(epoch)
+        with test_summary_writer.as_default():
+            write_test_tensorboard(epoch)
 
         template = (
             "epoch {} | Train_loss: {} | Val_loss: {}")
@@ -339,6 +343,7 @@ with strategy.scope():
         if (wait_i == wait):
             break
         # reset state
+
         reset_metrics()
 
 
@@ -347,13 +352,15 @@ with strategy.scope():
     for step, test in enumerate(test_data):
         distributed_test_step(test, data_fetch.test_n)
     template = (
-        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {}, sagr_val: {}")
+        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}")
 
     print(template.format(
         loss_test.result().numpy(),
+        rmse_ar_test.result().numpy(),
         ccc_ar_test.result().numpy(),
         pcc_ar_test.result().numpy(),
         sagr_ar_test.result().numpy(),
+        rmse_val_test.result().numpy(),
         ccc_val_train.result().numpy(),
         pcc_val_test.result().numpy(),
         sagr_val_test.result().numpy(),

@@ -1,4 +1,4 @@
-for /L %%i in (1, 1, 1) do (
+for /L %%i in (1, 1, 5) do (
    echo %%i  the current iteration
    C:\Users\ShimaLab\Anaconda3\envs\tensorflow\python.exe D:/usr/pras/project/ValenceArousal/TrainingStochasticEnsemble_MClass.py %%i
 )

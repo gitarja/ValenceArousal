@@ -2,7 +2,7 @@ import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel_MClass
 from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, TRAINING_RESULTS_PATH
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
-
+from Libs.Utils import classifLabelsConv
 import datetime
 import os
 import sys
@@ -41,7 +41,7 @@ fold = str(sys.argv[1])
 # fold = 1
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "three-class\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_teacher"
 # tensorboard
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -52,28 +52,28 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=False, multiple=False, soft=True)
+                       ECG_N=ECG_RAW_N, KD=False, multiple=True, soft=True)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(),
     output_types=(tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val])))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
     output_types=(tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val])))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
     output_types=(tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([num_output_ar]), tf.TensorShape([num_output_val])))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -88,7 +88,7 @@ with strategy.scope():
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # ---------------------------Epoch&Loss--------------------------#
     # loss
@@ -96,10 +96,10 @@ with strategy.scope():
     vald_loss = tf.keras.metrics.Mean()
 
     # accuracy
-    train_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    train_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    vald_ar_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
-    vald_val_acc = tf.keras.metrics.TopKCategoricalAccuracy(k=1)
+    train_ar_acc = tf.keras.metrics.Accuracy()
+    train_val_acc = tf.keras.metrics.Accuracy()
+    vald_ar_acc = tf.keras.metrics.Accuracy()
+    vald_val_acc = tf.keras.metrics.Accuracy()
 
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, teacher_model=model)
@@ -110,8 +110,8 @@ with strategy.scope():
     def train_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
         # print(X)
-        y_ar = tf.concat(inputs[1], -1)
-        y_val = tf.concat(inputs[2], -1)
+        y_ar = tf.expand_dims(inputs[1], -1)
+        y_val = tf.expand_dims(inputs[2], -1)
 
         with tf.GradientTape() as tape_ar:
             final_loss, prediction_ar, prediction_val = model.train(X, y_ar, y_val, GLOBAL_BATCH_SIZE, training=True)
@@ -131,8 +131,8 @@ with strategy.scope():
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
-        y_ar = tf.concat(inputs[1], -1)
-        y_val = tf.concat(inputs[2], -1)
+        y_ar = tf.expand_dims(inputs[1], -1)
+        y_val = tf.expand_dims(inputs[2], -1)
 
         final_loss, prediction_ar, prediction_val = model.train(X, y_ar, y_val, GLOBAL_BATCH_SIZE, training=False)
         vald_loss(final_loss)

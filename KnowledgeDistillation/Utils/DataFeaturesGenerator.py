@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arValToMLabels, arWeight, valWeight, timeToInt
+from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
@@ -71,9 +71,9 @@ class DataFetch:
             data_i = data_set[i]
             if self.multiple:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[5]
                 else:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3]
+                    yield data_i[0], data_i[1], data_i[2]
             else:
                 if self.KD:
                     yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
@@ -124,6 +124,11 @@ class DataFetch:
             ar_weight = arWeight(y_ar_bin)
             val_weight = valWeight(y_val_bin)
 
+            y_d_ar = classifLabelsConv(y_ar)
+            y_d_val = classifLabelsConv(y_val)
+
+            y_r_ar = regressLabelsConv(y_ar)
+            y_r_val = regressLabelsConv(y_val)
 
 
             if KD :
@@ -133,10 +138,10 @@ class DataFetch:
                     # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                     # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_ar, y_val, ar_weight, val_weight, ecg])
+                    data_set.append([concat_features_norm, y_d_ar, y_d_val, y_r_ar, y_r_val, ecg])
 
             else:
-                data_set.append([concat_features_norm, y_ar, y_val, ar_weight, val_weight])
+                data_set.append([concat_features_norm, y_d_ar, y_d_val, ar_weight, val_weight])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set
