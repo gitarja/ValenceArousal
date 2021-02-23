@@ -3,31 +3,31 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 
-EDA = 553
+EDA = 1102
 PPG = 11
 Resp = 11
-ECG_Resp = 13
-ECG = 13
-EEG = 912
+# ECG_Resp = 13
+ECG = 26
+EEG = 1330
 
-FEATURES_N = 1513
+FEATURES_N = EDA + PPG + Resp + ECG + EEG
 
 EDA_LABELS = ["EDA" for x in range(EDA)]
 PPG_LABELS = ["PPG" for x in range(PPG)]
 Resp_LABELS = ["Resp" for x in range(Resp)]
-ECG_Resp_LABELS = ["ECG_Resp" for x in range(ECG_Resp)]
+# ECG_Resp_LABELS = ["ECG_Resp" for x in range(ECG_Resp)]
 ECG_LABELS = ["ECG" for x in range(ECG)]
 EEG_LABELS = ["EEG" for x in range(EEG)]
 
 AROUSAL_LABELS = ["Arousal" for x in range(FEATURES_N)]
 VALENCE_LABELS = ["Valence" for x in range(FEATURES_N)]
 
-labels = np.concatenate([EDA_LABELS, PPG_LABELS, Resp_LABELS, ECG_Resp_LABELS, ECG_LABELS, EEG_LABELS])
+labels = np.concatenate([EDA_LABELS, PPG_LABELS, Resp_LABELS, ECG_LABELS, EEG_LABELS])
 
 labels = np.concatenate([labels, labels])
 ar_val_labels = np.concatenate([AROUSAL_LABELS, VALENCE_LABELS])
 
-path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\jmim_results\\"
+path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\jmim_results_0.2\\"
 jmi = pd.read_csv(path + "jmim_feature_analysis.csv")
 jmi_ar = jmi["JMI_Arousal"]
 jmi_val = jmi["JMI_Valence"]
@@ -42,7 +42,7 @@ jmi_coeff = np.concatenate([jmi_ar_flatten, jmi_val_flatten])
 jmi_data = pd.DataFrame({"JMI": jmi_coeff, "Sensor": labels, "AR_VAL": ar_val_labels})
 
 plt.figure()
-sns.boxplot(x="Sensor", y="JMI",  hue="AR_VAL", data=jmi_data, palette="Set2").set_title("JMI")
+sns.boxplot(x="Sensor", y="JMI",  hue="AR_VAL", data=jmi_data, palette="Set2")
 plt.show()
 
 # #Prepare Anova Results

@@ -1,4 +1,5 @@
 import glob
+import os
 from Conf.Settings import FS_ECG, FS_GSR, FS_RESP, SPLIT_TIME
 from ECG.ECGFeatures import ECGFeatures
 from GSR.GSRFeatures import PPGFeatures, EDAFeatures
@@ -9,10 +10,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
-data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
+data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
 eeg_file = "\\EEG\\"
 game_result = "\\*_gameResults.csv"
-plot_result = "\\plot_eeg\\"
+plot_result = "\\plot_eeg_eps\\"
 
 ecg_features = ECGFeatures(fs=FS_ECG)
 ppg_features = PPGFeatures(fs=FS_GSR)
@@ -21,7 +22,7 @@ resp_features = RespFeatures(fs=FS_RESP)
 min_len = FS_RESP * (SPLIT_TIME + 1)
 
 for folder in glob.glob(data_path):
-    for subject in glob.glob(folder + "\\*-2020-*"):
+    for subject in glob.glob(folder + "\\*A6-2020-*"):
 
         data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
         data_EmotionTest["Time_Start"] = data_EmotionTest["Time_Start"].apply(timeToInt)
@@ -50,7 +51,8 @@ for folder in glob.glob(data_path):
                     # Plot the EEG
                     fig = plt.figure("MRI_with_EEG")
                     n_samples, n_rows = eeg_split.shape
-                    t = 10 * np.arange(n_samples) / n_samples
+                    # t = 10 * np.arange(n_samples) / n_samples
+                    t = np.linspace(0, SPLIT_TIME, n_samples)
                     ticklocs = []
                     ax2 = fig.add_subplot(1, 1, 1)
                     ax2.set_xlim(0, 10)
@@ -77,10 +79,11 @@ for folder in glob.glob(data_path):
 
                     ax2.set_yticks(ticklocs)
                     ax2.set_yticklabels(y_labels)
-
-                    plt.savefig(
+                    # plt.show()
+                    os.makedirs(subject + plot_result, exist_ok=True)
+                    fig.savefig(
                         subject + plot_result + str(i) + "_" + str(idx) + "_" + str(valence) + "_" + str(
-                            arousal) + ".png")
+                            arousal) + ".eps")
                     plt.close()
                     idx += 1
                 except:

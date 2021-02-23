@@ -82,8 +82,9 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # loss
         self.cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE, label_smoothing=0.2)
+                                                       reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+        self.mean_loss = tf.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
 
 
     def forward(self, x, dense, activation=None, droput=None, batch_norm=None):
@@ -174,7 +175,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return ar_logit, val_logit, z
     @tf.function
-    def trainSMCL(self, X, y_ar, y_val, th, c_f, global_batch_size, training=False):
+    def trainSMCL(self, X, y_ar, y_val, th, ar_weight, val_weight, global_batch_size, training=False):
         # compute AR and VAL logits
         logits = self.call(X, training)
 
@@ -187,9 +188,9 @@ class EnsembleSeparateModel(tf.keras.Model):
         logit_val_mean = tf.reduce_mean(logits[1], 0)
 
         # compute AR loss
-        losses_ar = self.cross_loss(y_ar, logit_ar_mean)
+        losses_ar = self.symmtericLoss(y_ar, logit_ar_mean)
         # compute Val loss
-        losses_val = self.cross_loss(y_val, logit_val_mean)
+        losses_val = self.symmtericLoss(y_val, logit_val_mean)
 
 
         # compute rec loss
@@ -198,7 +199,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         final_losses_ar = tf.nn.compute_average_loss(losses_ar,
                                                      global_batch_size=global_batch_size)
-        final_losses_val = tf.nn.compute_average_loss(losses_val, sample_weight=c_f,
+        final_losses_val = tf.nn.compute_average_loss(losses_val,
                                                       global_batch_size=global_batch_size)
 
         final_rec_loss = tf.nn.compute_average_loss(losses_rec,
@@ -223,6 +224,11 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return labels
 
+    def symmtericLoss(self, t, y, alpha=6., beta=1.):
+        t2 = tf.clip_by_value(t, 1e-4, 1.0)
+        y2 = tf.clip_by_value(y, 1e-7, 1.0)
+        loss = alpha * self.cross_loss(t, y) + beta* self.cross_loss(y2, t2)
+        return loss
 
 
     def loadBaseModel(self, checkpoint_prefix):
@@ -309,12 +315,12 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         self.activation = tf.keras.layers.ELU()
         # dropout
         self.dropout1 = tf.keras.layers.Dropout(0.0)
-        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        self.dropout2 = tf.keras.layers.Dropout(0.35)
         # avg
         self.avg = tf.keras.layers.Average()
 
         # loss
-        self.multi_cross_loss = tf.losses.BinaryCrossentropy(from_logits=True,
+        self.multi_cross_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
                                                                   reduction=tf.keras.losses.Reduction.NONE)
         self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 
@@ -453,10 +459,10 @@ class EnsembleSeparateModel_MClass(tf.keras.Model):
         return tf.expand_dims(self.multi_cross_loss(t, y), -1)
 
     def avgMultiple(self, predictions):
-        prob = tf.nn.sigmoid(predictions)
-        labels = prob
+        prob = tf.nn.softmax(predictions, -1)
+        labels = tf.argmax(prob, -1)
 
-        return labels
+        return tf.expand_dims(labels, -1)
 
     def tfCount(self, t, val):
         elements_equal_to_value = tf.equal(t, val)

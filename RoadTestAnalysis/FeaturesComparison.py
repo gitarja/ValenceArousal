@@ -9,6 +9,7 @@ from ECG.ECGFeatures import ECGFeatures
 from sklearn.decomposition import PCA
 import seaborn as sns
 import matplotlib
+from scipy import signal
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import euclidean_distances
@@ -25,10 +26,10 @@ DATASET_PATH_local= "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 
 ROAD_TEST_PATH = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Road-Test\\20201119-E-DATA\\"
 game_result = "\\*_gameResults.csv"
 path_result = "results\\"
-subject_name = "E1-2020-11-03"
+subject_name = "E6-2020-10-30"
 # Read VR Features
-subject_path = DATASET_PATH_local + "2020-11-03\\"+ subject_name
-features_list = pd.read_csv(subject_path+  "\\ECG_features_list_" + str(STRIDE) + ".csv")
+subject_path = DATASET_PATH_local + "2020-10-30\\"+ subject_name
+features_list = pd.read_csv(subject_path+  "\\ECG_features_list_" + str(1.0) + ".csv")
 features_list = features_list[features_list["Status"]==1]
 features_list["Valence"] = features_list["Valence"].apply(valToLabels)
 features_list["Arousal"] = features_list["Arousal"].apply(arToLabels)
@@ -46,7 +47,7 @@ for i in range(len(features_list)):
 
 
 #load road test features
-subject_road_path = ROAD_TEST_PATH + "TS102 E1\\20201119_110408_783_HB_PW.csv"
+subject_road_path = ROAD_TEST_PATH + "TS001 E6\\20201119_135342_615_HB_PW.csv"
 ecg_road_data = pd.read_csv(subject_road_path)
 # convert timestamp to int
 ecg_road_data.loc[:, 'timestamp'] = ecg_road_data.loc[:, 'timestamp'].apply(timeToInt)
@@ -65,6 +66,7 @@ for j in np.arange(0, (tdelta // SPLIT_TIME), 0.2):
 
     ecg = ecg_road_data[(ecg_road_data["timestamp"].values >= start) & (ecg_road_data["timestamp"].values <= end)]
     ecg_values = featuresExct.filterECG(ecg['ecg'].values)
+    ecg_values = signal.resample(ecg_values, int((len(ecg_values) / FS_ECG) * 200))
 
     time_domain = featuresExct.extractTimeDomain(ecg_values)
     freq_domain = featuresExct.extractFrequencyDomain(ecg_values)

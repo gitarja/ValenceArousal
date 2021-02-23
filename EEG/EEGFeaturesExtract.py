@@ -1,12 +1,13 @@
 from EEG.EEGFeatures import EEGFeatures
 import pandas as pd
 import glob
-from Libs.Utils import timeToInt
-from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_R_PATH, EEG_PATH, DATASET_PATH
+from Libs.Utils import timeToInt, arToLabels
+from Conf.Settings import FS_EEG, SPLIT_TIME, STRIDE, EXTENTION_TIME, EEG_RAW_PATH, EEG_PATH, DATASET_PATH, EEG_R_PATH
 from EEG.SpaceLapFilter import SpaceLapFilter
 import numpy as np
 import os
 from scipy import signal
+from os import path
 
 eeg_file = "\\EEG\\"
 game_result = "\\*_gameResults.csv"
@@ -40,7 +41,18 @@ for folder in glob.glob(DATASET_PATH + "2020-10-*"):
                 print(i)
                 eeg["time"] = eeg["time"].apply(timeToInt)
                 # print(eeg["time"].values[0])
-                for j in np.arange(0., (tdelta // SPLIT_TIME), STRIDE):
+
+
+                #setting the end of extraction
+                bin_ar = arToLabels(arousal)
+                bin_val = arToLabels(valence)
+
+                if (bin_ar == 1) or (bin_val == 1):
+                    end_extract = 0.5 * (tdelta // SPLIT_TIME)#use only half of the data from the mid to  the last
+                else:
+                    end_extract = 0.3 * (tdelta // SPLIT_TIME)#use only 2/3 of the data
+
+                for j in np.arange(end_extract, (tdelta // SPLIT_TIME), STRIDE): #the window move backward
                     # take 2.5 sec after end
                     # end = time_end - ((j-1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)
@@ -62,6 +74,8 @@ for folder in glob.glob(DATASET_PATH + "2020-10-*"):
                             eeg_features = np.concatenate(
                                 [time_domain_features, freq_domain_features, plf_features, power_features])
                             if np.sum(np.isinf(eeg_features)) == 0 and np.sum(np.isinf(eeg_features)) == 0:
+                                if not path.exists(subject + EEG_PATH):
+                                    os.mkdir(subject + EEG_PATH)
                                 np.save(subject + EEG_PATH + "eeg_" + str(idx) + ".npy", eeg_features)
                                 np.save(subject + EEG_R_PATH + "eeg_raw_" + str(idx) + ".npy", signal.resample(eeg_filtered, downsample_eeg_len))
                                 status = 1

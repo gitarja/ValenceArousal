@@ -4,34 +4,18 @@ from datetime import datetime
 from scipy import signal
 
 
-def caseDifficulty(val, ar):
-    if val == 3 or ar == 3:
-        return 0.3
-    if (val >=2 and val<=4) or (ar >=2 and ar <=4):
-        return 0.5
+
+def arWeight(ar):
+    if ar == 0:
+        return 1.2843347639484979
     else:
-        return 1
+        return 0.8187414500683995
 
-def valToMLabels(y):
-    if (y >= 3):
-        return np.array([0.5, 1.])
+def valWeight(val):
+    if val == 0:
+        return 1.4341054313099042
     else:
-        return np.array([1., 0.5])
-
-
-def arToMLabels(y):
-    if (y >= 3):
-        return np.array([0.5, 1.])
-    else:
-        return np.array([1., 0.5])
-
-def arValToMLabels(y):
-    if y == 3:
-        return np.array([1., 1., 1.])
-    elif y < 3:
-        return np.array([1., 1., 0.])
-    elif y > 3:
-        return np.array([0., 1., 1.])
+        return 0.7676357417699872
 
 
 def arToLabels(y):
@@ -49,28 +33,29 @@ def valToLabels(y):
     else:
         return 1
 
-
-
-def arValMulLabels(ar, val):
-    if (ar == 0) and (val == 0):
+def classifLabelsConv(y):
+    if y == 0 or y == 1 or y == 2:
         return 0
-    elif (ar == 0) and (val == 1):
+    if y == 3:
         return 1
-    elif (ar == 1) and (val == 0):
+    if y == 4 or y ==5 or y==6:
         return 2
-    else:
-        return 3
+
+    return y
 
 
-def convertLabels(ar, val):
-    labels = np.ones_like(ar)
-    labels[(ar == 0) & (val == 1)] = 1
-    labels[(ar == 1) & (val == 0)] = 2
-    labels[(ar == 1) & (val == 1)] = 3
-    return labels
-
-def convertLabelsRaw(ar, val):
-    return ar + val
+def regressLabelsConv(y):
+    if y == 0 or y == 1:
+        return -2
+    if y == 2:
+        return -1
+    if y == 3:
+        return 0
+    if y == 4:
+        return 1
+    if y ==5 or y==6:
+        return 2
+    return y
 
 
 def convertContrastiveLabels(time1, time2, sub1, sub2):

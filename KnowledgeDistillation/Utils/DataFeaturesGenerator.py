@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arValMulLabels, arToMLabels, valToMLabels, arValToMLabels, caseDifficulty, timeToInt
+from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
@@ -24,6 +24,7 @@ class DataFetch:
         self.curriculum = curriculum
         self.w = 0
         self.j =0
+        self.ecg_features = ECGFeatures(fs=FS_ECG)
 
         #normalization ecg features
         self.ecg_mean = np.array([2.18785670e+02, 5.34106162e+01, 1.22772848e+01, 8.87240641e+00,
@@ -70,14 +71,14 @@ class DataFetch:
             data_i = data_set[i]
             if self.multiple:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[5]
                 else:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3]
+                    yield data_i[0], data_i[1], data_i[2]
             else:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[5], data_i[4]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
                 else:
-                    yield data_i[0], data_i[1], data_i[2], data_i[-1]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
             i += 1
         self.j+=1
 
@@ -85,6 +86,7 @@ class DataFetch:
 
     def readData(self, features_list, KD, training=False):
         data_set = []
+        features_list = features_list.sample(frac=1.)
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
@@ -114,35 +116,32 @@ class DataFetch:
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
             y_val = features_list.iloc[i]["Valence"]
-            c_f = caseDifficulty(y_val, y_ar)
+
             #convert the label either to binary class or three class
-            if self.soft is False:
-                y_ar_bin = arToLabels(y_ar)
-                y_val_bin = valToLabels(y_val)
-                m_class = arValMulLabels(y_ar_bin, y_val_bin)
-            else:
-                y_ar_bin = arValToMLabels(y_ar)
-                y_val_bin = arValToMLabels(y_val)
-                m_class = 0
+
+            y_ar_bin = arToLabels(y_ar)
+            y_val_bin = valToLabels(y_val)
+            ar_weight = arWeight(y_ar_bin)
+            val_weight = valWeight(y_val_bin)
+
+            y_d_ar = classifLabelsConv(y_ar)
+            y_d_val = classifLabelsConv(y_val)
+
+            y_r_ar = regressLabelsConv(y_ar)
+            y_r_val = regressLabelsConv(y_val)
 
 
             if KD :
                 if len(ecg) >= self.ECG_N:
-                    # ecg = (ecg - 2.7544520692684414e-06) / 0.15695187777333394
-                    ecg = (ecg -  2140.397356669409) / 370.95493558685325
-                    # ecg = signal.resample(ecg[:int(FS_ECG * SPLIT_TIME)], FS_ECG_ROAD * SPLIT_TIME)
-                    # ecg = ecg / (4095 - 0)
-                    if training:
-                        ecg = self.randomECG(ecg)
-                    else:
-                        ecg = ecg[-self.ECG_N:]
-                    # ecg = ecg /  2.0861534577149707
+                    ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                    ecg = ecg[-self.ECG_N:]
+                    # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
+                    # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f, ecg])
-                    # if training and y_val_bin == 0:
-                    #     data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f,  ecg])
+                    data_set.append([concat_features_norm, y_d_ar, y_d_val, y_r_ar, y_r_val, ecg])
+
             else:
-                data_set.append([concat_features_norm, y_ar_bin, y_val_bin, m_class, c_f])
+                data_set.append([concat_features_norm, y_d_ar, y_d_val, ar_weight, val_weight])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set
@@ -264,7 +263,7 @@ class DataFetchRoad:
         mask_file = pd.read_csv(self.mask_file)
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
-        # ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
+        ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
             end = start + (SPLIT_TIME+1)
@@ -281,8 +280,9 @@ class DataFetchRoad:
 
                 #raw ecg
                 ecg = (ecg - 2140.397356669409) / 370.95493558685325
-                # ecg = signal.resample(ecg, FS_ECG_ROAD * SPLIT_TIME)
-                data_set.append(ecg[:self.ecg_n])
+                # ecg = ecg / (4095 - 0)
+                # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
+                data_set.append(ecg)
             # print(ecg)
         return data_set
 

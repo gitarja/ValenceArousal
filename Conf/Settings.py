@@ -56,3 +56,7 @@ TRAINING_RESULTS_PATH = "G:\\usr\\nishihara\\result\\EmotionRecognition\\"
 
 #road test
 ROAD_ECG = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\road_test\\"
+
+#proportion
+HIGH_PROP = 0.5
+LOW_PROP = 0.3

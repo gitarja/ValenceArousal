@@ -51,9 +51,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, KD=False)
@@ -61,18 +61,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32 , tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.int32, tf.int32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -144,11 +144,12 @@ with strategy.scope():
         # print(X)
         y_ar = tf.expand_dims(inputs[1], -1)
         y_val = tf.expand_dims(inputs[2], -1)
-        c_f = inputs[-1]
+        ar_weight = inputs[3]
+        val_weight = inputs[4]
 
         with tf.GradientTape() as tape_ar:
-            final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,c_f=c_f,
-                                                                                  th=0.55,
+            final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val,ar_weight=ar_weight, val_weight=val_weight,
+                                                                                  th=th,
                                                                                   global_batch_size=GLOBAL_BATCH_SIZE, training=True)
 
         # update gradient
@@ -176,9 +177,10 @@ with strategy.scope():
         X = inputs[0]
         y_ar = tf.expand_dims(inputs[1], -1)
         y_val = tf.expand_dims(inputs[2], -1)
-        c_f = inputs[-1]
-        final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val, c_f=c_f,
-                                                                              th=0.55,
+        ar_weight = inputs[3]
+        val_weight = inputs[4]
+        final_loss, prediction_ar, prediction_val, loss_ori = model.trainSMCL(X, y_ar, y_val, ar_weight=ar_weight, val_weight=val_weight,
+                                                                              th=th,
                                                                              global_batch_size= GLOBAL_BATCH_SIZE, training=False)
         vald_loss(final_loss)
 

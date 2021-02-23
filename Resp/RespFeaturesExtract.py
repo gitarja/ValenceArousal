@@ -2,7 +2,7 @@ from Resp.RespFeatures import RespFeatures
 from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 import glob
-from Libs.Utils import timeToInt
+from Libs.Utils import timeToInt, arToLabels
 from Conf.Settings import FS_RESP, SPLIT_TIME, STRIDE, EXTENTION_TIME, RESP_RAW_PATH, ECG_RAW_RESP_PATH, RESP_PATH, ECG_RESP_PATH, DATASET_PATH, ECG_RR_PATH
 import numpy as np
 import os
@@ -38,7 +38,16 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
                 arousal = data_EmotionTest.iloc[i]["Arousal"]
                 emotion = data_EmotionTest.iloc[i]["Emotion"]
 
-                for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
+                # setting the end of extraction
+                bin_ar = arToLabels(arousal)
+                bin_val = arToLabels(valence)
+
+                if (bin_ar == 1) or (bin_val == 1):
+                    end_extract = 0.5 * (tdelta // SPLIT_TIME)  # use only half of the data from the mid to  the last
+                else:
+                    end_extract = 0.3 * (tdelta // SPLIT_TIME)  # use only 2/3 of the data
+
+                for j in np.arange(end_extract, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
                     # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)
@@ -69,8 +78,10 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
                         ecg_features = np.concatenate([time_domain, freq_domain, nonlinear_domain])
                         # print(np.sum(np.isinf(ecg_features)))
                         if (np.sum(np.isinf(resp_features)) == 0 and np.sum(np.isnan(resp_features)) == 0 and np.sum(np.isinf(ecg_features)) == 0 and np.sum(np.isnan(ecg_features)) == 0):
-                            if not os.path.isdir(subject + ECG_RR_PATH):
-                                os.mkdir(subject + ECG_RR_PATH )
+                            if (not os.path.isdir(subject + ECG_RR_PATH)) or (not os.path.isdir(subject + RESP_PATH)) or (not os.path.isdir(subject + ECG_RESP_PATH)):
+                                # os.mkdir(subject + ECG_RR_PATH )
+                                # os.mkdir(subject + RESP_PATH)
+                                os.mkdir(subject + ECG_RESP_PATH)
                             np.save(subject + ECG_RR_PATH+ "ecg_raw_" + str(idx) + ".npy", ecg_resp)
                             np.save(subject + RESP_PATH + "resp_" + str(idx) + ".npy", resp_features)
                             np.save(subject + ECG_RESP_PATH + "ecg_resp_" + str(idx) + ".npy", ecg_features)
