@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 class DataFetch:
 
-    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False, soft=False, curriculum=False):
+    def __init__(self, train_file, validation_file, test_file, ECG_N, KD=False, multiple=False, soft=False, curriculum=False, training=True):
         utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
@@ -35,16 +35,15 @@ class DataFetch:
         self.ecg_std = np.array([28.6904681 ,  7.2190369 ,  8.96941273,  8.57895833, 13.34906982,
        10.67710367, 36.68525696,  9.31097392, 21.09139643, 21.09139643,
         0.88959446,  0.48770451,  0.08282199])
-
-        self.data_train = self.readData(pd.read_csv(train_file), KD, True)
-        self.data_val = self.readData(pd.read_csv(validation_file), KD)
-        self.data_test = self.readData(pd.read_csv(test_file), KD)
-
-
         self.ECG_N = ECG_N
 
-        self.train_n = len(self.data_train)
-        self.val_n = len(self.data_val)
+        if training == True:
+            self.data_train = self.readData(pd.read_csv(train_file), KD, True)
+            self.data_val = self.readData(pd.read_csv(validation_file), KD)
+            self.train_n = len(self.data_train)
+            self.val_n = len(self.data_val)
+
+        self.data_test = self.readData(pd.read_csv(test_file), KD)
         self.test_n = len(self.data_test)
 
 

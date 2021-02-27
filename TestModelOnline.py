@@ -45,10 +45,9 @@ result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student"
 
 # datagenerator
-ecg_data = ROAD_ECG + "E5\\20201119_110037_112_HB_PW.csv"
-gps_data = ROAD_ECG + "E5\\20201119_110037_112_GPS.csv"
-mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
-data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
+data_fetch = DataFetch(test_file=testing_data,
+                       ECG_N=ECG_RAW_N, KD=True, multiple=True, training=False)
 generator = data_fetch.fetch
 
 
@@ -63,7 +62,7 @@ test_data = test_generator.batch(BATCH_SIZE)
 with strategy.scope():
     # load pretrained model
     # encoder model
-    checkpoint_prefix_encoder = result_path + "model_base_student"
+
     model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
@@ -84,9 +83,12 @@ with strategy.scope():
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = tf.expand_dims(tf.expand_dims(inputs[-1], -1), 0)
+        y_r_ar = tf.expand_dims(inputs[3], -1)
+        y_r_val = tf.expand_dims(inputs[4], -1)
+
         prediction_ar, prediction_val = model.predict(X, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
 
-        return prediction_ar, prediction_val
+        return prediction_ar, prediction_val, y_r_ar, y_r_val
 
 
 
@@ -105,9 +107,9 @@ with strategy.scope():
 
     it = 0
 
-    template = ("{}, {}")
+    template = ("{}, {}, {}, {}")
     for step, test in enumerate(test_data):
-        prediction_ar, prediction_val = distributed_test_step(test, data_fetch.test_n)
-        print(template.format(prediction_ar.numpy()[0, 0],  prediction_val.numpy()[0, 0]))
+        prediction_ar, prediction_val, y_r_ar, y_r_val = distributed_test_step(test, data_fetch.test_n)
+        print(template.format(prediction_ar.numpy()[0, 0],  prediction_val.numpy()[0, 0], y_r_ar.numpy()[0, 0], y_r_val.numpy()[0, 0]))
 
 
