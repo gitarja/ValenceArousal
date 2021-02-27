@@ -30,10 +30,10 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 # setting
 num_output_ar = 3
 num_output_val = 3
-initial_learning_rate = 1.e-3
+initial_learning_rate = 1.e-4
 EPOCHS = 500
 PRE_EPOCHS = 100
-BATCH_SIZE = 256
+BATCH_SIZE = 32
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
@@ -98,7 +98,7 @@ with strategy.scope():
     model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
 
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
-                                                                   decay_steps=EPOCHS, decay_rate=0.95,
+                                                                   decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)

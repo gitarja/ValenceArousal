@@ -195,7 +195,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         # dropout
         self.dropout_1 = tf.keras.layers.Dropout(0.2)
-        self.spatial_dropout = tf.keras.layers.SpatialDropout1D(0.35)
+        self.spatial_dropout = tf.keras.layers.SpatialDropout1D(0.05)
 
         # avg
         self.avg = tf.keras.layers.Average()
@@ -219,20 +219,19 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         # encoder
         x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu))
-        # x = self.spatial_dropout(x, training=training)
+        x = self.spatial_dropout(x, training=training)
         x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu))
-        # x = self.spatial_dropout(x, training=training)
+        x = self.spatial_dropout(x, training=training)
         x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu))
         x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu))
         x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
         z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
 
         # flat logit
-        z_ar = self.spatial_dropout(z, training=training)
-        z_val = self.spatial_dropout(z, training=training)
 
-        z_ar = self.flat(z_ar)
-        z_val = self.flat(z_val)
+
+        z_ar = self.flat(z)
+        z_val = self.flat(z)
 
         # head 1
         z_ar_h1 = self.elu(self.class_ar(z_ar))
