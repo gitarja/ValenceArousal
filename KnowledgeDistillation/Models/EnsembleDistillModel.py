@@ -2,6 +2,7 @@ import tensorflow as tf
 import math
 from KnowledgeDistillation.Layers.AttentionLayer import AttentionLayer
 from KnowledgeDistillation.Utils.Losses import PCCLoss, CCCLoss
+from KnowledgeDistillation.Layers.SelfAttentionLayer import SelfAttentionLayer1D
 
 
 class EnsembleStudentOneDimF(tf.keras.Model):
@@ -152,8 +153,11 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.elu = tf.keras.layers.ELU()
 
         # attention
-        self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
-        self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
+        # self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
+        # self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
+
+        self.att_ar = SelfAttentionLayer1D(name="att_ar", filters=8)
+        self.att_val = SelfAttentionLayer1D(name="att_val", filters=8)
 
         # classify
         self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
@@ -345,6 +349,12 @@ class EnsembleStudentOneDim(tf.keras.Model):
         predictions_val = tf.nn.sigmoid(z_val)
 
         return predictions_ar, predictions_val
+
+    @tf.function
+    def predict_reg(self, X, training=False):
+        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
+
+        return z_ar_r, z_val_r
 
 
     def symmtericLoss(self, t, y, alpha=6.0, beta=1.):

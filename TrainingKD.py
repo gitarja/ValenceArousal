@@ -33,7 +33,7 @@ num_output_val = 3
 initial_learning_rate = 1.e-4
 EPOCHS = 500
 PRE_EPOCHS = 100
-BATCH_SIZE = 32
+BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
@@ -165,7 +165,7 @@ with strategy.scope():
             regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params , global_batch_size=GLOBAL_BATCH_SIZE)
 
 
-            final_loss = classific_loss + regress_loss
+            final_loss = (0.5 * classific_loss) + regress_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)

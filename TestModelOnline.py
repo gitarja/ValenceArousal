@@ -6,6 +6,13 @@ from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFet
 import datetime
 import os
 import sys
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+
+sns.set_style("whitegrid")
+sns.set_color_codes("dark")
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
@@ -53,9 +60,9 @@ generator = data_fetch.fetch
 
 
 test_generator = tf.data.Dataset.from_generator(
-    lambda: generator(),
-    output_types=(tf.float32),
-    output_shapes=(tf.TensorShape([ECG_RAW_N])))
+    lambda: generator(training_mode=2),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -82,11 +89,11 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = tf.expand_dims(tf.expand_dims(inputs[-1], -1), 0)
+        X = tf.expand_dims(inputs[-1], -1)
         y_r_ar = tf.expand_dims(inputs[3], -1)
         y_r_val = tf.expand_dims(inputs[4], -1)
 
-        prediction_ar, prediction_val = model.predict(X, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        prediction_ar, prediction_val = model.predict_reg(X, training=False)
 
         return prediction_ar, prediction_val, y_r_ar, y_r_val
 
@@ -106,10 +113,30 @@ with strategy.scope():
 
 
     it = 0
-
+    ar_results = []
+    val_results = []
     template = ("{}, {}, {}, {}")
     for step, test in enumerate(test_data):
         prediction_ar, prediction_val, y_r_ar, y_r_val = distributed_test_step(test, data_fetch.test_n)
-        print(template.format(prediction_ar.numpy()[0, 0],  prediction_val.numpy()[0, 0], y_r_ar.numpy()[0, 0], y_r_val.numpy()[0, 0]))
+        # print(template.format(prediction_ar.numpy()[0, 0],  prediction_val.numpy()[0, 0], y_r_ar.numpy()[0, 0], y_r_val.numpy()[0, 0]))
+        ar_results.append([prediction_ar.numpy()[0, 0], y_r_ar.numpy()[0, 0]])
+        val_results.append([prediction_val.numpy()[0, 0], y_r_val.numpy()[0, 0]])
+
+    ar_results = np.array(ar_results)
+    val_results = np.array(val_results)
+
+    #plotting
+
+    plt.figure(1)
+    plt.plot(ar_results[:, 0], linestyle=':', linewidth=1.5, label="Arousal-prediction", color="#66c2a5")
+    plt.plot(ar_results[:, 1], linestyle=':', linewidth=1.5, label="Arousal-label", color="#fc8d62")
+    plt.legend()
+    plt.savefig("arousal.png")
+    plt.figure(2)
+    plt.plot(val_results[:, 0], linestyle=':', linewidth=1.5,  label="Valence-prediction", color="#66c2a5")
+    plt.plot(val_results[:, 1], linestyle=':', linewidth=1.5, label="Valence-label", color="#fc8d62")
+    plt.legend()
+    plt.savefig("valence.png")
+    plt.show()
 
 

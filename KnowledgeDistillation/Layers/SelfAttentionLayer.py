@@ -4,8 +4,8 @@ import tensorflow as tf
 #doi: 10.23915/distill.00018
 class SelfAttentionLayer2D(tf.keras.layers.Layer):
 
-    def __init__(self, filters=128):
-        super(SelfAttentionLayer2D, self).__init__()
+    def __init__(self, filters=128, **kwargs):
+        super(SelfAttentionLayer2D, self).__init__(**kwargs)
 
         self.f_x = tf.keras.layers.Conv2D(filters, kernel_size=(1, 1), activation=None)
         self.g_x = tf.keras.layers.Conv2D(filters, kernel_size=(1, 1), activation=None)
@@ -28,8 +28,8 @@ class SelfAttentionLayer2D(tf.keras.layers.Layer):
 #doi: 10.23915/distill.00018
 class SelfAttentionLayer1D(tf.keras.layers.Layer):
 
-    def __init__(self, filters=128):
-        super(SelfAttentionLayer1D, self).__init__()
+    def __init__(self, filters=128, **kwargs):
+        super(SelfAttentionLayer1D, self).__init__(**kwargs)
         self.filters = filters
         self.f_x = tf.keras.layers.Conv1D(filters, kernel_size=1, activation=None)
         self.g_x = tf.keras.layers.Conv1D(filters, kernel_size=1, activation=None)
