@@ -111,3 +111,12 @@ def rollingWindow(a, size=50):
         slides.append(a[(i * size):((i + 1) * size)])
 
     return np.array(slides)
+
+def emotionLabels(labels, N_CLASS):
+    labels = labels.split("_")[-1]
+    label_en = np.zeros(N_CLASS)
+    for l in labels:
+        label_en[l] = 1
+
+    return label_en
+

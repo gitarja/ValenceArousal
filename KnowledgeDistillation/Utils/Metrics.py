@@ -101,3 +101,34 @@ class SAGR(Metric):
         # The state of the metric will be reset at the start of each epoch.
         self.sagr_r.assign(0.0)
         self.total_count.assign(0.0)
+
+class SoftF1(Metric):
+    def __init__(self, name="softf1", dtype=None, **kwargs):
+        super(SoftF1, self).__init__(name=name, dtype=dtype, **kwargs)
+        self.softf1_r = self.add_weight(name='softf1_r', initializer='zeros')
+        self.total_count = self.add_weight(name='total_count', initializer='zeros')
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        tp = math_ops.reduce_sum(y_pred * y_true, axis=-1, keepdims=True)  # compute soft tp
+        fp = math_ops.reduce_sum(y_pred * (1 - y_true), axis=-1, keepdims=True)  # compute soft fp
+        fn = math_ops.reduce_sum((1 - y_pred) * y_true, axis=-1, keepdims=True)  # compute soft fn
+        tn = math_ops.reduce_sum((1 - y_pred) * (1 - y_true), axis=-1, keepdims=True)  # compute soft tn
+
+        s_p = 2 * (tp / (tp + fn + fp + 1e-25))
+        s_n = 2 * (tn / (tn + fn + fp + 1e-25))
+
+        loss_p = 1 - s_p
+        loss_n = 1 - s_n
+
+        cost = 0.5 * (loss_p + loss_n)
+
+        self.softf1_r.assign_add(tf.reduce_sum(cost))
+        self.total_count.assign_add(len(cost))
+
+    def result(self):
+        return math_ops.div_no_nan(self.softf1_r, self.total_count)
+
+    def reset_states(self):
+        # The state of the metric will be reset at the start of each epoch.
+        self.softf1_r.assign(0.0)
+        self.total_count.assign(0.0)

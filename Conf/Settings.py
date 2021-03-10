@@ -55,3 +55,6 @@ ROAD_ECG = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\road_test\\"
 #proportion
 HIGH_PROP = 0.5
 LOW_PROP = 0.3
+
+#classification
+N_CLASS = 10

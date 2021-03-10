@@ -3,8 +3,8 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD
+from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv, emotionLabels
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD, N_CLASS
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
@@ -83,6 +83,8 @@ class DataFetch:
 
 
 
+
+
     def readData(self, features_list, KD, training=False):
         data_set = []
         features_list = features_list.sample(frac=1.)
@@ -115,6 +117,7 @@ class DataFetch:
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
             y_val = features_list.iloc[i]["Valence"]
+            emotions = features_list.iloc[i]["Emotion"]
 
             #convert the label either to binary class or three class
 
@@ -123,9 +126,7 @@ class DataFetch:
             ar_weight = arWeight(y_ar_bin)
             val_weight = valWeight(y_val_bin)
 
-            y_d_ar = classifLabelsConv(y_ar)
-            y_d_val = classifLabelsConv(y_val)
-
+            y_emotions = emotionLabels(emotions, N_CLASS)
             y_r_ar = regressLabelsConv(y_ar)
             y_r_val = regressLabelsConv(y_val)
 
@@ -137,10 +138,10 @@ class DataFetch:
                     # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                     # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_d_ar, y_d_val, y_r_ar, y_r_val, ecg])
+                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg])
 
             else:
-                data_set.append([concat_features_norm, y_d_ar, y_d_val, ar_weight, val_weight])
+                data_set.append([concat_features_norm, y_emotions, ar_weight, val_weight])
                 # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
 
         return data_set

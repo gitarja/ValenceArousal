@@ -1,7 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel_MClass
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
@@ -66,18 +66,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (),  tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -91,7 +91,8 @@ with strategy.scope():
 
     # load pretrained model
     checkpoint_prefix_base = result_path + "model_teacher"
-    teacher_model = EnsembleSeparateModel_MClass(num_output_val=3., num_output_ar=3).loadBaseModel(checkpoint_prefix_base)
+    teacher_model = EnsembleSeparateModel_MClass(num_output_val=3., num_output_ar=3).loadBaseModel(
+        checkpoint_prefix_base)
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
 
@@ -131,10 +132,6 @@ with strategy.scope():
     ccc_val_test = CCC()
     sagr_val_test = SAGR()
 
-
-
-
-
 # Manager
 checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, base_model=model)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
@@ -147,32 +144,28 @@ with strategy.scope():
         X = tf.expand_dims(inputs[-1], -1)
         # print(X)
 
-        y_d_ar = tf.expand_dims(inputs[1], -1)
-        y_d_val = tf.expand_dims(inputs[2], -1)
+        y_emotion = tf.expand_dims(inputs[1], -1)
 
-        y_r_ar = tf.expand_dims(inputs[3], -1)
-        y_r_val = tf.expand_dims(inputs[4], -1)
-
-
-
+        y_r_ar = tf.expand_dims(inputs[2], -1)
+        y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape:
             ar_logit, val_logit, z = teacher_model.predictKD(X_t)
-            #using latent
+            # using latent
             # _, latent = base_model(X)
-            z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
-            classific_loss = model.classificationLoss( z_ar, z_val, y_d_ar, y_d_val, ar_logit, val_logit, alpha, global_batch_size=GLOBAL_BATCH_SIZE)
-            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params , global_batch_size=GLOBAL_BATCH_SIZE)
+            z_em, z_r_ar, z_r_val = model(X, training=True)
+            classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
+            distill_loss = model.distillLoss(z_em, ar_logit, val_logit, T=2, global_batch_size=GLOBAL_BATCH_SIZE)
+            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+                                                global_batch_size=GLOBAL_BATCH_SIZE)
 
-
-            final_loss = (0.5 * classific_loss) + regress_loss
+            final_loss = alpha * classific_loss + (1 - alpha) * distill_loss + regress_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(regress_loss, z = [z_r_ar, z_r_val], y =[ y_r_ar, y_r_val])
-
+        update_train_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
 
         return final_loss
 
@@ -180,15 +173,14 @@ with strategy.scope():
     def test_step(inputs, GLOBAL_BATCH_SIZE):
         X = tf.expand_dims(inputs[-1], -1)
 
-        y_r_ar = tf.expand_dims(inputs[3], -1)
-        y_r_val = tf.expand_dims(inputs[4], -1)
+        y_r_ar = tf.expand_dims(inputs[2], -1)
+        y_r_val = tf.expand_dims(inputs[3], -1)
 
-        z_ar, z_val, z_r_ar, z_r_val = model(X, training=True)
-        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False, global_batch_size=GLOBAL_BATCH_SIZE)
+        z_em, z_r_ar, z_r_val = model(X, training=True)
+        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False,
+                                            global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss
-
-
 
         update_test_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
 
@@ -311,12 +303,11 @@ with strategy.scope():
         # TRAIN LOOP
         total_loss = 0.0
         num_batches = 0
-        shake_params = tf.random.uniform(shape=(3, ), minval=0.1, maxval=1)
+        shake_params = tf.random.uniform(shape=(3,), minval=0.1, maxval=1)
         for step, train in enumerate(train_data):
             # print(tf.reduce_max(train[0][0]))
             distributed_train_step(train, shake_params, ALL_BATCH_SIZE)
             it += 1
-
 
         for step, val in enumerate(val_data):
             distributed_test_step(val, data_fetch.val_n)
@@ -346,7 +337,6 @@ with strategy.scope():
 
         reset_metrics()
 
-
     print("-------------------------------------------Testing----------------------------------------------")
     checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
@@ -365,7 +355,6 @@ with strategy.scope():
         pcc_val_test.result().numpy(),
         sagr_val_test.result().numpy(),
     ))
-
 
     reset_metrics()
     print("-----------------------------------------------------------------------------------------")

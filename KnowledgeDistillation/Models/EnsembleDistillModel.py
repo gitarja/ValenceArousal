@@ -125,22 +125,55 @@ class EnsembleStudentOneDimF(tf.keras.Model):
         return predictions_ar, predictions_val
 
 
+class HeadClassification(tf.keras.layers.Layer):
+
+    def __init__(self, units, num_output=4, classification=True, **kwargs):
+        super(HeadClassification, self).__init__(**kwargs)
+        self.classification = classification
+        self.dense_ar = tf.keras.layers.Dense(units=units, name="dense_ar")
+        self.dense_val = tf.keras.layers.Dense(units=units, name="dense_val")
+
+        # classification
+        self.logit_em = tf.keras.layers.Dense(units=num_output, activation=None, name="logit_ar")
+
+        # regression
+        self.logit_ar_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_ar")
+        self.logit_val_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_val")
+
+        # activation
+        self.elu = tf.keras.layers.ELU()
+
+    def call(self, inputs, training=True):
+        z_ar = self.elu(self.dense_ar(inputs))
+        z_val = self.elu(self.dense_val(inputs))
+
+        z_ar_r = self.logit_ar_r(z_ar)
+        z_val_r = self.logit_val_r(z_val)
+
+        if self.classification:
+            z_em = self.logit_em(z_ar)
+            return z_em, z_ar_r, z_val_r
+
+        return None, z_ar_r, z_val_r
+
+
 class EnsembleStudentOneDim(tf.keras.Model):
 
-    def __init__(self, num_output_ar=4, num_output_val=4, pretrain=True):
+    def __init__(self,  num_output=4, classification=True):
         super(EnsembleStudentOneDim, self).__init__(self)
+        self.classification = classification
         self.en_conv1 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv1",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
         self.en_conv2 = tf.keras.layers.Conv1D(filters=8, kernel_size=5, strides=1, activation=None, name="en_conv2",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
         self.en_conv3 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv3",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
         self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
         self.en_conv5 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv5",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
         self.en_conv6 = tf.keras.layers.Conv1D(filters=16, kernel_size=3, strides=1, activation=None, name="en_conv6",
-                                               padding="same", trainable=pretrain)
+                                               padding="same")
 
         self.batch_1 = tf.keras.layers.BatchNormalization(name="batch_1")
         self.batch_2 = tf.keras.layers.BatchNormalization(name="batch_2")
@@ -149,46 +182,12 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.batch_5 = tf.keras.layers.BatchNormalization(name="batch_5")
         self.batch_6 = tf.keras.layers.BatchNormalization(name="batch_6")
 
-        # activation
-        self.elu = tf.keras.layers.ELU()
-
         # attention
         # self.att_ar = AttentionLayer(name="att_ar", TIME_STEPS=15)
         # self.att_val = AttentionLayer(name="att_val", TIME_STEPS=15)
 
         self.att_ar = SelfAttentionLayer1D(name="att_ar", filters=8)
         self.att_val = SelfAttentionLayer1D(name="att_val", filters=8)
-
-        # classify
-        self.class_ar = tf.keras.layers.Dense(units=32, name="class_ar")
-        self.class_val = tf.keras.layers.Dense(units=32, name="class_val")
-
-        self.class_ar_h2 = tf.keras.layers.Dense(units=64, name="class_ar_h2")
-        self.class_val_h2 = tf.keras.layers.Dense(units=64, name="class_val_h2")
-
-        self.class_ar_h3 = tf.keras.layers.Dense(units=128, name="class_ar_h3")
-        self.class_val_h3 = tf.keras.layers.Dense(units=128, name="class_val_h3")
-
-        # logit
-        self.logit_ar = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar")
-        self.logit_val = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val")
-
-        self.logit_ar_h2 = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h2")
-        self.logit_val_h2 = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h2")
-
-        self.logit_ar_h3 = tf.keras.layers.Dense(units=num_output_ar, activation=None, name="logit_ar_h3")
-        self.logit_val_h3 = tf.keras.layers.Dense(units=num_output_val, activation=None, name="logit_val_h3")
-
-        # logit regression
-        # logit
-        self.logit_ar_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_ar_r")
-        self.logit_val_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_val_r")
-
-        self.logit_ar_h2_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_ar_h2_r")
-        self.logit_val_h2_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_val_h2_r")
-
-        self.logit_ar_h3_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_ar_h3_r")
-        self.logit_val_h3_r = tf.keras.layers.Dense(units=1, activation=None, name="logit_val_h3_r")
 
         # flattent
         self.flat = tf.keras.layers.Flatten()
@@ -198,16 +197,21 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.avg_pool = tf.keras.layers.AveragePooling1D(pool_size=3)
 
         # dropout
-        self.dropout_1 = tf.keras.layers.Dropout(0.2)
         self.spatial_dropout = tf.keras.layers.SpatialDropout1D(0.05)
 
+        # head
+        self.head_small = HeadClassification(units=32, classification=classification, num_output=num_output)
+        self.head_medium = HeadClassification(units=64, classification=classification, num_output=num_output)
+        self.head_large = HeadClassification(units=128, classification=classification, num_output=num_output)
+        # activation
+        self.elu = tf.keras.layers.ELU()
         # avg
         self.avg = tf.keras.layers.Average()
         # loss
         self.sparse_loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True,
-                                                       reduction=tf.keras.losses.Reduction.NONE)
+                                                                   reduction=tf.keras.losses.Reduction.NONE)
         self.cross_loss = tf.losses.CategoricalCrossentropy(from_logits=True,
-                                                                  reduction=tf.keras.losses.Reduction.NONE)
+                                                            reduction=tf.keras.losses.Reduction.NONE)
         self.mse_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
         self.pcc_loss = PCCLoss(reduction=tf.keras.losses.Reduction.NONE)
         self.ccc_loss = CCCLoss(reduction=tf.keras.losses.Reduction.NONE)
@@ -233,52 +237,21 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         # flat logit
 
+        z = self.flat(z)
 
-        z_ar = self.flat(z)
-        z_val = self.flat(z)
+        z_em_s, z_ar_r_s, z_val_r_s = self.head_small(z)  # small head
+        z_em_m, z_ar_r_m, z_val_r_m = self.head_medium(z)  # medium head
+        z_em_l, z_ar_r_l, z_val_r_l = self.head_large(z)  # large head
 
-        # head 1
-        z_ar_h1 = self.elu(self.class_ar(z_ar))
-        z_val_h1 = self.elu(self.class_val(z_val))
-
-        # reg
-        z_ar_h1_r = self.logit_ar_r(z_ar_h1)
-        z_val_h1_r = self.logit_val_r(z_val_h1)
-
-        z_ar_h1 = self.logit_ar(z_ar_h1)
-        z_val_h1 = self.logit_val(z_val_h1)
-
-        # head 2
-
-        z_ar_h2 = self.elu(self.class_ar_h2(z_ar))
-        z_val_h2 = self.elu(self.class_val_h2(z_val))
-
-        # reg
-        z_ar_h2_r = self.logit_ar_h2_r(z_ar_h2)
-        z_val_h2_r = self.logit_ar_h2_r(z_val_h2)
-
-        z_ar_h2 = self.logit_ar_h2(z_ar_h2)
-        z_val_h2 = self.logit_val_h2(z_val_h2)
-
-        # head 3
-
-        z_ar_h3 = self.elu(self.class_ar_h3(z_ar))
-        z_val_h3 = self.elu(self.class_val_h3(z_val))
-
-        # reg
-        z_ar_h3_r = self.logit_ar_h3_r(z_ar_h3)
-        z_val_h3_r = self.logit_ar_h3_r(z_val_h3)
-
-        z_ar_h3 = self.logit_ar_h3(z_ar_h3)
-        z_val_h3 = self.logit_val_h3(z_val_h3)
-
-        z_ar = self.avg([z_ar_h1, z_ar_h2, z_ar_h3])
-        z_val = self.avg([z_val_h1, z_val_h2, z_val_h3])
         # regression
-        z_ar_r = self.avg([z_ar_h1_r, z_ar_h2_r, z_ar_h3_r])
-        z_val_r = self.avg([z_val_h1_r, z_val_h2_r, z_val_h3_r])
+        z_ar_r = self.avg([z_ar_r_s, z_ar_r_m, z_ar_r_l])
+        z_val_r = self.avg([z_val_r_s, z_val_r_m, z_val_r_l])
 
-        return z_ar, z_val, z_ar_r, z_val_r
+        if self.classification:
+            z_em = self.avg([z_em_s, z_em_m, z_em_l])
+            return z_em, z_ar_r, z_val_r
+
+        return None, z_ar_r, z_val_r
 
     @tf.function
     def trainM(self, X, y_d_ar, y_d_val, y_ar_t, y_val_t, y_r_ar, y_r_val, th, ar_weight, val_weight, alpha,
@@ -306,21 +279,29 @@ class EnsembleStudentOneDim(tf.keras.Model):
         return final_loss_ar, final_loss_val, reg_loss, z_ar_r, z_val_r
 
     @tf.function
-    def classificationLoss(self, z_ar, z_val, y_d_ar, y_d_val, y_ar_t, y_val_t, alpha, T = 2, global_batch_size=None):
-        y_ar_t = tf.nn.softmax(y_ar_t / T)
-        y_val_t = tf.nn.softmax(y_val_t / T)
-        beta = 1 - alpha
-        final_loss_ar = tf.nn.compute_average_loss(
-            (alpha * self.sparse_loss(y_d_ar, z_ar)) + (beta * self.cross_loss(y_ar_t, z_ar/T)),
-            global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(
-            (alpha * self.sparse_loss(y_d_val, z_val)) + (beta * self.cross_loss(y_val_t, z_val/T)),
+    def classificationLoss(self, z, y, global_batch_size=None):
+
+        final_loss = tf.nn.compute_average_loss(
+            self.sparse_loss(y, z),
             global_batch_size=global_batch_size)
 
-        return (final_loss_ar + final_loss_val)
+        return final_loss
 
     @tf.function
-    def regressionLoss(self,  z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params, training=True, global_batch_size=None):
+    def distillLoss(self, z_ar, z_val, y_ar_t, y_val_t, T=2, global_batch_size=None):
+
+        y_ar_t = tf.nn.softmax(y_ar_t / T)
+        y_val_t = tf.nn.softmax(y_val_t / T)
+
+        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar_t, z_ar / T),
+                                                   global_batch_size=global_batch_size)
+        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val_t, z_val / T),
+                                                    global_batch_size=global_batch_size)
+
+        return final_loss_ar + final_loss_val
+
+    @tf.function
+    def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params, training=True, global_batch_size=None):
         if training == True:
             a = shake_params[0] / tf.reduce_sum(shake_params)
             b = shake_params[1] / tf.reduce_sum(shake_params)
@@ -339,8 +320,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
             1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
             global_batch_size=global_batch_size)
 
-        return (a * mse_loss) + (b*pcc_loss) + (t*ccc_loss)
-
+        return (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 
     @tf.function
     def predict(self, X, global_batch_size, training=False):
@@ -355,7 +335,6 @@ class EnsembleStudentOneDim(tf.keras.Model):
         z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
 
         return z_ar_r, z_val_r
-
 
     def symmtericLoss(self, t, y, alpha=6.0, beta=1.):
         t2 = tf.clip_by_value(t, 1e-4, 1.0)
