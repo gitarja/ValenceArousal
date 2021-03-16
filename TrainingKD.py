@@ -1,6 +1,6 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel_MClass
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
@@ -8,6 +8,7 @@ import datetime
 import os
 import sys
 from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR
+import tensorflow_addons as tfa
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
@@ -28,8 +29,7 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output_ar = 3
-num_output_val = 3
+num_output = 3
 initial_learning_rate = 1.e-4
 EPOCHS = 500
 PRE_EPOCHS = 100
@@ -40,8 +40,8 @@ wait = 10
 alpha = 0.9
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -91,19 +91,19 @@ with strategy.scope():
 
     # load pretrained model
     checkpoint_prefix_base = result_path + "model_teacher"
-    teacher_model = EnsembleSeparateModel_MClass(num_output_val=3., num_output_ar=3).loadBaseModel(
+    teacher_model = EnsembleSeparateModel(num_output=num_output).loadBaseModel(
         checkpoint_prefix_base)
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
 
-    model = EnsembleStudentOneDim(num_output_ar=num_output_ar, num_output_val=num_output_val)
-
+    model = EnsembleStudentOneDim(num_output=num_output, classification=False)
+    total_steps = int((data_fetch.train_n / BATCH_SIZE) * EPOCHS)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.1, min_lr=1e-5)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
     # train
@@ -133,7 +133,7 @@ with strategy.scope():
     sagr_val_test = SAGR()
 
 # Manager
-checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, base_model=model)
+checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, student_model=model)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
 # checkpoint.restore(manager.latest_checkpoint)
 

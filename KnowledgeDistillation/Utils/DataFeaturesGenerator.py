@@ -70,9 +70,9 @@ class DataFetch:
             data_i = data_set[i]
             if self.multiple:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[5]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
                 else:
-                    yield data_i[0], data_i[1], data_i[2]
+                    yield data_i[1], data_i[2], data_i[3], data_i[4]
             else:
                 if self.KD:
                     yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]

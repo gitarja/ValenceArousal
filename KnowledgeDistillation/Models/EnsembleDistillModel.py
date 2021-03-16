@@ -341,3 +341,11 @@ class EnsembleStudentOneDim(tf.keras.Model):
         y2 = tf.clip_by_value(y, 1e-7, 1.0)
         loss = alpha * self.cross_loss(t, y) + beta * self.cross_loss(y2, t2)
         return loss
+
+    def loadBaseModel(self, checkpoint_prefix):
+        model = self
+        checkpoint = tf.train.Checkpoint(student_model=model)
+        manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
+        checkpoint.restore(manager.latest_checkpoint).expect_partial()
+
+        return model
