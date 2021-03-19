@@ -49,7 +49,7 @@ class UnitModel(tf.keras.layers.Layer):
         x = self.elu(self.batch_de_1(self.de_1(z)))
         x = self.elu(self.batch_de_2(self.de_2(x)))
         x = self.elu(self.batch_de_3(self.de_3(x)))
-        x = self.elu(self.batch_de_4(self.de_4(x)))
+        x = self.elu(self.de_4(x))
 
         #classification
         z_em = self.logit_em(z)

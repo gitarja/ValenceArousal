@@ -29,19 +29,19 @@ cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
-num_output = 3
+num_output = N_CLASS
 initial_learning_rate = 1.e-4
-EPOCHS = 500
+EPOCHS = 1000
 PRE_EPOCHS = 100
 BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 10
+wait = 20
 alpha = 0.9
 
 # setting
-# fold = str(sys.argv[1])
-fold = 1
+fold = str(sys.argv[1])
+# fold = 1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -66,25 +66,25 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=((tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=((tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=((tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
 
 # train dataset
-train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
+train_data = train_generator.shuffle(data_fetch.train_n * 2, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
 
-val_data = val_generator.batch(BATCH_SIZE)
+val_data = val_generator.batch(ALL_BATCH_SIZE)
 
-test_data = test_generator.batch(BATCH_SIZE)
+test_data = test_generator.batch(ALL_BATCH_SIZE)
 
 with strategy.scope():
     # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
@@ -92,8 +92,8 @@ with strategy.scope():
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
 
-    model = EnsembleStudentOneDim(num_output=num_output, classification=False)
-    total_steps = int((data_fetch.train_n / BATCH_SIZE) * EPOCHS)
+    model = EnsembleStudentOneDim(num_output=num_output, classification=True)
+    total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
@@ -130,7 +130,7 @@ with strategy.scope():
     sagr_val_test = SAGR()
 
 # Manager
-checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, student_model=model)
+checkpoint = tf.train.Checkpoint(step=tf.Variable(1), student_model=model)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
 # checkpoint.restore(manager.latest_checkpoint)
 
@@ -140,7 +140,7 @@ with strategy.scope():
         X = tf.expand_dims(inputs[-1], -1)
         # print(X)
 
-        y_emotion = tf.expand_dims(inputs[0], -1)
+        y_emotion = inputs[0] #classification labels
 
         y_r_ar = tf.expand_dims(inputs[1], -1)
         y_r_val = tf.expand_dims(inputs[2], -1)
@@ -149,17 +149,19 @@ with strategy.scope():
             # using latent
             # _, latent = base_model(X)
             z_em, z_r_ar, z_r_val = model(X, training=True)
+            # print(z_em)
+            # print(y_emotion)
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
-            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+            mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,  shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE)
 
-            final_loss = classific_loss + regress_loss
+            final_loss = regress_loss + classific_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_train_metrics(mse_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
 
         return final_loss
 
@@ -170,13 +172,13 @@ with strategy.scope():
         y_r_ar = tf.expand_dims(inputs[1], -1)
         y_r_val = tf.expand_dims(inputs[2], -1)
 
-        z_em, z_r_ar, z_r_val = model(X, training=True)
-        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False,
+        z_em, z_r_ar, z_r_val = model(X, training=False)
+        mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,  training=False,
                                             global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss
 
-        update_test_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_test_metrics(mse_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
 
         return final_loss
 
@@ -304,7 +306,7 @@ with strategy.scope():
             it += 1
 
         for step, val in enumerate(val_data):
-            distributed_test_step(val, data_fetch.val_n)
+            distributed_test_step(val, ALL_BATCH_SIZE)
 
         with train_summary_writer.as_default():
             write_train_tensorboard(epoch)
@@ -334,10 +336,10 @@ with strategy.scope():
     print("-------------------------------------------Testing----------------------------------------------")
     checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
-        distributed_test_step(test, data_fetch.test_n)
+        distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
         "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}")
-
+    sys.stdout = open(result_path + "summary.txt", "w")
     print(template.format(
         loss_test.result().numpy(),
         rmse_ar_test.result().numpy(),
@@ -349,6 +351,6 @@ with strategy.scope():
         pcc_val_test.result().numpy(),
         sagr_val_test.result().numpy(),
     ))
-
+    sys.stdout.close()
     reset_metrics()
-    print("-----------------------------------------------------------------------------------------")
+

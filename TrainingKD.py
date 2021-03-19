@@ -176,7 +176,7 @@ with strategy.scope():
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
 
-        z_em, z_r_ar, z_r_val = model(X, training=True)
+        z_em, z_r_ar, z_r_val = model(X, training=False)
         regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False,
                                             global_batch_size=GLOBAL_BATCH_SIZE)
 

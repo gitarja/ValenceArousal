@@ -99,14 +99,14 @@ class DataFetch:
             ecg_features = base_path + ECG_PATH + "ecg_" + str(filename) + ".npy"
             ecg_resp_features = base_path + ECG_RESP_PATH + "ecg_resp_" + str(filename) + ".npy"
             ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
-            if KD:
-                files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features, ecg_raw]
-                features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
-                ecg = features[6]
-            else:
-                files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features
-                         ]
-                features = Parallel(n_jobs=6)(delayed(np.load)(files[j]) for j in range(len(files)))
+            # if KD:
+            files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features, ecg_raw]
+            features = Parallel(n_jobs=7)(delayed(np.load)(files[j]) for j in range(len(files)))
+            ecg = features[6]
+            # else:
+            #     files = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features
+            #              ]
+            #     features = Parallel(n_jobs=6)(delayed(np.load)(files[j]) for j in range(len(files)))
 
             concat_features = np.concatenate(features[0:6])
 
@@ -121,28 +121,25 @@ class DataFetch:
 
             #convert the label either to binary class or three class
 
-            y_ar_bin = arToLabels(y_ar)
-            y_val_bin = valToLabels(y_val)
-            ar_weight = arWeight(y_ar_bin)
-            val_weight = valWeight(y_val_bin)
+            # y_ar_bin = arToLabels(y_ar) #binary labels of arousal
+            # y_val_bin = valToLabels(y_val) #binary labels of valence
+            # ar_weight = arWeight(y_ar_bin) #weight for arousal samples
+            # val_weight = valWeight(y_val_bin) #valence for arousal samples
 
             y_emotions = emotionLabels(emotions, N_CLASS)
             y_r_ar = regressLabelsConv(y_ar)
             y_r_val = regressLabelsConv(y_val)
 
 
-            if KD :
-                if len(ecg) >= self.ECG_N:
-                    ecg = (ecg - 2140.397356669409) / 370.95493558685325
-                    ecg = ecg[-self.ECG_N:]
-                    # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
-                    # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
-                    # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg])
+            if len(ecg) >= self.ECG_N:
+                ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                ecg = ecg[-self.ECG_N:]
+                # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
+                # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
+                # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
+                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg])
 
-            else:
-                data_set.append([concat_features_norm, y_emotions, ar_weight, val_weight])
-                # data_set.append([concat_features[-1343:-1330], y_ar_bin, y_val_bin, m_class])
+
 
         return data_set
 

@@ -57,4 +57,4 @@ HIGH_PROP = 0.5
 LOW_PROP = 0.3
 
 #classification
-N_CLASS = 10
+N_CLASS = 12
