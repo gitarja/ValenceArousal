@@ -5,25 +5,8 @@ import glob
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE
 
-for folder in glob.glob(DATASET_PATH + "2020-*"):
-    for subject in glob.glob(folder + "\\*-2020-*"):
-        try:
-            eeg_features_list = pd.read_csv(subject + "\\EEG_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            ecg_features_list = pd.read_csv(subject + "\\ECG_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            GSR_features_list = pd.read_csv(subject + "\\GSR_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            Resp_features_list = pd.read_csv(subject + "\\Resp_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
 
-<<<<<<< HEAD
-            features_list = ecg_features_list[
-                (eeg_features_list["Status"] == 1) & (GSR_features_list["Status"] == 1) & (
-                            Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
-            # features_list = ecg_features_list[ (GSR_features_list["Status"] == 1) & (
-            #                 Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
-            features_list.to_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
-        except:
-            print("Error: " + subject)
-=======
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             eeg_features_list = pd.read_csv(subject+"\\EEG_features_list_"+str(STRIDE)+".csv").set_index('Idx')
@@ -39,17 +22,11 @@ for folder in glob.glob(DATASET_PATH + "*"):
         except:
             print("Error: "+ subject)
 
->>>>>>> 7745d9825a5bae0cc082bae8550334c97c314abe
 
 # SPlit to train test and val
 
 all_features = []
-<<<<<<< HEAD
-all_ori_features = []
 for folder in glob.glob(DATASET_PATH + "2020-*"):
-=======
-for folder in glob.glob(DATASET_PATH + "*"):
->>>>>>> 7745d9825a5bae0cc082bae8550334c97c314abe
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
@@ -97,6 +74,7 @@ y = convertLabels(df["Arousal_convert"].values, df["Valence_convert"].values)
 
 
 
+
 # #Split to train and test
 skf = StratifiedKFold(n_splits=5, shuffle=True)
 fold = 1
@@ -108,34 +86,7 @@ for train_index, test_index in skf.split(df.index, y):
     val_data = df.iloc[X_val]
     test_data = df.iloc[X_test]
     #
-    training_data.to_csv(DATASET_PATH + "training_data_" + str(fold) + ".csv", index=False)
-    val_data.to_csv(DATASET_PATH + "validation_data_" + str(fold) + ".csv", index=False)
-    test_data.to_csv(DATASET_PATH + "test_data_" + str(fold) + ".csv", index=False)
+    training_data.to_csv(DATASET_PATH + "training_data_"+str(fold)+".csv", index=False)
+    val_data.to_csv(DATASET_PATH + "validation_data_"+str(fold)+".csv", index=False)
+    test_data.to_csv(DATASET_PATH + "test_data_"+str(fold)+".csv", index=False)
     fold += 1
-
-# # Split to cross validation
-
-# subjects = np.unique(df["Subject"].values)
-# np.random.shuffle(subjects)
-#
-# for j in range(len(subjects) // 6):
-#     val_subjects = subjects[j * 6: (j + 1) * 6]
-#
-#     training_data = df_ori[
-#         (df["Subject"] != val_subjects[0]) & (df["Subject"] != val_subjects[1]) & (df["Subject"] != val_subjects[2]) & (
-#                     df["Subject"] != val_subjects[3]) & (df["Subject"] != val_subjects[4]) & (
-#                     df["Subject"] != val_subjects[5])]
-#     val_data = df_ori[(df["Subject"] == val_subjects[0]) | (df["Subject"] == val_subjects[1]) | (
-#             df["Subject"] == val_subjects[2])]
-#     test_data = df_ori[
-#         (df["Subject"] == val_subjects[3]) | (df["Subject"] == val_subjects[4]) | (df["Subject"] == val_subjects[5])]
-#
-<<<<<<< HEAD
-#     training_data.to_csv(data_path + "training_data_" + str(j) + ".csv", index=False)
-#     val_data.to_csv(data_path + "validation_data_" + str(j) + ".csv", index=False)
-=======
-#     training_data.to_csv(DATASET_PATH + "training_data_" + str(j) + ".csv", index=False)
-#     val_data.to_csv(DATASET_PATH + "validation_data_" + str(j) + ".csv", index=False)
-
-
->>>>>>> 7745d9825a5bae0cc082bae8550334c97c314abe
