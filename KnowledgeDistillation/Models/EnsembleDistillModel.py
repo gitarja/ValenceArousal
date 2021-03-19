@@ -297,18 +297,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
         return final_loss
 
-    @tf.function
-    def distillLoss(self, z_ar, z_val, y_ar_t, y_val_t, T=2, global_batch_size=None):
 
-        y_ar_t = tf.nn.softmax(y_ar_t / T)
-        y_val_t = tf.nn.softmax(y_val_t / T)
-
-        final_loss_ar = tf.nn.compute_average_loss(self.cross_loss(y_ar_t, z_ar / T),
-                                                   global_batch_size=global_batch_size)
-        final_loss_val = tf.nn.compute_average_loss(self.cross_loss(y_val_t, z_val / T),
-                                                    global_batch_size=global_batch_size)
-
-        return final_loss_ar + final_loss_val
 
     @tf.function
     def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params,  training=True, global_batch_size=None):
@@ -331,6 +320,16 @@ class EnsembleStudentOneDim(tf.keras.Model):
             global_batch_size=global_batch_size)
 
         return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
+
+    @tf.function
+    def attentiveLoss(self, z, teacher, y, eps, alpha=0.5, global_batch_size=None):
+
+        theta = 1 - tf.reduce_sum(tf.square(teacher - y)) / eps
+
+        lreg_loss = alpha * self.mse_loss(y, z) + (1 - alpha) * theta * self.mse_loss(teacher, z)
+
+        lreg_loss = tf.nn.compute_average_loss(lreg_loss, global_batch_size=global_batch_size)
+        return lreg_loss
 
     @tf.function
     def predict(self, X, global_batch_size, training=False):

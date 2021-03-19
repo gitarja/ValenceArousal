@@ -7,8 +7,9 @@ from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
 import os
 import sys
-from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR
+from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR, SoftF1
 import tensorflow_addons as tfa
+import numpy as np
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
@@ -61,7 +62,7 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, multiple=True)
+                       ECG_N=ECG_RAW_N, KD=True, teacher=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
@@ -108,6 +109,9 @@ with strategy.scope():
     # metrics
     # train
     loss_train = tf.keras.metrics.Mean()
+    #soft f1
+    softf1_train = SoftF1()
+    softf1_test = SoftF1()
     # arousal
     rmse_ar_train = tf.keras.metrics.RootMeanSquaredError()
     pcc_ar_train = PCC()
@@ -139,33 +143,37 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=
 
 with strategy.scope():
     def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE):
-        # X = base_model.extractFeatures(inputs[-1])
         X_t = inputs[0]
         X = tf.expand_dims(inputs[-1], -1)
         # print(X)
 
-        y_emotion = tf.expand_dims(inputs[1], -1)
+        y_emotion = inputs[1]
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape:
-            ar_logit, val_logit, z = teacher_model.predictKD(X_t)
+            t_em, t_r_ar, t_r_val, _ = teacher_model.predictKD(X_t, False)
+            t_em = tf.nn.sigmoid(t_em)
             # using latent
             # _, latent = base_model(X)
             z_em, z_r_ar, z_r_val = model(X, training=True)
-            classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
-            distill_loss = model.distillLoss(z_em, ar_logit, val_logit, T=2, global_batch_size=GLOBAL_BATCH_SIZE)
-            regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE)
+            classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-gt
+            classific_distill_loss = model.classificationLoss(z_em, t_em, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-teacher
+            mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+                                                global_batch_size=GLOBAL_BATCH_SIZE)# regression student-gt
+            _, regress_distill_loss = model.regressionLoss(z_r_ar, z_r_val, t_r_ar, t_r_val, shake_params=shake_params,
+                                                global_batch_size=GLOBAL_BATCH_SIZE)# regression student-gt
 
-            final_loss = alpha * classific_loss + (1 - alpha) * distill_loss + regress_loss
+            classification_final_loss = alpha * classific_loss + (1 - alpha) * classific_distill_loss
+            regression_final_loss = alpha * regress_loss + (1 - alpha) * regress_distill_loss
+            final_loss = classification_final_loss + regression_final_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_train_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -173,16 +181,20 @@ with strategy.scope():
     def test_step(inputs, GLOBAL_BATCH_SIZE):
         X = tf.expand_dims(inputs[-1], -1)
 
+        y_emotion = inputs[1]
+
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         z_em, z_r_ar, z_r_val = model(X, training=False)
-        regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, training=False,
-                                            global_batch_size=GLOBAL_BATCH_SIZE)
+        classific_loss = model.classificationLoss(z_em, y_emotion,
+                                                  global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-gt
+        mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+                                                      global_batch_size=GLOBAL_BATCH_SIZE)  # regression student-gt
 
         final_loss = regress_loss
 
-        update_test_metrics(regress_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_test_metrics(classific_loss + mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -216,8 +228,8 @@ with strategy.scope():
 
 
     def update_train_metrics(loss, y, z):
-        z_r_ar, z_r_val = z  # logits
-        y_r_ar, y_r_val = y  # ground truth
+        z_em, z_r_ar, z_r_val = z  # logits
+        y_em, y_r_ar, y_r_val = y  # ground truth
         # train
         loss_train(loss)
         # arousal
@@ -230,11 +242,13 @@ with strategy.scope():
         pcc_val_train(y_r_val, z_r_val)
         ccc_val_train(y_r_val, z_r_val)
         sagr_val_train(y_r_val, z_r_val)
+        # soft f1
+        softf1_train(y_em, z_em)
 
 
     def update_test_metrics(loss, y, z):
-        z_r_ar, z_r_val = z  # logit
-        y_r_ar, y_r_val = y  # ground truth
+        z_em, z_r_ar, z_r_val = z  # logits
+        y_em, y_r_ar, y_r_val = y  # ground truth
         # train
         loss_test(loss)
         # arousal
@@ -248,10 +262,14 @@ with strategy.scope():
         pcc_val_test(y_r_val, z_r_val)
         ccc_val_test(y_r_val, z_r_val)
         sagr_val_test(y_r_val, z_r_val)
+        # soft f1
+        softf1_test(y_em, z_em)
 
 
     def write_train_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_train.result(), step=epoch)
+        #soft f1
+        tf.summary.scalar('Soft F1', np.mean(softf1_train.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_train.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_train.result(), step=epoch)
@@ -266,6 +284,8 @@ with strategy.scope():
 
     def write_test_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_test.result(), step=epoch)
+        # soft f1
+        tf.summary.scalar('Soft F1', np.mean(softf1_test.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_test.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_test.result(), step=epoch)
@@ -310,7 +330,7 @@ with strategy.scope():
             it += 1
 
         for step, val in enumerate(val_data):
-            distributed_test_step(val, data_fetch.val_n)
+            distributed_test_step(val, ALL_BATCH_SIZE)
 
         with train_summary_writer.as_default():
             write_train_tensorboard(epoch)
@@ -338,12 +358,11 @@ with strategy.scope():
         reset_metrics()
 
     print("-------------------------------------------Testing----------------------------------------------")
-    checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
-        distributed_test_step(test, data_fetch.test_n)
+        distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
         "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}")
-
+    sys.stdout = open(result_path + "summary.txt", "w")
     print(template.format(
         loss_test.result().numpy(),
         rmse_ar_test.result().numpy(),
@@ -355,6 +374,4 @@ with strategy.scope():
         pcc_val_test.result().numpy(),
         sagr_val_test.result().numpy(),
     ))
-
-    reset_metrics()
-    print("-----------------------------------------------------------------------------------------")
+    sys.stdout.close()
