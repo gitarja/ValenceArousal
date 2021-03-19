@@ -134,13 +134,41 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return final_loss, self.classConvert(z_em), z_ar, z_val
 
+    def classificationLoss(self, z_em, y_em, global_batch_size):
+        final_loss = tf.nn.compute_average_loss(
+            self.soft_loss(y, tf.nn.sigmoid(z)),
+            global_batch_size=global_batch_size)
+
+        return final_loss
+
+    @tf.function
+    def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params,  training=True, global_batch_size=None):
+        if training == True:
+            a = shake_params[0] / tf.reduce_sum(shake_params)
+            b = shake_params[1] / tf.reduce_sum(shake_params)
+            t = shake_params[2] / tf.reduce_sum(shake_params)
+        else:
+            a = 0.3
+            b = 0.3
+            t = 0.3
+
+        mse_loss = tf.nn.compute_average_loss(self.mse_loss(y_r_ar, z_r_ar) + self.mse_loss(y_r_val, z_r_val),
+                                              global_batch_size=global_batch_size)
+        pcc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.pcc_loss(y_r_ar, z_r_ar) + self.pcc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size)
+        ccc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size)
+
+        return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 
 
     def classConvert(self, predictions, th=0.5):
 
-        labels = tf.cast(tf.nn.sigmoid(predictions) >= th, tf.int32)
+            labels = tf.cast(tf.nn.sigmoid(predictions) >= th, tf.int32)
 
-        return labels
+            return labels
 
     def symmtericLoss(self, t, y, alpha=6., beta=1.):
         t2 = tf.clip_by_value(t, 1e-4, 1.0)

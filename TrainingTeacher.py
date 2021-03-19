@@ -36,8 +36,8 @@ wait = 5
 
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
@@ -135,7 +135,7 @@ with strategy.scope():
     checkpoint.restore(manager.latest_checkpoint)
 
 with strategy.scope():
-    def train_step(inputs, GLOBAL_BATCH_SIZE=0):
+    def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
         # print(X)
         y_emotion = tf.expand_dims(inputs[1], -1)
@@ -144,17 +144,18 @@ with strategy.scope():
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape_ar:
-            final_loss, z_em, z_r_ar, z_r_val= model.train(X, y_emotion, y_r_ar, y_r_val,
-                                                                                  th=th,
-                                                                                  global_batch_size=GLOBAL_BATCH_SIZE, training=True)
+            z_em, z_r_ar, z_r_val = model(X, training=True)
+            classific_loss = model.classificationLoss(z_em, y_emotion)
+            mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+                                                global_batch_size=GLOBAL_BATCH_SIZE)
+
+            final_loss = regress_loss + classific_loss
 
         # update gradient
         grads = tape_ar.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        loss_train(final_loss)
-
-        update_train_metrics(final_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_train_metrics(mse_loss + classific_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -165,8 +166,14 @@ with strategy.scope():
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
-        final_loss, z_em, z_r_ar, z_r_val = model.train(X, y_emotion, y_r_ar, y_r_val,    global_batch_size= GLOBAL_BATCH_SIZE, training=False)
-        update_train_metrics(final_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        z_em, z_r_ar, z_r_val = model(X, training=True)
+        classific_loss = model.classificationLoss(z_em, y_emotion)
+        mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
+                                                     global_batch_size=GLOBAL_BATCH_SIZE)
+
+        final_loss = regress_loss + classific_loss
+
+        update_train_metrics(mse_loss + classific_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -283,9 +290,9 @@ with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
     # with the distributed input.
     @tf.function
-    def distributed_train_step(dataset_inputs, GLOBAL_BATCH_SIZE):
+    def distributed_train_step(dataset_inputs, shake_params, GLOBAL_BATCH_SIZE):
         per_replica_losses = strategy.run(train_step,
-                                          args=(dataset_inputs, GLOBAL_BATCH_SIZE))
+                                          args=(dataset_inputs, shake_params, GLOBAL_BATCH_SIZE))
         return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
                                axis=None)
 
@@ -303,16 +310,17 @@ with strategy.scope():
         # TRAIN LOOP
         total_loss = 0.0
         num_batches = 0
+        shake_params = tf.random.uniform(shape=(3,), minval=0.1, maxval=1)
         for step, train in enumerate(train_data):
             # print(tf.reduce_max(train[0][0]))
-            distributed_train_step(train, ALL_BATCH_SIZE)
+            distributed_train_step(train, shake_params, ALL_BATCH_SIZE)
             it += 1
 
         with train_summary_writer.as_default():
             write_train_tensorboard(epoch)
 
         for step, val in enumerate(val_data):
-            distributed_test_step(val, data_fetch.val_n)
+            distributed_test_step(val, ALL_BATCH_SIZE)
 
         with test_summary_writer.as_default():
             write_test_tensorboard(epoch)
@@ -333,7 +341,7 @@ with strategy.scope():
 
     print("-------------------------------------------Testing----------------------------------------------")
     for step, test in enumerate(test_data):
-        distributed_test_step(test, data_fetch.test_n)
+        distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
         "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
     template_detail = ("true_ar_acc: {}, false_ar_acc: {}, true_val_acc: {}, false_val_acc: {}")
