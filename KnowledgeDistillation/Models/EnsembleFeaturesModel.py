@@ -35,6 +35,7 @@ class UnitModel(tf.keras.layers.Layer):
 
         #activation
         self.elu = tf.keras.layers.ELU()
+        self.dropout = tf.keras.layers.Dropout(0.3)
 
 
     def call(self, inputs, training=None, mask=None):
@@ -52,6 +53,7 @@ class UnitModel(tf.keras.layers.Layer):
         x = self.elu(self.de_4(x))
 
         #classification
+        z = self.dropout(z, training=training)
         z_em = self.logit_em(z)
         z_ar = self.logit_ar(z)
         z_val = self.logit_val(z)
@@ -83,11 +85,11 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def call(self, inputs, training=None, mask=None):
         #small
-        z_em_s, z_ar_s, z_val_s, x_s = self.unit_small(inputs)
+        z_em_s, z_ar_s, z_val_s, x_s = self.unit_small(inputs, training=training)
         # medium
-        z_em_m, z_ar_m, z_val_m, x_m = self.unit_medium(inputs)
+        z_em_m, z_ar_m, z_val_m, x_m = self.unit_medium(inputs, training=training)
         # large
-        z_em_l, z_ar_l, z_val_l, x_l = self.unit_large(inputs)
+        z_em_l, z_ar_l, z_val_l, x_l = self.unit_large(inputs, training=training)
 
         z_em = self.avg([z_em_s, z_em_m, z_em_l])
         z_ar = self.avg([z_ar_s, z_ar_m, z_ar_l])

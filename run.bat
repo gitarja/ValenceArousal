@@ -1,3 +1,3 @@
-for /L %%i in (2, 1, 3) do (
+for /L %%i in (1, 1, 1) do (
    python TrainingTeacher.py %%i
 )

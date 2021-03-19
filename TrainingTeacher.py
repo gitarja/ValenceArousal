@@ -29,7 +29,7 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = 1
-initial_learning_rate = 1e-4
+initial_learning_rate = 1e-3
 EPOCHS = 500
 BATCH_SIZE = 128
 th = 0.5
@@ -79,7 +79,7 @@ test_generator = tf.data.Dataset.from_generator(
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 # train dataset
-train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
+train_data = train_generator.shuffle(data_fetch.train_n).batch(ALL_BATCH_SIZE)
 
 val_data = val_generator.batch(BATCH_SIZE)
 
@@ -171,7 +171,7 @@ with strategy.scope():
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
-        z_em, z_r_ar, z_r_val, _ = model(X, training=True)
+        z_em, z_r_ar, z_r_val, _ = model(X, training=False)
         classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
         mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                      global_batch_size=GLOBAL_BATCH_SIZE)
@@ -348,7 +348,18 @@ with strategy.scope():
     for step, test in enumerate(test_data):
         distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
-        "Test: loss: {}, arr_acc: {}, ar_prec: {}, ar_recall: {} | val_acc: {}, val_prec: {}, val_recall: {}")
-    template_detail = ("true_ar_acc: {}, false_ar_acc: {}, true_val_acc: {}, false_val_acc: {}")
+        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}")
+    sys.stdout = open(result_path + "summary.txt", "w")
+    print(template.format(
+        loss_test.result().numpy(),
+        rmse_ar_test.result().numpy(),
+        ccc_ar_test.result().numpy(),
+        pcc_ar_test.result().numpy(),
+        sagr_ar_test.result().numpy(),
+        rmse_val_test.result().numpy(),
+        ccc_val_train.result().numpy(),
+        pcc_val_test.result().numpy(),
+        sagr_val_test.result().numpy(),
+    ))
+    sys.stdout.close()
 
-    print("-----------------------------------------------------------------------------------------")
