@@ -61,7 +61,7 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=False, multiple=True)
+                       ECG_N=ECG_RAW_N, KD=False, teacher=True)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(

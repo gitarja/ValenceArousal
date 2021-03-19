@@ -11,14 +11,14 @@ from joblib import Parallel, delayed
 
 class DataFetch:
 
-    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, multiple=False, soft=False, curriculum=False, training=True):
+    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, soft=False, curriculum=False, training=True):
         utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
         self.std = np.load(utils_path+"std.npy")
 
         self.KD = KD
-        self.multiple = multiple
+        self.teacher = teacher
         self.ECG_N = ECG_N
         self.soft = soft
         self.curriculum = curriculum
@@ -68,16 +68,10 @@ class DataFetch:
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
-            if self.multiple:
-                if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
-                else:
-                    yield data_i[1], data_i[2], data_i[3], data_i[4]
+            if self.teacher:
+                yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
-                if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
-                else:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
             i += 1
         self.j+=1
 

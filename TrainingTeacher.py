@@ -1,11 +1,13 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, TRAINING_RESULTS_PATH
+from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, TRAINING_RESULTS_PATH, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from KnowledgeDistillation.Utils.Metrics import PCC, SAGR, CCC, SoftF1
 import datetime
 import os
+import numpy as np
 import sys
+import tensorflow_addons as tfa
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
@@ -27,8 +29,8 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = 1
-initial_learning_rate = 1e-3
-EPOCHS = 50
+initial_learning_rate = 1e-4
+EPOCHS = 500
 BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
@@ -36,8 +38,8 @@ wait = 5
 
 
 # setting
-# fold = str(sys.argv[1])
-fold=1
+fold = str(sys.argv[1])
+# fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
@@ -57,23 +59,24 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=False)
+                       ECG_N=ECG_RAW_N, teacher=True,
+                       KD=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32 , tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32 ),
+    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (), (), (), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).repeat(3).batch(ALL_BATCH_SIZE)
@@ -84,11 +87,12 @@ test_data = test_generator.batch(BATCH_SIZE)
 
 with strategy.scope():
     model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N)
-
+    total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
+                                             warmup_proportion=0.1, min_lr=1e-5)
 
     # ---------------------------Loss & Metrics--------------------------#
     # loss
@@ -138,42 +142,43 @@ with strategy.scope():
     def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
         # print(X)
-        y_emotion = tf.expand_dims(inputs[1], -1)
+        y_emotion = inputs[1]
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape_ar:
-            z_em, z_r_ar, z_r_val = model(X, training=True)
-            classific_loss = model.classificationLoss(z_em, y_emotion)
+            z_em, z_r_ar, z_r_val, rec_X = model(X, training=True)
+            classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE)
+            rec_loss = model.reconstructLoss(X, rec_X, global_batch_size=GLOBAL_BATCH_SIZE)
 
-            final_loss = regress_loss + classific_loss
+            final_loss = regress_loss + classific_loss + rec_loss
 
         # update gradient
         grads = tape_ar.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(mse_loss + classific_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_train_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = inputs[0]
-        y_emotion = tf.expand_dims(inputs[1], -1)
+        y_emotion = inputs[1]
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
-        z_em, z_r_ar, z_r_val = model(X, training=True)
-        classific_loss = model.classificationLoss(z_em, y_emotion)
+        z_em, z_r_ar, z_r_val, _ = model(X, training=True)
+        classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
         mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                      global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss + classific_loss
 
-        update_train_metrics(mse_loss + classific_loss, z=[z_em, z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_test_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -257,7 +262,7 @@ with strategy.scope():
     def write_train_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_train.result(), step=epoch)
         # soft f1
-        tf.summary.scalar('Soft F1', softf1_train.result(), step=epoch)
+        tf.summary.scalar('Soft F1', np.mean(softf1_train.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_train.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_train.result(), step=epoch)
@@ -272,7 +277,7 @@ with strategy.scope():
     def write_test_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_test.result(), step=epoch)
         # soft f1
-        tf.summary.scalar('Soft F1', softf1_test.result(), step=epoch)
+        tf.summary.scalar('Soft F1', np.mean(softf1_test.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_test.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_test.result(), step=epoch)

@@ -114,11 +114,11 @@ class SoftF1(Metric):
         fn = math_ops.reduce_sum((1 - y_pred) * y_true, axis=-1, keepdims=True)  # compute soft fn
         tn = math_ops.reduce_sum((1 - y_pred) * (1 - y_true), axis=-1, keepdims=True)  # compute soft tn
 
-        s_p = 2 * (tp / (tp + fn + fp + 1e-25))
-        s_n = 2 * (tn / (tn + fn + fp + 1e-25))
+        s_p = 2 * tp / (2 * tp + fn + fp + 1e-16)
+        s_n = 2 * tn / (2 * tn + fn + fp + 1e-16)
 
-        loss_p = 1 - s_p
-        loss_n = 1 - s_n
+        loss_p = s_p
+        loss_n = s_n
 
         cost = 0.5 * (loss_p + loss_n)
 

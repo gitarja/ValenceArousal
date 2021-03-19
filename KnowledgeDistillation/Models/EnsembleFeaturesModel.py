@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Utils.Losses import SoftF1Loss
+from KnowledgeDistillation.Utils.Losses import SoftF1Loss, PCCLoss, CCCLoss
 
 
 class UnitModel(tf.keras.layers.Layer):
@@ -76,8 +76,9 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # loss
         self.f1_loss = SoftF1Loss(reduction=tf.keras.losses.Reduction.NONE)
-        self.rs_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
-        self.mean_loss = tf.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
+        self.mse_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+        self.pcc_loss = PCCLoss(reduction=tf.keras.losses.Reduction.NONE)
+        self.ccc_loss = CCCLoss(reduction=tf.keras.losses.Reduction.NONE)
 
 
     def call(self, inputs, training=None, mask=None):
@@ -134,14 +135,20 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return final_loss, self.classConvert(z_em), z_ar, z_val
 
-    def classificationLoss(self, z_em, y_em, global_batch_size):
+    def classificationLoss(self, z, y, global_batch_size):
         final_loss = tf.nn.compute_average_loss(
-            self.soft_loss(y, tf.nn.sigmoid(z)),
+            self.f1_loss(y, tf.nn.sigmoid(z)),
             global_batch_size=global_batch_size)
 
         return final_loss
 
-    @tf.function
+    def reconstructLoss(self, x, y,  global_batch_size):
+        rec_loss = tf.nn.compute_average_loss(
+            self.mse_loss(y, x),
+            global_batch_size=global_batch_size)
+
+        return rec_loss
+
     def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params,  training=True, global_batch_size=None):
         if training == True:
             a = shake_params[0] / tf.reduce_sum(shake_params)
