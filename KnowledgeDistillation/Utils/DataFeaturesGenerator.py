@@ -3,15 +3,15 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv, emotionLabels
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD, N_CLASS
+from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, dreamerLabelsConv, regressLabelsConv, emotionLabels
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
 
 class DataFetch:
 
-    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, soft=False, curriculum=False, training=True):
+    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, ECG=False, training=True):
         utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
@@ -20,8 +20,7 @@ class DataFetch:
         self.KD = KD
         self.teacher = teacher
         self.ECG_N = ECG_N
-        self.soft = soft
-        self.curriculum = curriculum
+        self.ECG = ECG
         self.w = 0
         self.j =0
         self.ecg_features = ECGFeatures(fs=FS_ECG)
@@ -71,7 +70,14 @@ class DataFetch:
             if self.teacher:
                 yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
-                yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                if self.KD:
+                    if self.ECG:
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
+                    else:
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                else:
+                    yield data_i[1], data_i[2], data_i[3], data_i[4]
+
             i += 1
         self.j+=1
 
@@ -107,6 +113,7 @@ class DataFetch:
             # if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
             concat_features_norm = (concat_features - self.mean) / self.std
 
+            ECG_features = concat_features_norm[1137:1150]
             # print(np.max(concat_features_norm))
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
@@ -131,7 +138,7 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg])
+                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features])
 
 
 
@@ -182,7 +189,7 @@ class DataFetchPreTrain:
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
-            yield data_i[0], data_i[1]
+            yield data_i[0], data_i[1], data_i[2]
             i += 1
 
 
@@ -190,25 +197,29 @@ class DataFetchPreTrain:
         data_set = []
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
-            base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
-                "Subject"]
+            base_path = DREAMER_PATH + "Subject_" + str(features_list.iloc[i]["Subject"]) + "\\"
 
-            ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
+            ecg_raw = base_path + ECG_D_R_PATH + "ecg_raw_" + str(filename) + ".npy"
 
             files = [ecg_raw]
             features = Parallel(n_jobs=2)(delayed(np.load)(files[j]) for j in range(len(files)))
             ecg = features[-1]
 
+            y_ar = features_list.iloc[i]["Arousal"]
+            y_val = features_list.iloc[i]["Valence"]
+
+            y_ar = dreamerLabelsConv(y_ar)
+            y_val = dreamerLabelsConv(y_val)
 
             if len(ecg) >= self.ECG_N:
 
                     ecg = ecg[-self.ECG_N:]
-                    label = np.zeros_like(ecg[-self.ECG_N:])
-                    label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1
+                    # label = np.zeros_like(ecg[-self.ECG_N:])
+                    # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1
 
-                    ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                    ecg = (ecg -90.78141076568373) / 59.767689226267635
 
-                    data_set.append([ecg[-self.ECG_N:], label])
+                    data_set.append([ecg[-self.ECG_N:], y_ar, y_val])
 
         return data_set
 
@@ -254,7 +265,7 @@ class DataFetchRoad:
         mask_file = pd.read_csv(self.mask_file)
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
-        ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
+
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
             end = start + (SPLIT_TIME+1)

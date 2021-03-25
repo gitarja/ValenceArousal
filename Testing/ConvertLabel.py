@@ -11,6 +11,21 @@ def convertLabel(ar, val, th=0.5):
     if (ar < th) and (val >= th):
         return 2
 
+def convertLabelThree(ar, val):
+    if abs(ar) <= 0.5 or abs(val) <= 0.5:
+        return 0
+    elif ar > 0.5:
+        if val > 0.5:
+            return 1
+        elif val < 0.5:
+            return 2
+    elif ar < -0.5:
+        if val > 0.5:
+            return 3
+        elif val < 0.5:
+            return 4
+
+
 path = "D:\\usr\\pras\\data\\driver\\E5\\"
 data = pd.read_csv(path + "E5_CITY.csv")
 

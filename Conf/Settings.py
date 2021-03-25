@@ -24,6 +24,7 @@ EEG_N = 912
 
 # Path Const
 DATASET_PATH = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\"
+DREAMER_PATH = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\DREAMER_csv\\"
 RESULTS_PATH = "\\results_stride=0.5\\"
 EEG_PATH = RESULTS_PATH + "EEG\\"
 EDA_PATH = RESULTS_PATH + "eda\\"
@@ -31,6 +32,7 @@ PPG_PATH = RESULTS_PATH + "ppg\\"
 RESP_PATH = RESULTS_PATH + "Resp\\"
 ECG_PATH = RESULTS_PATH + "ECG\\"
 ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
+ECG_D_R_PATH = "\\results_stride=0.2\\" + "ECG_RAW\\"
 ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ECG_resp\\"
 TENSORBOARD_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\tensorboard\\sMCL\\"

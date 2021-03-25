@@ -3,9 +3,9 @@ from KnowledgeDistillation.Utils.Losses import SoftF1Loss, PCCLoss, CCCLoss
 
 
 class UnitModel(tf.keras.layers.Layer):
-    def __init__(self, en_units=(32, 32, 16, 16), num_output=4, features_length=2480, **kwargs):
+    def __init__(self, en_units=(32, 32, 16, 16), num_output=4, features_length=2480, decoder=True, **kwargs):
         super(UnitModel, self).__init__(**kwargs)
-
+        self.decoder =decoder
         if len(en_units) != 4:
             raise Exception("Units length must be 4, current unit length is" + str(len(en_units)))
         #encoder
@@ -46,11 +46,12 @@ class UnitModel(tf.keras.layers.Layer):
         x = self.elu(self.batch_en_3(self.en_3(x)))
         z = self.elu(self.batch_en_4(self.en_4(x)))
 
-        #decoder
-        x = self.elu(self.batch_de_1(self.de_1(z)))
-        x = self.elu(self.batch_de_2(self.de_2(x)))
-        x = self.elu(self.batch_de_3(self.de_3(x)))
-        x = self.elu(self.de_4(x))
+        if self.decoder:
+            #decoder
+            x = self.elu(self.batch_de_1(self.de_1(z)))
+            x = self.elu(self.batch_de_2(self.de_2(x)))
+            x = self.elu(self.batch_de_3(self.de_3(x)))
+            x = self.elu(self.de_4(x))
 
         #classification
         z = self.dropout(z, training=training)
@@ -58,21 +59,52 @@ class UnitModel(tf.keras.layers.Layer):
         z_ar = self.logit_ar(z)
         z_val = self.logit_val(z)
 
-        return z_em, z_ar, z_val, x
+        if self.decoder:
+            return z_em, z_ar, z_val, x
+        return z_em, z_ar, z_val, None
 
 
 
+class EnsembleModel(tf.keras.Model):
+
+    def __init__(self, num_output=4):
+        super(EnsembleModel, self).__init__(self)
+        self.dense1 = tf.keras.layers.Dense(units=32, activation="elu")
+        self.dense2 = tf.keras.layers.Dense(units=64, activation="elu")
+        self.dense3 = tf.keras.layers.Dense(units=128, activation="elu")
+        self.dense4 = tf.keras.layers.Dense(units=256, activation="elu")
+
+        # logit
+        self.logit_em = tf.keras.layers.Dense(units=num_output, activation=None)
+        self.logit_ar = tf.keras.layers.Dense(units=1, activation=None)
+        self.logit_val = tf.keras.layers.Dense(units=1, activation=None)
+
+        #dropout
+        self.dropout = tf.keras.layers.Dropout(0.3)
+
+    def call(self, inputs, training=None, mask=None):
+        x = self.dense1(inputs)
+        x = self.dropout(self.dense2(x))
+        x = self.dropout(self.dense3(x))
+        x = self.dropout(self.dense4(x))
+
+        z_em = self.logit_em(x)
+        z_ar = self.logit_ar(x)
+        z_val = self.logit_val(x)
+
+        return z_em, z_ar, z_val
 
 
 class EnsembleSeparateModel(tf.keras.Model):
 
-    def __init__(self, num_output=4, features_length=2480):
+    def __init__(self, num_output=4, features_length=2480, decoder=True):
         super(EnsembleSeparateModel, self).__init__(self)
-
+        self.decoder = decoder
         #DNN unit
-        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_small")
-        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_medium")
-        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, features_length=features_length, name="unit_large")
+
+        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_small", decoder=decoder)
+        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_medium", decoder=decoder)
+        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, features_length=features_length, name="unit_large", decoder=decoder)
         # avg
         self.avg = tf.keras.layers.Average()
 
@@ -94,9 +126,10 @@ class EnsembleSeparateModel(tf.keras.Model):
         z_em = self.avg([z_em_s, z_em_m, z_em_l])
         z_ar = self.avg([z_ar_s, z_ar_m, z_ar_l])
         z_val = self.avg([z_val_s, z_val_m, z_val_l])
-        x = self.avg([x_s, x_m, x_l])
-
-        return z_em, z_ar, z_val, x
+        if self.decoder:
+            x = self.avg([x_s, x_m, x_l])
+            return z_em, z_ar, z_val, x
+        return z_em, z_ar, z_val, None
 
     def predictKD(self, X):
         logits = self.call(X, training=False)
@@ -144,9 +177,9 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return final_loss
 
-    def reconstructLoss(self, x, y,  global_batch_size):
+    def reconstructLoss(self, z, y,  global_batch_size):
         rec_loss = tf.nn.compute_average_loss(
-            self.mse_loss(y, x),
+            self.mse_loss(y, z),
             global_batch_size=global_batch_size)
 
         return rec_loss
@@ -172,6 +205,33 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 
+    @tf.function
+    def regressionDistillLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, t_r_ar, t_r_val, shake_params,  training=True, global_batch_size=None):
+        m = 0.5
+        if training == True:
+            a = shake_params[0] / tf.reduce_sum(shake_params)
+            b = shake_params[1] / tf.reduce_sum(shake_params)
+            t = shake_params[2] / tf.reduce_sum(shake_params)
+        else:
+            a = 0.3
+            b = 0.3
+            t = 0.3
+
+        s_t = self.mse_loss(t_r_ar, z_r_ar) + self.mse_loss(t_r_val, z_r_val)
+        s_y = self.mse_loss(y_r_ar, z_r_ar) + self.mse_loss(y_r_val, z_r_val) + m
+
+        mask_init = tf.ones_like(s_t)
+        mask = tf.where(tf.less_equal(s_y, s_t), mask_init, 0.)
+        mse_loss = tf.nn.compute_average_loss(s_t,
+                                              global_batch_size=global_batch_size, sample_weight=mask)
+        pcc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.pcc_loss(y_r_ar, z_r_ar) + self.pcc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size, sample_weight=mask)
+        ccc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size, sample_weight=mask)
+
+        return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 
     def classConvert(self, predictions, th=0.5):
 
@@ -193,4 +253,3 @@ class EnsembleSeparateModel(tf.keras.Model):
         checkpoint.restore(manager.latest_checkpoint).expect_partial()
 
         return model
-

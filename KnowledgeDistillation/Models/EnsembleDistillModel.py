@@ -133,10 +133,12 @@ class HeadClassification(tf.keras.layers.Layer):
 
         # self.rnn_ar = tf.keras.layers.LSTM(units=units, name="rnn_ar")
         # self.rnn_val = tf.keras.layers.LSTM(units=units, name="rnn_val")
+        # self.rnn_em = tf.keras.layers.LSTM(units=units, name="rnn_em")
 
-        self.dense_ar = tf.keras.layers.Dense(units=units, name="dense_ar", kernel_initializer="he_uniform")
-        self.dense_val = tf.keras.layers.Dense(units=units, name="dense_val", kernel_initializer="he_uniform")
-        self.dense_em = tf.keras.layers.Dense(units=units, name="dense_em", kernel_initializer="he_uniform")
+        self.dense_ar = tf.keras.layers.Dense(units=units, name="dense_ar", activation="elu")
+        self.dense_val = tf.keras.layers.Dense(units=units, name="dense_val", activation="elu")
+        self.dense_em = tf.keras.layers.Dense(units=units, name="dense_em", activation="elu")
+
 
 
         # attention
@@ -158,6 +160,12 @@ class HeadClassification(tf.keras.layers.Layer):
         # flattent
         self.flat = tf.keras.layers.Flatten()
 
+        #dropout
+        self.dropout = tf.keras.layers.Dropout(0.3)
+        self.batch_norm1 = tf.keras.layers.BatchNormalization()
+        self.batch_norm2 = tf.keras.layers.BatchNormalization()
+        self.batch_norm3 = tf.keras.layers.BatchNormalization()
+
     def call(self, inputs, training=None):
         z_ar = self.elu(self.dense_ar(self.flat(self.att_ar(inputs))))
         z_val = self.elu(self.dense_val(self.flat(self.att_val(inputs))))
@@ -171,6 +179,7 @@ class HeadClassification(tf.keras.layers.Layer):
 
         if self.classification:
             z_em = self.elu(self.dense_em(self.flat(self.att_em(inputs))))
+            # z_em = self.rnn_em(self.att_em(inputs))
             z_em = self.logit_em(z_em)
             return z_em, z_ar_r, z_val_r
 
@@ -190,9 +199,9 @@ class EnsembleStudentOneDim(tf.keras.Model):
                                                padding="same")
         self.en_conv4 = tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, activation=None, name="en_conv4",
                                                padding="same")
-        self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv5",
+        self.en_conv5 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv5",
                                                padding="same")
-        self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=3, strides=1, activation=None, name="en_conv6",
+        self.en_conv6 = tf.keras.layers.Conv1D(filters=32, kernel_size=5, strides=1, activation=None, name="en_conv6",
                                                padding="same")
 
         self.batch_1 = tf.keras.layers.BatchNormalization(name="batch_1")
@@ -228,24 +237,21 @@ class EnsembleStudentOneDim(tf.keras.Model):
         self.pcc_loss = PCCLoss(reduction=tf.keras.losses.Reduction.NONE)
         self.ccc_loss = CCCLoss(reduction=tf.keras.losses.Reduction.NONE)
 
-    def forward(self, x, dense, norm=None, activation=None):
-        if norm is None:
-            return activation(dense(x))
-        return activation(norm(dense(x)))
+
 
     def call(self, inputs, training=None, mask=None):
         # z = inputs
         # x = tf.expand_dims(inputs, -1)
 
         # encoder
-        x = self.max_pool(self.forward(inputs, self.en_conv1, self.batch_1, self.elu))
+        x = self.max_pool(self.elu(self.batch_1(self.en_conv1(inputs))))
         # x = self.spatial_dropout(x, training=training)
-        x = self.max_pool(self.forward(x, self.en_conv2, self.batch_2, self.elu))
+        x = self.max_pool(self.elu(self.batch_2(self.en_conv2(x))))
         # x = self.spatial_dropout(x, training=training)
-        x = self.max_pool(self.forward(x, self.en_conv3, self.batch_3, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv4, self.batch_4, self.elu))
-        x = self.max_pool(self.forward(x, self.en_conv5, self.batch_5, self.elu))
-        z = self.max_pool(self.forward(x, self.en_conv6, self.batch_6, self.elu))
+        x = self.max_pool(self.elu(self.batch_3(self.en_conv3(x))))
+        x = self.max_pool(self.elu(self.batch_4(self.en_conv4(x))))
+        x = self.max_pool(self.elu(self.batch_5(self.en_conv5(x))))
+        z = self.max_pool(self.elu(self.batch_6(self.en_conv6(x))))
 
         # flat logit
 
@@ -322,6 +328,34 @@ class EnsembleStudentOneDim(tf.keras.Model):
         return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 
     @tf.function
+    def regressionDistillLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, t_r_ar, t_r_val, shake_params,  training=True, global_batch_size=None):
+        m = 0.5
+        if training == True:
+            a = shake_params[0] / tf.reduce_sum(shake_params)
+            b = shake_params[1] / tf.reduce_sum(shake_params)
+            t = shake_params[2] / tf.reduce_sum(shake_params)
+        else:
+            a = 0.3
+            b = 0.3
+            t = 0.3
+
+        s_t = self.mse_loss(t_r_ar, z_r_ar) + self.mse_loss(t_r_val, z_r_val)
+        s_y = self.mse_loss(y_r_ar, z_r_ar) + self.mse_loss(y_r_val, z_r_val) + m
+
+        mask_init = tf.ones_like(s_t)
+        mask = tf.where(tf.less_equal(s_y, s_t), mask_init, 0.)
+        mse_loss = tf.nn.compute_average_loss(s_t,
+                                              global_batch_size=global_batch_size, sample_weight=mask)
+        pcc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.pcc_loss(y_r_ar, z_r_ar) + self.pcc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size, sample_weight=mask)
+        ccc_loss = tf.nn.compute_average_loss(
+            1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
+            global_batch_size=global_batch_size, sample_weight=mask)
+
+        return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
+
+    @tf.function
     def attentiveLoss(self, z, teacher, y, eps, alpha=0.5, global_batch_size=None):
 
         theta = 1 - tf.reduce_sum(tf.square(teacher - y)) / eps
@@ -333,11 +367,9 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
     @tf.function
     def predict(self, X, global_batch_size, training=False):
-        z_ar, z_val, z_ar_r, z_val_r = self.call(X, training=training)
-        predictions_ar = tf.nn.sigmoid(z_ar)
-        predictions_val = tf.nn.sigmoid(z_val)
+        _, z_val, z_ar_r = self.call(X, training=training)
 
-        return predictions_ar, predictions_val
+        return z_val, z_ar_r
 
     @tf.function
     def predict_reg(self, X, training=False):

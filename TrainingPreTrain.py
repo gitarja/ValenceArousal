@@ -7,9 +7,9 @@ from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
 import os
 import sys
-from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR
+from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR, SoftF1
 import tensorflow_addons as tfa
-
+import numpy as np
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -36,7 +36,7 @@ PRE_EPOCHS = 100
 BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 20
+wait = 35
 alpha = 0.9
 
 # setting
@@ -100,11 +100,14 @@ with strategy.scope():
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
     # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
-                                             warmup_proportion=0.1, min_lr=1e-5)
+                                             warmup_proportion=0.3, min_lr=1e-6)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
     # train
     loss_train = tf.keras.metrics.Mean()
+    # soft f1
+    softf1_train = SoftF1()
+    softf1_test = SoftF1()
     # arousal
     rmse_ar_train = tf.keras.metrics.RootMeanSquaredError()
     pcc_ar_train = PCC()
@@ -161,7 +164,7 @@ with strategy.scope():
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(mse_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_train_metrics(classific_loss + mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -172,13 +175,16 @@ with strategy.scope():
         y_r_ar = tf.expand_dims(inputs[1], -1)
         y_r_val = tf.expand_dims(inputs[2], -1)
 
+        y_emotion = inputs[0]  # classification labels
+
         z_em, z_r_ar, z_r_val = model(X, training=False)
-        mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,  training=False,
+        classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
+        mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,  shake_params=shake_params,
                                             global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss
 
-        update_test_metrics(mse_loss, z=[z_r_ar, z_r_val], y=[y_r_ar, y_r_val])
+        update_test_metrics(classific_loss + mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -209,11 +215,14 @@ with strategy.scope():
         pcc_val_test.reset_states()
         ccc_val_test.reset_states()
         sagr_val_test.reset_states()
+        #soft f1
+        softf1_train.reset_states()
+        softf1_test.reset_states()
 
 
     def update_train_metrics(loss, y, z):
-        z_r_ar, z_r_val = z  # logits
-        y_r_ar, y_r_val = y  # ground truth
+        z_em, z_r_ar, z_r_val = z  # logits
+        y_em, y_r_ar, y_r_val = y  # ground truth
         # train
         loss_train(loss)
         # arousal
@@ -226,11 +235,13 @@ with strategy.scope():
         pcc_val_train(y_r_val, z_r_val)
         ccc_val_train(y_r_val, z_r_val)
         sagr_val_train(y_r_val, z_r_val)
+        # soft f1
+        softf1_train(y_em, z_em)
 
 
     def update_test_metrics(loss, y, z):
-        z_r_ar, z_r_val = z  # logit
-        y_r_ar, y_r_val = y  # ground truth
+        z_em, z_r_ar, z_r_val = z  # logits
+        y_em, y_r_ar, y_r_val = y  # ground truth
         # train
         loss_test(loss)
         # arousal
@@ -244,10 +255,14 @@ with strategy.scope():
         pcc_val_test(y_r_val, z_r_val)
         ccc_val_test(y_r_val, z_r_val)
         sagr_val_test(y_r_val, z_r_val)
+        # soft f1
+        softf1_test(y_em, z_em)
 
 
     def write_train_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_train.result(), step=epoch)
+        # soft f1
+        tf.summary.scalar('Soft F1', np.mean(softf1_train.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_train.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_train.result(), step=epoch)
@@ -262,6 +277,8 @@ with strategy.scope():
 
     def write_test_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_test.result(), step=epoch)
+        # soft f1
+        tf.summary.scalar('Soft F1', np.mean(softf1_test.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_test.result(), step=epoch)
         tf.summary.scalar('PCC arousal', pcc_ar_test.result(), step=epoch)
@@ -333,13 +350,14 @@ with strategy.scope():
 
         reset_metrics()
 
+    checkpoint.restore(manager.latest_checkpoint)
     print("-------------------------------------------Testing----------------------------------------------")
     checkpoint.restore(manager.latest_checkpoint)
     for step, test in enumerate(test_data):
         distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
-        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}")
-    sys.stdout = open(result_path + "summary.txt", "w")
+        "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {}")
+    sys.stdout = open(result_path + "summary_student.txt", "w")
     print(template.format(
         loss_test.result().numpy(),
         rmse_ar_test.result().numpy(),
@@ -350,7 +368,7 @@ with strategy.scope():
         ccc_val_train.result().numpy(),
         pcc_val_test.result().numpy(),
         sagr_val_test.result().numpy(),
+        np.mean(softf1_test.result().numpy())
     ))
     sys.stdout.close()
-    reset_metrics()
 

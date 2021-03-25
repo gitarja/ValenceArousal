@@ -57,6 +57,9 @@ def regressLabelsConv(y):
         return 2
     return y
 
+def dreamerLabelsConv(y):
+   return y - 3
+
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
     b = signal.firwin(numtaps, cutoff, fs=fs, window='hamming', pass_zero='lowpass')
