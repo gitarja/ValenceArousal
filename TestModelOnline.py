@@ -44,7 +44,7 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=4
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -60,8 +60,8 @@ generator = data_fetch.fetch
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -88,7 +88,7 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = tf.expand_dims(inputs[-1], -1)
+        X = tf.expand_dims(inputs[4], -1)
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
         print(X)
@@ -122,41 +122,49 @@ with strategy.scope():
         val_results.append([prediction_val.numpy()[0, 0], y_r_val.numpy()[0, 0]])
 
     ar_results = np.array(ar_results)
+
     val_results = np.array(val_results)
 
+    th = 1
+    # ambigous
+    ar_a_v_a_results = np.average(((np.abs(ar_results[:, 0]) <= th) | (np.abs(val_results[:, 0]) <= th))& ((np.abs(ar_results[:, 1]) <= th) | (np.abs(val_results[:, 1]) <= th)))
+    ar_na_v_na_results = np.average(((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th)) & (((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th))))
+
+    # th = 0.5 - th
+    # ar_results[:, 0] = ar_results[:, 0] + np.sign(ar_results[:, 0])
+    # val_results[:, 0] = val_results[:, 0] + np.sign(val_results[:, 0])
     #ar positif and val positif
-    ar_p_v_p = (ar_results[:, 1] > 0) & (val_results[:, 1] > 0)
-    ar_p_v_p_results = np.average((ar_results[ar_p_v_p, 0] > 0) & (val_results[ar_p_v_p, 0] > 0))
-    print("AR-pos and Val-pos: " + str(ar_p_v_p_results))
+    ar_p_v_p = (ar_results[:, 1] > th) & (val_results[:, 1] > th)
+    ar_p_v_p_results = np.average((ar_results[ar_p_v_p, 0]  > th) & (val_results[ar_p_v_p, 0]  > th))
+    # print("AR-pos and Val-pos: " + str(ar_p_v_p_results))
     #ar positif and val negatif
-    ar_p_v_n = (ar_results[:, 1] > 0) & (val_results[:, 1] < 0)
-    ar_p_v_n_results = np.average((ar_results[ar_p_v_n, 0] > 0) & (val_results[ar_p_v_n, 0] < 0))
-    print("AR-pos and Val-neg: " + str(ar_p_v_n_results))
+    ar_p_v_n = (ar_results[:, 1] > th) & (val_results[:, 1] <  -th)
+    ar_p_v_n_results = np.average((ar_results[ar_p_v_n, 0]  >0) & (val_results[ar_p_v_n, 0] < 0))
+    # print("AR-pos and Val-neg: " + str(ar_p_v_n_results))
     #ar negatif and val positif
-    ar_n_v_p = (ar_results[:, 1] < 0) & (val_results[:, 1] > 0)
-    ar_n_v_p_results = np.average((ar_results[ar_n_v_p, 0] < 0) & (val_results[ar_n_v_p, 0] > 0))
-    print("AR-neg and Val-pos: " + str(ar_n_v_p_results))
+    ar_n_v_p = (ar_results[:, 1] <  -th) & (val_results[:, 1] > th)
+    ar_n_v_p_results = np.average((ar_results[ar_n_v_p, 0] < 0) & (val_results[ar_n_v_p, 0]  > 0))
+    # print("AR-neg and Val-pos: " + str(ar_n_v_p_results))
     #ar negatif and val negatif
-    ar_n_v_n = (ar_results[:, 1] < 0) & (val_results[:, 1] < 0)
+    ar_n_v_n = (ar_results[:, 1] < -th) & (val_results[:, 1] <  -th)
     ar_n_v_n_results = np.average((ar_results[ar_n_v_n, 0] < 0) & (val_results[ar_n_v_n, 0] < 0))
-    print("AR-neg and Val-neg: " + str(ar_n_v_n_results))
+    # print("AR-neg and Val-neg: " + str(ar_n_v_n_results))
 
     # val positif
     a_p = (ar_results[:, 1] > 0)
     a_n = (ar_results[:, 1] < 0)
     a_p_results = np.sum(ar_results[a_p, 0] > 0)
     a_n_results = np.sum(ar_results[a_n, 0] <= 0)
-    print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
+    # print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
     #val positif
     v_p = (val_results[:, 1] > 0)
     v_n = (val_results[:, 1] < 0)
     v_p_results = np.sum(val_results[v_p, 0] > 0)
     v_n_results = np.sum(val_results[v_n, 0] <= 0)
-    print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
-    # ar ambigous and val ambigous
-    ar_a_v_a = (ar_results[:, 1] == 0) & (val_results[:, 1] == 0)
-    ar_a_v_a_results = np.average((np.abs(ar_results[ar_a_v_a, 0]) <= 0.5) & (np.abs(val_results[ar_a_v_a, 0]) <= 0.5))
-    print("AR-amb and Val-amb: " + str(ar_a_v_a_results))
+    # print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
+
+    print(str(ar_p_v_p_results) + "," + str(ar_p_v_n_results) + "," + str(ar_n_v_p_results) + "," + str(ar_n_v_n_results))
+    print(str(ar_a_v_a_results) + ","+ str(ar_na_v_na_results))
     #plotting
 
     # plt.figure(1)

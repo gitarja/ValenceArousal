@@ -30,7 +30,7 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = N_CLASS
-initial_learning_rate = 1.e-4
+initial_learning_rate = 1.e-3
 EPOCHS = 1000
 PRE_EPOCHS = 100
 BATCH_SIZE = 512
@@ -40,8 +40,8 @@ wait = 35
 alpha = 0.5
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"

@@ -41,8 +41,8 @@ wait = 35
 alpha = 0.5
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -96,18 +96,18 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32,  tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n * 2, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
@@ -214,13 +214,14 @@ with strategy.scope():
 
     def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE):
         X_t = inputs[0]
-        X = tf.expand_dims(inputs[-1], -1)
+        X = tf.expand_dims(inputs[4], -1)
         # print(X)
 
         y_emotion = inputs[1]
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
+        w = tf.expand_dims(inputs[5], -1)
 
         with tf.GradientTape() as tape:
             t_em, t_r_ar, t_r_val, _ = teacher_model(X_t, False)
@@ -231,7 +232,7 @@ with strategy.scope():
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-gt
             classific_distill_loss = model.classificationLoss(z_em, t_em, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-teacher
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE)# regression student-gt
+                                                global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)# regression student-gt
             _, regress_distill_loss = model.regressionDistillLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, t_r_ar, t_r_val, shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE)# regression student-teacher
             # print(t_x)
@@ -239,7 +240,7 @@ with strategy.scope():
 
 
             classification_final_loss = classific_loss + alpha * classific_distill_loss
-            regression_final_loss = regress_loss + alpha * regress_distill_loss
+            regression_final_loss = regress_loss
             final_loss = classification_final_loss + regression_final_loss
 
         # update gradient
@@ -252,7 +253,7 @@ with strategy.scope():
 
 
     def test_step(inputs, shake_params, GLOBAL_BATCH_SIZE):
-        X = tf.expand_dims(inputs[-1], -1)
+        X = tf.expand_dims(inputs[4], -1)
 
         y_emotion = inputs[1]
 
@@ -412,58 +413,59 @@ with strategy.scope():
                                axis=None)
 
 
-    it = 0
-    for epoch in range(EPOCHS):
-        shake_params = tf.random.uniform(shape=(3,), minval=0.1, maxval=1)
-        for step, train in enumerate(train_d_data):
-            # print(tf.reduce_max(train[0][0]))
-            distributed_pre_train_step(train, shake_params, ALL_BATCH_SIZE)
-            it += 1
-
-        for step, val in enumerate(val_d_data):
-            distributed_pre_test_step(val, shake_params, ALL_BATCH_SIZE)
-
-        template = (
-                "pre-train-epoch {} | Train_loss: {} | Val_loss: {}")
-        train_loss = loss_train.result().numpy()
-        test_loss = loss_test.result().numpy()
-        print(template.format(epoch + 1, train_loss, test_loss))
-
-        # Save model
-
-        if (prev_val_loss > test_loss):
-            prev_val_loss = test_loss
-            wait_i = 0
-            manager.save()
-        else:
-            wait_i += 1
-        if (wait_i == wait):
-            break
-        # reset state
-
-        reset_metrics()
-
-    print("-------------------------------------------Testing----------------------------------------------")
-    for step, test in enumerate(test_d_data):
-            distributed_pre_test_step(test, shake_params, ALL_BATCH_SIZE)
-    template = (
-             "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {}")
-    # sys.stdout = open(result_path + "summary_student_dreamer.txt", "w")
-    print(template.format(
-                loss_test.result().numpy(),
-                rmse_ar_test.result().numpy(),
-                ccc_ar_test.result().numpy(),
-                pcc_ar_test.result().numpy(),
-                sagr_ar_test.result().numpy(),
-                rmse_val_test.result().numpy(),
-                ccc_val_train.result().numpy(),
-                pcc_val_test.result().numpy(),
-                sagr_val_test.result().numpy(),
-                np.mean(softf1_test.result().numpy())
-        ))
-    # sys.stdout.close()
-    checkpoint.restore(manager.latest_checkpoint)
+    # it = 0
+    # for epoch in range(EPOCHS):
+    #     shake_params = tf.random.uniform(shape=(3,), minval=0.1, maxval=1)
+    #     for step, train in enumerate(train_d_data):
+    #         # print(tf.reduce_max(train[0][0]))
+    #         distributed_pre_train_step(train, shake_params, ALL_BATCH_SIZE)
+    #         it += 1
+    #
+    #     for step, val in enumerate(val_d_data):
+    #         distributed_pre_test_step(val, shake_params, ALL_BATCH_SIZE)
+    #
+    #     template = (
+    #             "pre-train-epoch {} | Train_loss: {} | Val_loss: {}")
+    #     train_loss = loss_train.result().numpy()
+    #     test_loss = loss_test.result().numpy()
+    #     print(template.format(epoch + 1, train_loss, test_loss))
+    #
+    #     # Save model
+    #
+    #     if (prev_val_loss > test_loss):
+    #         prev_val_loss = test_loss
+    #         wait_i = 0
+    #         manager.save()
+    #     else:
+    #         wait_i += 1
+    #     if (wait_i == wait):
+    #         break
+    #     # reset state
+    #
+    #     reset_metrics()
+    #
+    # print("-------------------------------------------Testing----------------------------------------------")
+    # for step, test in enumerate(test_d_data):
+    #         distributed_pre_test_step(test, shake_params, ALL_BATCH_SIZE)
+    # template = (
+    #          "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {}")
+    # # sys.stdout = open(result_path + "summary_student_dreamer.txt", "w")
+    # print(template.format(
+    #             loss_test.result().numpy(),
+    #             rmse_ar_test.result().numpy(),
+    #             ccc_ar_test.result().numpy(),
+    #             pcc_ar_test.result().numpy(),
+    #             sagr_ar_test.result().numpy(),
+    #             rmse_val_test.result().numpy(),
+    #             ccc_val_train.result().numpy(),
+    #             pcc_val_test.result().numpy(),
+    #             sagr_val_test.result().numpy(),
+    #             np.mean(softf1_test.result().numpy())
+    #     ))
+    # # sys.stdout.close()
+    # checkpoint.restore(manager.latest_checkpoint)
     prev_val_loss = 1000
+    it = 0
     for epoch in range(EPOCHS):
         # TRAIN LOOP
         total_loss = 0.0

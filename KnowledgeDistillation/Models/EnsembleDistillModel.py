@@ -306,7 +306,7 @@ class EnsembleStudentOneDim(tf.keras.Model):
 
 
     @tf.function
-    def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params,  training=True, global_batch_size=None):
+    def regressionLoss(self, z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params,  training=True, global_batch_size=None, sample_weight=None):
         if training == True:
             a = shake_params[0] / tf.reduce_sum(shake_params)
             b = shake_params[1] / tf.reduce_sum(shake_params)
@@ -317,13 +317,13 @@ class EnsembleStudentOneDim(tf.keras.Model):
             t = 0.3
 
         mse_loss = tf.nn.compute_average_loss(self.mse_loss(y_r_ar, z_r_ar) + self.mse_loss(y_r_val, z_r_val),
-                                              global_batch_size=global_batch_size)
+                                              global_batch_size=global_batch_size, sample_weight=sample_weight)
         pcc_loss = tf.nn.compute_average_loss(
             1 - (0.5 * (self.pcc_loss(y_r_ar, z_r_ar) + self.pcc_loss(y_r_val, z_r_val))),
-            global_batch_size=global_batch_size)
+            global_batch_size=global_batch_size, sample_weight=sample_weight)
         ccc_loss = tf.nn.compute_average_loss(
             1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
-            global_batch_size=global_batch_size)
+            global_batch_size=global_batch_size, sample_weight=sample_weight)
 
         return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
 

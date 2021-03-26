@@ -46,7 +46,7 @@ def classifLabelsConv(y):
 
 def regressLabelsConv(y):
     if y == 0 or y == 1:
-        return -2
+        return -3
     if y == 2:
         return -1
     if y == 3:
@@ -54,7 +54,7 @@ def regressLabelsConv(y):
     if y == 4:
         return 1
     if y ==5 or y==6:
-        return 2
+        return 3
     return y
 
 def dreamerLabelsConv(y):

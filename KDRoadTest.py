@@ -1,6 +1,6 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 import datetime
@@ -51,8 +51,8 @@ result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_pre_KD"
 
 # datagenerator
-ecg_data = ROAD_ECG + "E6\\20201119_135342_615_HB_PW.csv"
-gps_data = ROAD_ECG + "E6\\20201119_135342_615_GPS.csv"
+ecg_data = ROAD_ECG + "TS103_training\\20200617_141440_279_HB_PW.csv"
+gps_data = ROAD_ECG + "TS103_training\\20200617_141440_279_GPS.csv"
 mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
 data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
 generator = data_fetch.fetch
@@ -90,7 +90,9 @@ with strategy.scope():
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         X = tf.expand_dims(tf.expand_dims(inputs[-1], -1), 0)
+        # X = tf.expand_dims(inputs[-1], 0)
         prediction_ar, prediction_val = model.predict(X, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        # _, prediction_ar, prediction_val = model(X, training=False)
 
         return prediction_ar, prediction_val
 

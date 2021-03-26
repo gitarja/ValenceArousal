@@ -74,7 +74,7 @@ class DataFetch:
                     if self.ECG:
                         yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
                     else:
-                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[6]
                 else:
                     yield data_i[1], data_i[2], data_i[3], data_i[4]
 
@@ -138,7 +138,10 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features])
+                w = 0.75
+                if abs(y_r_ar) == 3 or abs(y_r_val) == 3:
+                    w = 2
+                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
 
 
 
@@ -268,8 +271,9 @@ class DataFetchRoad:
 
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
-            end = start + (SPLIT_TIME+1)
+            end = start + (SPLIT_TIME+2)
             ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
+            print(len(ecg))
             if len(ecg) >= self.ecg_n:
                 ecg = ecg[:self.ecg_n]
 
@@ -282,6 +286,7 @@ class DataFetchRoad:
 
                 #raw ecg
                 ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                # ecg = (ecg - 2048.485947046843) / 156.5629266658633
                 # ecg = ecg / (4095 - 0)
                 # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
                 data_set.append(ecg)
