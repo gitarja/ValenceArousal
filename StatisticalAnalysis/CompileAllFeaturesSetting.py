@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 from Libs.Utils import arToLabels, valToLabels, convertLabels, regressLabelsConv, convertLabelsReg
 import glob
 import numpy as np
-from Conf.Settings import DATASET_PATH, STRIDE
+from Conf.Settings import DATASET_PATH, STRIDE, ECG_PATH
 
 
 for folder in glob.glob(DATASET_PATH + "*"):
@@ -33,8 +33,16 @@ for folder in glob.glob(DATASET_PATH + "*"):
             features_list_ori = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
             features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
             features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
-            all_features.append(features_list)
+            ecg_features_all = []
 
+
+            for idx in features_list["Idx"].values:
+                ecg_features_all.append(
+                    np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0))
+            ecg_features_all = np.concatenate(ecg_features_all, axis=0)
+            hr_mean = np.mean(ecg_features_all[:, 6])
+
+            all_features.append(features_list)
         except:
             print("Error" + subject)
 
