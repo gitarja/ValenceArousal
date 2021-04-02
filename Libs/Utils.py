@@ -20,7 +20,7 @@ def valWeight(val):
 
 def arToLabels(y):
     if (y < 3):
-        return 0
+        return -1
     else:
         return 1
 
@@ -28,10 +28,28 @@ def arToLabels(y):
 
 def valToLabels(y):
     if (y < 3):
-        return 0
+        return -1
 
     else:
         return 1
+
+def convertLabels(ar, val):
+    labels = np.zeros_like(ar)
+    labels[(ar==0) & (val==0)] = 0
+    labels[(ar == 0) & (val == 1)] = 1
+    labels[(ar == 1) & (val == 0)] = 2
+    labels[(ar == 1) & (val == 1)] = 3
+    return labels
+
+def convertLabelsReg(ar, val):
+    labels = np.zeros_like(ar)
+    # labels[(ar==0) | (val==0)] = 0
+    labels[(ar < 0) & (val < 0)] = 1
+    labels[(ar < 0) & (val > 0)] = 2
+    labels[(ar > 0) & (val < 0)] = 3
+    labels[(ar > 0) & (val > 0)] = 4
+    return labels
+
 
 def classifLabelsConv(y):
     if y == 0 or y == 1 or y == 2:
@@ -45,8 +63,9 @@ def classifLabelsConv(y):
 
 
 def regressLabelsConv(y):
+    # return y - 3
     if y == 0 or y == 1:
-        return -3
+        return -2
     if y == 2:
         return -1
     if y == 3:
@@ -54,8 +73,21 @@ def regressLabelsConv(y):
     if y == 4:
         return 1
     if y ==5 or y==6:
+        return 2
+
+def multipleLabels(ar, val):
+    if ar == 0 or val == 0:
+        return 0
+    if ar < 0 and val > 0:
+        return 1
+    if ar < 0 and val < 0:
+        return 2
+    if ar > 0 and val > 0:
         return 3
-    return y
+    if ar > 0 and val < 0:
+        return 4
+
+
 
 def dreamerLabelsConv(y):
    return y - 3

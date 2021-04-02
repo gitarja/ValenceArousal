@@ -30,7 +30,7 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 # setting
 num_output = N_CLASS
 initial_learning_rate = 1e-3
-EPOCHS = 1000
+EPOCHS = 3000
 BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
@@ -38,8 +38,8 @@ wait = 5
 
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
@@ -60,7 +60,7 @@ testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, teacher=True,
-                       KD=False)
+                       KD=False, high_only=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
@@ -148,7 +148,7 @@ with strategy.scope():
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape_ar:
-            z_em, z_r_ar, z_r_val, rec_X = model(X, training=True)
+            z_em, z_r_ar, z_r_val, rec_X, _ = model(X, training=True)
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE)
@@ -171,7 +171,7 @@ with strategy.scope():
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
-        z_em, z_r_ar, z_r_val, _ = model(X, training=False)
+        z_em, z_r_ar, z_r_val, _, _ = model(X, training=False)
         classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
         mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                      global_batch_size=GLOBAL_BATCH_SIZE)

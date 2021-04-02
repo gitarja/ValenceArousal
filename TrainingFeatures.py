@@ -1,5 +1,5 @@
 import tensorflow as tf
-from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
+from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleModel, EnsembleSeparateModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS, ECG_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
@@ -30,19 +30,19 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = N_CLASS
-initial_learning_rate = 1.e-3
-EPOCHS = 1000
+initial_learning_rate = 1.e-4
+EPOCHS = 3000
 PRE_EPOCHS = 100
-BATCH_SIZE = 512
+BATCH_SIZE = 128
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 35
+wait = 55
 alpha = 0.5
 
 # setting
 # fold = str(sys.argv[1])
 fold=1
-prev_val_loss = 1000
+prev_val_loss = 2000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_ECG_KD"
@@ -61,26 +61,26 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True)
+                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, high_only=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N])))
+    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N])))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
 
 # train dataset
-train_data = train_generator.shuffle(data_fetch.train_n * 2, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
+train_data = train_generator.shuffle(data_fetch.train_n, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
 
 val_data = val_generator.batch(BATCH_SIZE)
 
@@ -91,7 +91,7 @@ with strategy.scope():
 
     # load pretrained model
     checkpoint_prefix_base = result_path + "model_teacher"
-    teacher_model = EnsembleSeparateModel(num_output=num_output).loadBaseModel(
+    teacher_model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N).loadBaseModel(
         checkpoint_prefix_base)
     # encoder model
     checkpoint_prefix_encoder = result_path + "model_base_student"
@@ -102,7 +102,7 @@ with strategy.scope():
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    # optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
     optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.3, min_lr=1e-5)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
@@ -143,7 +143,8 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=
 with strategy.scope():
     def train_step(inputs, shake_params, GLOBAL_BATCH_SIZE):
         X_t = inputs[0]
-        X = inputs[-1]
+        X = inputs[4]
+        w = inputs[5]
         # print(X)
 
         y_emotion = inputs[1]
@@ -152,15 +153,16 @@ with strategy.scope():
         y_r_val = tf.expand_dims(inputs[3], -1)
 
         with tf.GradientTape() as tape:
-            t_em, t_r_ar, t_r_val, _ = teacher_model(X_t, False)
-            t_em = tf.nn.sigmoid(t_em)
+            t_em, t_r_ar, t_r_val, _, t_z = teacher_model(X_t, False)
+            # t_em = tf.nn.sigmoid(t_em)
             # using latent
             # _, latent = base_model(X)
-            z_em, z_r_ar, z_r_val = model(X, training=True)
+            z_em, z_r_ar, z_r_val, z = model(X, training=True)
             classific_loss = teacher_model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-gt
             classific_distill_loss = teacher_model.classificationLoss(z_em, t_em, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-teacher
             mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE)# regression student-gt
+                                                global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)# regression student-gt
+            # latent_loss = teacher_model.latentLoss(z, t_z, global_batch_size=GLOBAL_BATCH_SIZE)
             _, regress_distill_loss = teacher_model.regressionDistillLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, t_r_ar, t_r_val, shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE)# regression student-teacher
 
@@ -170,6 +172,8 @@ with strategy.scope():
 
             classification_final_loss = classific_loss + alpha * classific_distill_loss
             regression_final_loss = regress_loss + alpha * regress_distill_loss
+            # classification_final_loss = classific_loss
+            # regression_final_loss = regress_loss
             final_loss = classification_final_loss + regression_final_loss
 
         # update gradient
@@ -182,18 +186,19 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE):
-        X = inputs[-1]
+        X = inputs[4]
+        w = inputs[5]
 
         y_emotion = inputs[1]
 
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
 
-        z_em, z_r_ar, z_r_val = model(X, training=False)
+        z_em, z_r_ar, z_r_val, _ = model(X, training=False)
         classific_loss = teacher_model.classificationLoss(z_em, y_emotion,
                                                   global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-gt
         mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                      global_batch_size=GLOBAL_BATCH_SIZE)  # regression student-gt
+                                                      global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)  # regression student-gt
 
         final_loss = regress_loss
 

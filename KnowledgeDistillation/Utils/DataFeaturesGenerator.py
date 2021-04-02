@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 class DataFetch:
 
-    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, ECG=False, training=True):
+    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, ECG=False, training=True, high_only=False):
         utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
@@ -21,6 +21,7 @@ class DataFetch:
         self.teacher = teacher
         self.ECG_N = ECG_N
         self.ECG = ECG
+        self.high_only = high_only
         self.w = 0
         self.j =0
         self.ecg_features = ECGFeatures(fs=FS_ECG)
@@ -43,7 +44,9 @@ class DataFetch:
             self.val_n = len(self.data_val)
 
         self.data_test = self.readData(pd.read_csv(test_file), KD)
+        self.data_val = self.readData(pd.read_csv(validation_file), KD)
         self.test_n = len(self.data_test)
+        self.val_n = len(self.data_val)
 
 
 
@@ -58,7 +61,7 @@ class DataFetch:
         if training_mode == 0:
             data_set = self.data_train
         elif training_mode == 1:
-            data_set = self.data_val
+            data_set =  self.data_val
         else:
             data_set = self.data_test
         i = 0
@@ -72,7 +75,7 @@ class DataFetch:
             else:
                 if self.KD:
                     if self.ECG:
-                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5]
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5],  data_i[6]
                     else:
                         yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[6]
                 else:
@@ -88,6 +91,10 @@ class DataFetch:
     def readData(self, features_list, KD, training=False):
         data_set = []
         features_list = features_list.sample(frac=1.)
+        if training:
+            val_features_neg = features_list[features_list["Valence_convert"] < 0]
+            val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9, replace=True)
+            features_list = pd.concat([val_features_neg, val_features_pos])
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
@@ -113,7 +120,7 @@ class DataFetch:
             # if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
             concat_features_norm = (concat_features - self.mean) / self.std
 
-            ECG_features = concat_features_norm[1137:1150]
+            ECG_features = concat_features_norm[1137:1178]
             # print(np.max(concat_features_norm))
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
@@ -128,8 +135,8 @@ class DataFetch:
             # val_weight = valWeight(y_val_bin) #valence for arousal samples
 
             y_emotions = emotionLabels(emotions, N_CLASS)
-            y_r_ar = regressLabelsConv(y_ar)
-            y_r_val = regressLabelsConv(y_val)
+            y_r_ar = arToLabels(y_ar)
+            y_r_val = valToLabels(y_val)
 
 
             if len(ecg) >= self.ECG_N:
@@ -138,10 +145,18 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                w = 0.75
-                if abs(y_r_ar) == 3 or abs(y_r_val) == 3:
-                    w = 2
-                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
+                w = 1
+
+
+                #resampling data
+                # if training:
+                #     if (y_r_ar < 0 and y_val < 0) or (y_r_ar> 0 and y_val< 0):
+                #         w = 2.
+                if self.high_only:
+                    if abs(y_r_ar) != 0 and abs(y_r_val) != 0:
+                         data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
+                else:
+                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
 
 
 

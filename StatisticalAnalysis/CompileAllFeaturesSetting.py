@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from Libs.Utils import arToLabels, valToLabels, convertLabels
+from Libs.Utils import arToLabels, valToLabels, convertLabels, regressLabelsConv, convertLabelsReg
 import glob
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE
@@ -31,8 +31,8 @@ for folder in glob.glob(DATASET_PATH + "*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
             features_list_ori = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
-            features_list["Valence_convert"] = features_list["Valence"].apply(arToLabels)
-            features_list["Arousal_convert"] = features_list["Arousal"].apply(valToLabels)
+            features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
+            features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
             all_features.append(features_list)
 
         except:
@@ -57,20 +57,20 @@ df = pd.concat(all_features, ignore_index=True)
 ar_labels = df["Arousal_convert"].values
 val_labels = df["Valence_convert"].values
 
-#arousal
-ar_positive = 1 / np.sum(ar_labels==1) * (len(ar_labels) / 2.)
-ar_negative = 1 / np.sum(ar_labels==0) * (len(ar_labels) / 2.)
-#valence
-val_positive = 1 / np.sum(val_labels==1) * (len(val_labels) / 2.)
-val_negative = 1 / np.sum(val_labels==0) * (len(val_labels) / 2.)
+# #arousal
+# ar_positive = 1 / np.sum(ar_labels==1) * (len(ar_labels) / 2.)
+# ar_negative = 1 / np.sum(ar_labels==0) * (len(ar_labels) / 2.)
+# #valence
+# val_positive = 1 / np.sum(val_labels==1) * (len(val_labels) / 2.)
+# val_negative = 1 / np.sum(val_labels==0) * (len(val_labels) / 2.)
+#
+#
+# print(ar_positive)
+# print(ar_negative)
+# print(val_positive)
+# print(val_negative)
 
-
-print(ar_positive)
-print(ar_negative)
-print(val_positive)
-print(val_negative)
-
-y = convertLabels(df["Arousal_convert"].values, df["Valence_convert"].values)
+y = convertLabelsReg(df["Arousal_convert"].values, df["Valence_convert"].values)
 
 
 
@@ -79,7 +79,7 @@ y = convertLabels(df["Arousal_convert"].values, df["Valence_convert"].values)
 skf = StratifiedKFold(n_splits=5, shuffle=True)
 fold = 1
 for train_index, test_index in skf.split(df.index, y):
-    X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=42)
+    X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=0)
 
     # #training data
     training_data = df.iloc[train_index]

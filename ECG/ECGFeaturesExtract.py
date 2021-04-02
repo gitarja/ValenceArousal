@@ -49,7 +49,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 else:
                     end_extract = 0.3 * (tdelta // SPLIT_TIME)  # use only 2/3 of the data
 
-                for j in np.arange(end_extract, (tdelta // SPLIT_TIME), STRIDE):
+                for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
                     # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)

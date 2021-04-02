@@ -64,7 +64,7 @@ class SAGRLoss(tf.keras.losses.Loss):
         y_pred = ops.convert_to_tensor_v2(y_pred)
         y_true = math_ops.cast(y_true, y_pred.dtype)
         sagr = math_ops.cast(tf.math.equal(math_ops.sign(y_pred), math_ops.sign(y_true)), y_pred.dtype)
-        sagr = math_ops.reduce_mean(sagr)
+        # sagr = math_ops.reduce_mean(sagr)
         return sagr
 
 

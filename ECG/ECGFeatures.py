@@ -49,13 +49,12 @@ class ECGFeatures:
 
     def extractRR(self, x):
 
-        X, r = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[1:3]
-        r = biosppy.signals.ecg.correct_rpeaks(signal=X, rpeaks=r, sampling_rate=self.fs)[0]
+        r = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[2]
         r = r.astype(float)
         # Compute NNI or RR
         nni = tools.nn_intervals(r)
 
-        return nni
+        return nni * 4
 
     def computeHeartBeat(self, x):
         ts, hb = biosppy.signals.ecg.ecg(x, sampling_rate=self.fs, show=False)[5:]
@@ -70,9 +69,17 @@ class ECGFeatures:
             nniDiffRM = td.rmssd(nni=nni)
             nniDiffSD = td.sdsd(nni=nni)
             hrParams = td.hr_parameters(nni=nni)
+            nn20 = td.nn20(nni=nni)
+            nn30 = td.nnXX(nni=nni, threshold=30)
+            nn50 = td.nn50(nni=nni)
+            # return np.array([nniParams["nni_mean"], nniParams["nni_counter"], nniSD["sdnn"],
+            #        nniDiff["nni_diff_mean"], nniDiffRM["rmssd"], nniDiffSD["sdsd"],
+            #        hrParams["hr_mean"], hrParams["hr_std"]])
+
             return np.array([nniParams["nni_mean"], nniParams["nni_counter"], nniSD["sdnn"],
-                   nniDiff["nni_diff_mean"], nniDiffRM["rmssd"], nniDiffSD["sdsd"],
-                   hrParams["hr_mean"], hrParams["hr_std"]])
+                             nniDiff["nni_diff_mean"], nniDiffRM["rmssd"], nniDiffSD["sdsd"],
+                             hrParams["hr_mean"], hrParams["hr_std"], hrParams["hr_max"] - hrParams["hr_min"],
+                             nn20["nn20"], nn20["pnn20"], nn30["nn30"], nn30["pnn30"], nn50["nn50"], nn50["pnn50"]])
 
         except:
             return np.array([])
@@ -84,7 +91,8 @@ class ECGFeatures:
             psd = fd.welch_psd(nni=nni, show=False,
                                fbands={'ulf': (0.00, 0.01), 'vlf': (0.01, 0.05), 'lf': (0.05, 0.15), 'hf': (0.15, 0.5)},
                                nfft=2 ** 12, legend=False, mode="dev")[0]
-            return np.array([psd["fft_norm"][0], psd["fft_norm"][1], psd["fft_ratio"]])
+            features = np.concatenate([np.array(psd["fft_peak"]), np.array(psd["fft_abs"]), np.array(psd["fft_rel"]), np.array(psd["fft_log"]), np.array([psd["fft_norm"][0], psd["fft_norm"][1], psd["fft_ratio"]])])
+            return features
 
         except:
             return np.array([])
@@ -92,9 +100,14 @@ class ECGFeatures:
     def extractNonLinearDomain(self, x):
         try:
             nni = self.extractRR(x)
-            sampEntro = nn.sample_entropy(nni=nni, dim=1)
+            sampEntro = nn.sample_entropy(nni=nni, dim=2) #change dim from 1 to 2
             lyapEx = self.lyapunov_exponent(nni=nni, emb_dim=3, matrix_dim=2)
-            return np.array([sampEntro["sampen"], lyapEx["lyapex"]])
+            pointCare = nn.poincare(nni=nni, show=False)
+            # hrust = nolds.hurst_rs(nni)
+            corrDim = nolds.corr_dim(nni, emb_dim=3)
+            # dfa = nolds.dfa(nni)
+            # return np.array([sampEntro["sampen"], lyapEx["lyapex"]])
+            return np.array([sampEntro["sampen"], lyapEx["lyapex"], pointCare["sd1"], pointCare["sd2"], pointCare["sd_ratio"], pointCare["ellipse_area"],  corrDim])
 
         except:
             return np.array([])

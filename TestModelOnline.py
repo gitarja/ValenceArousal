@@ -48,20 +48,23 @@ fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
-checkpoint_prefix = result_path + "model_student_pre_KD"
-
+checkpoint_prefix = result_path + "model_student_ECG_KD_high"
+checkpoint_prefix2 = result_path + "model_student_ECG_KD"
 # datagenerator
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
-data_fetch = DataFetch(test_file=testing_data,
-                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=False)
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+data_fetch = DataFetch(test_file=testing_data, validation_file=validation_data,
+                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, high_only=False)
 generator = data_fetch.fetch
 
 
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
+    # output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+    # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
     output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -69,18 +72,12 @@ with strategy.scope():
     # load pretrained model
     # encoder model
 
-    model = EnsembleStudentOneDim(num_output=num_output)
-    learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
-                                                                   decay_steps=EPOCHS, decay_rate=0.95,
-                                                                   staircase=True)
-    optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
+    # model = EnsembleStudentOneDim(num_output=num_output)
+    model = EnsembleModel(num_output=num_output).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
 
 
 
-# Manager
-checkpoint = tf.train.Checkpoint(step=tf.Variable(1), student_model=model)
-manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
-checkpoint.restore(manager.latest_checkpoint)
+
 
 predictions = []
 print("Start testing")
@@ -88,11 +85,13 @@ with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = tf.expand_dims(inputs[4], -1)
+        # X = tf.expand_dims(inputs[4], -1)
+        X = inputs[4]
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
         print(X)
-        _, prediction_ar, prediction_val = model(X, training=False)
+        _, prediction_ar, prediction_val, _ = model(X, training=False)
+
 
         return prediction_ar, prediction_val, y_r_ar, y_r_val
 
@@ -125,43 +124,38 @@ with strategy.scope():
 
     val_results = np.array(val_results)
 
-    th = 1
+    th = .5
     # ambigous
-    ar_a_v_a_results = np.average(((np.abs(ar_results[:, 0]) <= th) | (np.abs(val_results[:, 0]) <= th))& ((np.abs(ar_results[:, 1]) <= th) | (np.abs(val_results[:, 1]) <= th)))
-    ar_na_v_na_results = np.average(((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th)) & (((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th))))
+    ar_a_v_a_results = np.average(((np.abs(ar_results[:, 0]) <= th) | (np.abs(val_results[:, 0]) <= th)) & ((np.abs(ar_results[:, 1]) == 0) | (np.abs(val_results[:, 1]) == 0)))
+    ar_na_v_na_results = np.average(((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th)) & (((np.abs(ar_results[:, 1]) > 0) | (np.abs(val_results[:, 1]) > 0))))
 
-    # th = 0.5 - th
-    # ar_results[:, 0] = ar_results[:, 0] + np.sign(ar_results[:, 0])
-    # val_results[:, 0] = val_results[:, 0] + np.sign(val_results[:, 0])
-    #ar positif and val positif
     ar_p_v_p = (ar_results[:, 1] > th) & (val_results[:, 1] > th)
-    ar_p_v_p_results = np.average((ar_results[ar_p_v_p, 0]  > th) & (val_results[ar_p_v_p, 0]  > th))
-    # print("AR-pos and Val-pos: " + str(ar_p_v_p_results))
-    #ar positif and val negatif
-    ar_p_v_n = (ar_results[:, 1] > th) & (val_results[:, 1] <  -th)
-    ar_p_v_n_results = np.average((ar_results[ar_p_v_n, 0]  >0) & (val_results[ar_p_v_n, 0] < 0))
-    # print("AR-pos and Val-neg: " + str(ar_p_v_n_results))
-    #ar negatif and val positif
-    ar_n_v_p = (ar_results[:, 1] <  -th) & (val_results[:, 1] > th)
-    ar_n_v_p_results = np.average((ar_results[ar_n_v_p, 0] < 0) & (val_results[ar_n_v_p, 0]  > 0))
-    # print("AR-neg and Val-pos: " + str(ar_n_v_p_results))
-    #ar negatif and val negatif
-    ar_n_v_n = (ar_results[:, 1] < -th) & (val_results[:, 1] <  -th)
-    ar_n_v_n_results = np.average((ar_results[ar_n_v_n, 0] < 0) & (val_results[ar_n_v_n, 0] < 0))
-    # print("AR-neg and Val-neg: " + str(ar_n_v_n_results))
+    ar_p_v_p_results = np.average((ar_results[ar_p_v_p, 0] > 0.) & (val_results[ar_p_v_p, 0] > 0))
+
+    # ar positif and val negatif
+    ar_p_v_n = (ar_results[:, 1] > th) & (val_results[:, 1] < -th)
+    ar_p_v_n_results = np.average((ar_results[ar_p_v_n, 0] > 0) & (val_results[ar_p_v_n, 0] < -0))
+
+    # ar negatif and val positif
+    ar_n_v_p = (ar_results[:, 1] < -th) & (val_results[:, 1] > th)
+    ar_n_v_p_results = np.average((ar_results[ar_n_v_p, 0] < -0) & (val_results[ar_n_v_p, 0] > 0))
+
+    # ar negatif and val negatif
+    ar_n_v_n = (ar_results[:, 1] < -th) & (val_results[:, 1] < -th)
+    ar_n_v_n_results = np.average((ar_results[ar_n_v_n, 0] < -0) & (val_results[ar_n_v_n, 0] < -0))
 
     # val positif
     a_p = (ar_results[:, 1] > 0)
     a_n = (ar_results[:, 1] < 0)
     a_p_results = np.sum(ar_results[a_p, 0] > 0)
     a_n_results = np.sum(ar_results[a_n, 0] <= 0)
-    # print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
+    print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
     #val positif
     v_p = (val_results[:, 1] > 0)
     v_n = (val_results[:, 1] < 0)
     v_p_results = np.sum(val_results[v_p, 0] > 0)
     v_n_results = np.sum(val_results[v_n, 0] <= 0)
-    # print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
+    print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
 
     print(str(ar_p_v_p_results) + "," + str(ar_p_v_n_results) + "," + str(ar_n_v_p_results) + "," + str(ar_n_v_n_results))
     print(str(ar_a_v_a_results) + ","+ str(ar_na_v_na_results))

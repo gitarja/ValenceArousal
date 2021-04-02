@@ -9,7 +9,8 @@ STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
-FEATURES_N = 2480
+# FEATURES_N = 2480
+FEATURES_N = 2508
 # FEATURES_N = 13
 ECG_RAW_N = 11250
 # ECG_RAW_N = 11664
@@ -19,7 +20,7 @@ EDA_N = 553
 PPG_N = 11
 Resp_N = 11
 ECG_Resp_N = 13
-ECG_N = 13
+ECG_N = 41
 EEG_N = 912
 
 # Path Const
