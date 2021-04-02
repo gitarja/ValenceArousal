@@ -57,6 +57,16 @@ def regressLabelsConv(y):
         return 2
     return y
 
+def convertLabels(arousal, valence):
+    if arousal == 0 and valence == 0:
+        return 0
+    elif arousal == 1 and valence == 0:
+        return 1
+    elif arousal == 0 and valence == 1:
+        return 2
+    else:
+        return 3
+
 
 def convertContrastiveLabels(time1, time2, sub1, sub2):
     if sub1 == sub2:
@@ -66,6 +76,31 @@ def convertContrastiveLabels(time1, time2, sub1, sub2):
             return 1
     else:
         return 1
+
+
+def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
+    result = []
+    for y, t in zip([y_ar, y_val], [t_ar, t_val]):
+        if mode == "hard":
+            if t > 0:
+                result.append(int(y > th))
+            elif t < 0:
+                result.append(int(y < -th))
+            else:
+                result.append(int((y <= th) or (y >= -th)))
+
+        else:
+            if t > 0:
+                result.append(int(y >= -th))
+            elif t < 0:
+                result.append(int(y <= th))
+            else:
+                result.append(int((y <= th) or (y >= -th)))
+
+    if result.count(1) == 2:
+        return 1
+    else:
+        return 0
 
 
 def windowFilter(x, numtaps=120, cutoff=2.0, fs=256.):
@@ -121,12 +156,3 @@ def rollingWindow(a, size=50):
         slides.append(a[(i * size):((i + 1) * size)])
 
     return np.array(slides)
-
-def emotionLabels(labels, N_CLASS):
-    labels = labels.split("_")[0:-1]
-    label_en = np.zeros(N_CLASS)
-    for l in labels:
-        label_en[int(l)] = 1
-
-    return label_en
-
