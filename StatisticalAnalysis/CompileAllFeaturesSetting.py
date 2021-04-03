@@ -31,17 +31,20 @@ for folder in glob.glob(DATASET_PATH + "*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
             features_list_ori = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
+
+            hr_all = []
+
+            w = np.ones(len(features_list.index))
+            for idx in features_list["Idx"].values:
+                hr_all.append(
+                    np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0)[0,3])
+            hr_all = np.array(hr_all)
+            hr_mean = np.mean(hr_all)
+            w[hr_all < hr_mean] = 0.5
+
+            features_list["weight"] = w
             features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
             features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
-            ecg_features_all = []
-
-
-            for idx in features_list["Idx"].values:
-                ecg_features_all.append(
-                    np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0))
-            ecg_features_all = np.concatenate(ecg_features_all, axis=0)
-            hr_mean = np.mean(ecg_features_all[:, 6])
-
             all_features.append(features_list)
         except:
             print("Error" + subject)

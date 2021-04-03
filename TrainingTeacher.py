@@ -31,15 +31,15 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 num_output = N_CLASS
 initial_learning_rate = 1e-3
 EPOCHS = 3000
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 5
+wait = 15
 
 
 # setting
-# fold = str(sys.argv[1])
-fold=1
+fold = str(sys.argv[1])
+# fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
@@ -90,7 +90,7 @@ with strategy.scope():
     total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
-    # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
+    # optimizer = tf.keras.optimizers.Adamax(learning_rate=initial_learning_rate)
     optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
                                              warmup_proportion=0.1, min_lr=1e-5)
 

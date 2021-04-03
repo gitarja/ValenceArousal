@@ -33,15 +33,15 @@ num_output = N_CLASS
 initial_learning_rate = 1.e-4
 EPOCHS = 3000
 PRE_EPOCHS = 100
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 55
 alpha = 0.5
 
 # setting
-# fold = str(sys.argv[1])
-fold=1
+fold = str(sys.argv[1])
+# fold=1
 prev_val_loss = 2000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -162,9 +162,12 @@ with strategy.scope():
             classific_distill_loss = teacher_model.classificationLoss(z_em, t_em, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-teacher
             mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                 global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)# regression student-gt
-            # latent_loss = teacher_model.latentLoss(z, t_z, global_batch_size=GLOBAL_BATCH_SIZE)
-            _, regress_distill_loss = teacher_model.regressionDistillLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, t_r_ar, t_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE)# regression student-teacher
+            _, regress_distill_loss, mask = teacher_model.regressionDistillLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,
+                                                                                t_r_ar, t_r_val,
+                                                                                shake_params=shake_params,
+                                                                                global_batch_size=GLOBAL_BATCH_SIZE)  # regression student-teacher
+            latent_loss = teacher_model.latentLoss(z, t_z, global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=mask)
+
 
             # print(t_x)
             # print(z_x)
@@ -174,7 +177,7 @@ with strategy.scope():
             regression_final_loss = regress_loss + alpha * regress_distill_loss
             # classification_final_loss = classific_loss
             # regression_final_loss = regress_loss
-            final_loss = classification_final_loss + regression_final_loss
+            final_loss = classification_final_loss + regression_final_loss + latent_loss
 
         # update gradient
         grads = tape.gradient(final_loss, model.trainable_weights)

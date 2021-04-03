@@ -3,7 +3,7 @@ from KnowledgeDistillation.Utils.Losses import SoftF1Loss, PCCLoss, CCCLoss, SAG
 
 
 class UnitModel(tf.keras.layers.Layer):
-    def __init__(self, en_units=(32, 32, 16, 16), num_output=4, features_length=2480, decoder=True, embedding_n=128, **kwargs):
+    def __init__(self, en_units=(32, 32, 16, 16), num_output=4, features_length=2480, decoder=True, embedding_n=32, **kwargs):
         super(UnitModel, self).__init__(**kwargs)
         self.decoder =decoder
         if len(en_units) != 4:
@@ -37,7 +37,7 @@ class UnitModel(tf.keras.layers.Layer):
 
         #activation
         self.elu = tf.keras.layers.ELU()
-        self.dropout = tf.keras.layers.Dropout(0.3)
+        self.dropout = tf.keras.layers.Dropout(0.15)
 
 
     def call(self, inputs, training=None, mask=None):
@@ -107,9 +107,9 @@ class EnsembleModel(tf.keras.Model):
         super(EnsembleModel, self).__init__(self)
         self.unit_small = UnitModelSingle(en_units=(16, 32, 64, 128), num_output=num_output,
                                    name="unit_small")
-        self.unit_medium = UnitModelSingle(en_units=(32, 64, 64, 128), num_output=num_output,
+        self.unit_medium = UnitModelSingle(en_units=(32, 32, 64, 128), num_output=num_output,
                                      name="unit_medium")
-        self.unit_large = UnitModelSingle(en_units=(32, 64, 128, 128), num_output=num_output,
+        self.unit_large = UnitModelSingle(en_units=(32, 32, 128, 256), num_output=num_output,
                                     name="unit_large" )
 
         # avg
@@ -128,8 +128,8 @@ class EnsembleModel(tf.keras.Model):
         z_em = self.avg([z_em_s, z_em_m, z_em_l])
         z_ar = self.avg([z_ar_s, z_ar_m, z_ar_l])
         z_val = self.avg([z_val_s, z_val_m, z_val_l])
-        # z = self.avg([z_s, z_m, z_l])
-        return z_em, z_ar, z_val, None
+        z = self.avg([z_s, z_m, z_l])
+        return z_em, z_ar, z_val, z
 
     def loadBaseModel(self, checkpoint_prefix):
         model = self
@@ -146,9 +146,9 @@ class EnsembleSeparateModel(tf.keras.Model):
         self.decoder = decoder
         #DNN unit
 
-        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_small", decoder=decoder)
-        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, features_length=features_length, name="unit_medium", decoder=decoder)
-        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, features_length=features_length, name="unit_large", decoder=decoder)
+        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, embedding_n=32, features_length=features_length, name="unit_small", decoder=decoder)
+        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, embedding_n=32, features_length=features_length, name="unit_medium", decoder=decoder)
+        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, embedding_n=32, features_length=features_length, name="unit_large", decoder=decoder)
         # avg
         self.avg = tf.keras.layers.Average()
 
@@ -235,10 +235,10 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return rec_loss
 
-    def latentLoss(self, z, y, global_batch_size):
+    def latentLoss(self, z, y, global_batch_size, sample_weight=None):
         rec_loss = tf.nn.compute_average_loss(
-            self.mse_loss(self.l2_norm(y), self.l2_norm(z)),
-            global_batch_size=global_batch_size)
+            self.mse_loss(y, z),
+            global_batch_size=global_batch_size, sample_weight=sample_weight)
 
         return rec_loss
 
@@ -291,7 +291,7 @@ class EnsembleSeparateModel(tf.keras.Model):
             1 - (0.5 * (self.ccc_loss(y_r_ar, z_r_ar) + self.ccc_loss(y_r_val, z_r_val))),
             global_batch_size=global_batch_size, sample_weight=mask)
 
-        return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss)
+        return mse_loss, (a * mse_loss) + (b * pcc_loss) + (t * ccc_loss), mask
 
     def classConvert(self, predictions, th=0.5):
 

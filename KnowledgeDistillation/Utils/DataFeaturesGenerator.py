@@ -92,9 +92,9 @@ class DataFetch:
         data_set = []
         features_list = features_list.sample(frac=1.)
         if training:
-            val_features_neg = features_list[features_list["Valence_convert"] < 0]
-            val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9, replace=True)
-            features_list = pd.concat([val_features_neg, val_features_pos])
+            val_features_neg = features_list[(features_list["Valence_convert"] < 0) & (features_list["Arousal_convert"] < 0)].sample(frac=1.2, replace=True)
+        #     val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9, replace=True)
+        #     features_list = pd.concat([val_features_neg, val_features_pos])
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
@@ -135,8 +135,8 @@ class DataFetch:
             # val_weight = valWeight(y_val_bin) #valence for arousal samples
 
             y_emotions = emotionLabels(emotions, N_CLASS)
-            y_r_ar = arToLabels(y_ar)
-            y_r_val = valToLabels(y_val)
+            y_r_ar = regressLabelsConv(y_ar)
+            y_r_val = regressLabelsConv(y_val)
 
 
             if len(ecg) >= self.ECG_N:
@@ -145,6 +145,7 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
+                # w = features_list.iloc[i]["weight"]
                 w = 1
 
 
@@ -153,7 +154,7 @@ class DataFetch:
                 #     if (y_r_ar < 0 and y_val < 0) or (y_r_ar> 0 and y_val< 0):
                 #         w = 2.
                 if self.high_only:
-                    if abs(y_r_ar) != 0 and abs(y_r_val) != 0:
+                    if w == 1:
                          data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
                 else:
                     data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])

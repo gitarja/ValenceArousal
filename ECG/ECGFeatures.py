@@ -9,6 +9,7 @@ from biosppy import utils
 import numpy as np
 from biosppy import tools as st
 import pywt
+from hrvanalysis import get_csi_cvi_features, get_geometrical_features
 
 
 class ECGFeatures:
@@ -105,6 +106,8 @@ class ECGFeatures:
             pointCare = nn.poincare(nni=nni, show=False)
             # hrust = nolds.hurst_rs(nni)
             corrDim = nolds.corr_dim(nni, emb_dim=3)
+            # csi = get_csi_cvi_features(nni) #caused worse results
+            # geo = get_geometrical_features(nni) #caused worse results
             # dfa = nolds.dfa(nni)
             # return np.array([sampEntro["sampen"], lyapEx["lyapex"]])
             return np.array([sampEntro["sampen"], lyapEx["lyapex"], pointCare["sd1"], pointCare["sd2"], pointCare["sd_ratio"], pointCare["ellipse_area"],  corrDim])

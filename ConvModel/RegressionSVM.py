@@ -13,7 +13,7 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=False, high_only=False)
+                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=False, high_only=True)
 
 #extract train data
 data = data_fetch.data_train
@@ -22,9 +22,10 @@ ar_train = []
 val_train = []
 
 for d in data:
-    X_train.append(d[5])
-    ar_train.append(d[2])
-    val_train.append(d[3])
+    if d[-1] == 1:
+        X_train.append(d[5])
+        ar_train.append(d[2])
+        val_train.append(d[3])
 
 X_train = np.array(X_train)
 ar_train = np.array(ar_train)
@@ -38,16 +39,17 @@ ar_test = []
 val_test = []
 
 for d in data:
-    X_test.append(d[5])
-    ar_test.append(d[2])
-    val_test.append(d[3])
+    if d[-1] == 1:
+        X_test.append(d[5])
+        ar_test.append(d[2])
+        val_test.append(d[3])
 
 X_test = np.array(X_test)
 ar_test = np.array(ar_test)
 val_test = np.array(val_test)
 parameters = {"n_estimators": [150], "learning_rate": [0.95]}
-reg_ar = AdaBoostClassifier(ExtraTreeClassifier(max_depth=15,  random_state=0), random_state=0)
-reg_val = AdaBoostClassifier(ExtraTreeClassifier(max_depth=15,  random_state=0), random_state=0)
+reg_ar = AdaBoostRegressor(ExtraTreeRegressor(max_depth=20,  random_state=0), random_state=0)
+reg_val = AdaBoostRegressor(ExtraTreeRegressor(max_depth=20,  random_state=0), random_state=0)
 
 #features selectrion
 # select_ar = feature_selection.SelectKBest(feature_selection.mutual_info_regression, k=2)
