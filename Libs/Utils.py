@@ -87,6 +87,62 @@ def multipleLabels(ar, val):
     if ar > 0 and val < 0:
         return 4
 
+def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
+    #labels
+    B1 = (y_ar > 0) & (y_val > 0)
+    A1 = (y_ar > 0) & (y_val < 0)
+    B3 = (y_ar < 0) & (y_val > 0)
+    A3 = (y_ar < 0) & (y_val < 0)
+    A2 = (y_ar == 0) & (y_val < 0)
+    B2 = (y_ar == 0) & (y_val > 0)
+    C = y_val == 0
+    if mode == "hard":
+        B1_results = np.average((t_ar[B1] > 0.) & (t_val[B1] > 0))
+        # ar positif and val negatif
+        A1_results = np.average((y_val[A1] > 0) & (t_val[A1] < -0))
+        # ar negatif and val positif
+        B3_results = np.average((y_val[B3] < -0) & (t_val[B3] > 0))
+        # ar negatif and val negatif
+        A3_results = np.average((y_val[A3] < -0) & (t_val[A3] < -0))
+        # val ambigous
+        A2_results = np.average((np.abs(t_ar[A2]) <= th) & (t_val[A2] < 0))
+        B2_results = np.average((np.abs(t_ar[B2]) <= th) & (t_val[B2] > 0))
+    elif mode == "soft":
+        B1_results = np.average((t_ar[B1] > -th) & (t_val[B1] > -th))
+        # ar positif and val negatif
+        A1_results = np.average((y_val[A1] > -th) & (t_val[A1] < th))
+        # ar negatif and val positif
+        B3_results = np.average((y_val[B3] < th) & (t_val[B3] > -th))
+        # ar negatif and val negatif
+        A3_results = np.average((y_val[A3] < th) & (t_val[A3] < th))
+        # val ambigous
+        A2_results = np.average((np.abs(t_ar[A2]) <= th) & (np.abs(t_val[A2]) <= th))
+        B2_results = np.average((np.abs(t_ar[B2]) <= th) & (np.abs(t_val[B2]) <= 0))
+    else:
+        B1_results = np.average((t_val[B1] < 0) | ((t_ar[B1] < 0) & (t_val[B1] > 0)))
+        # ar positif and val negatif
+        A1_results = np.average((t_val[B1] > 0) | ((t_ar[B1] < 0) & (t_val[B1] < 0)))
+        # ar negatif and val positif
+        B3_results = np.average((t_val[B1] < 0) | ((t_ar[B1] > 0) & (t_val[B1] > 0)))
+        # ar negatif and val negatif
+        A3_results = np.average((t_val[B1] > 0) | ((t_ar[B1] > 0) & (t_val[B1] < 0)))
+        # val ambigous
+        A2_results = np.average(t_val[A2] > 0)
+        B2_results = np.average(t_val[B2] < 0)
+
+
+    # ar ambigous
+    C_results = np.average(np.abs(t_ar[C]) <= th)
+
+
+
+
+    template_1 = "{}, {}, {}, {}"
+    teplate_2 = "{}, {}, {}"
+    print("---------------Accuracy-----------------")
+    print(template_1.format(B1_results, A1_results, B3_results, A3_results))
+    print("--------------Accuracy Ambgigous-----------")
+    print(teplate_2.format(A2_results, B2_results, C_results))
 
 
 def dreamerLabelsConv(y):
