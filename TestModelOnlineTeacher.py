@@ -1,7 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS, FEATURES_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 import datetime
 import os
@@ -44,27 +44,25 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=4
+fold=1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_ECG_KD_high"
-checkpoint_prefix2 = result_path + "model_student_ECG_KD"
+checkpoint_prefix2 = result_path + "model_teacher"
 # datagenerator
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
 data_fetch = DataFetch(test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, high_only=True)
+                       ECG_N=ECG_RAW_N, KD=False,  training=False, teacher=True, ECG=True, high_only=False)
 generator = data_fetch.fetch
 
 
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
-    # output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32 ),
+    output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -73,7 +71,7 @@ with strategy.scope():
     # encoder model
 
     # model = EnsembleStudentOneDim(num_output=num_output)
-    model = EnsembleModel(num_output=num_output).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
+    model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
 
 
 
@@ -86,11 +84,11 @@ with strategy.scope():
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = tf.expand_dims(inputs[4], -1)
-        X = inputs[4]
+        X = inputs[0]
         y_r_ar = tf.expand_dims(inputs[2], -1)
         y_r_val = tf.expand_dims(inputs[3], -1)
         print(X)
-        _, prediction_ar, prediction_val, _ = model(X, training=False)
+        _, prediction_ar, prediction_val, _ , _= model(X, training=False)
 
 
         return prediction_ar, prediction_val, y_r_ar, y_r_val
@@ -124,7 +122,7 @@ with strategy.scope():
 
     val_results = np.array(val_results)
 
-    th = .5
+    th = 0.
     # ambigous
     ar_a_v_a_results = np.average(((np.abs(ar_results[:, 0]) <= th) | (np.abs(val_results[:, 0]) <= th)) & ((np.abs(ar_results[:, 1]) == 0) | (np.abs(val_results[:, 1]) == 0)))
     ar_na_v_na_results = np.average(((np.abs(ar_results[:, 0]) > th) | (np.abs(val_results[:, 0]) > th)) & (((np.abs(ar_results[:, 1]) > 0) | (np.abs(val_results[:, 1]) > 0))))

@@ -19,6 +19,11 @@ EEG_RAW_CH = 19
 EEG_RAW_MAX = 2.0426152724552216
 EEG_RAW_MIN = -2.169352558978187
 
+# FEATURES_N = 2508
+# FEATURES_N = 13
+# ECG_RAW_N = 11250
+# ECG_RAW_N = 11664
+
 # features
 EDA_N = 1102
 PPG_N = 11
@@ -32,11 +37,17 @@ DATASET_PATH = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\"
 RESULTS_PATH = "\\results_stride=" + str(STRIDE) + "\\"
 EEG_PATH = RESULTS_PATH + "eeg\\"
 EEG_R_PATH = RESULTS_PATH + "EEG_RAW\\"
+
+# ECG_N = 41
+# EEG_N = 912
+
+# Path Const
 EDA_PATH = RESULTS_PATH + "eda\\"
 PPG_PATH = RESULTS_PATH + "ppg\\"
 RESP_PATH = RESULTS_PATH + "resp\\"
 ECG_PATH = RESULTS_PATH + "ecg\\"
 ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
+ECG_D_R_PATH = "\\results_stride=0.2\\" + "ECG_RAW\\"
 ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ecg_resp\\"
 TENSORBOARD_PATH = "G:\\usr\\nishihara\\result\\EmotionRecognition\\tensorboard\\"

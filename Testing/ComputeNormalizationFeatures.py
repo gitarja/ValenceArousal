@@ -25,7 +25,7 @@ for folder in glob.glob(data_path):
         ecg_path = subject + ECG_PATH
         ecg_resp_path = subject + ECG_RESP_PATH
 
-        features_list = pd.read_csv(subject + "\\features_list_1.0.csv")
+        features_list = pd.read_csv(subject + "\\features_list_0.2.csv")
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             eda_features = np.load(eda_path + "eda_" + str(filename) + ".npy")

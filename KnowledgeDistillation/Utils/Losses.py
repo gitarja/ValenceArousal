@@ -64,7 +64,7 @@ class SAGRLoss(tf.keras.losses.Loss):
         y_pred = ops.convert_to_tensor_v2(y_pred)
         y_true = math_ops.cast(y_true, y_pred.dtype)
         sagr = math_ops.cast(tf.math.equal(math_ops.sign(y_pred), math_ops.sign(y_true)), y_pred.dtype)
-        sagr = math_ops.reduce_mean(sagr)
+        # sagr = math_ops.reduce_mean(sagr)
         return sagr
 
 
@@ -86,8 +86,8 @@ class SoftF1Loss(tf.keras.losses.Loss):
         fn = math_ops.reduce_sum((1 - y_pred) * y_true, axis=-1, keepdims=True) #compute soft fn
         tn = math_ops.reduce_sum((1 - y_pred) * (1 - y_true), axis=-1, keepdims=True) #compute soft tn
 
-        s_p = 2 * (tp / (tp + fn +fp + 1e-25))
-        s_n = 2 * (tn / (tn + fn + fp + 1e-25))
+        s_p = 2 * tp / (2 * tp + fn + fp + 1e-16)
+        s_n = 2 * tn / (2 * tn + fn + fp + 1e-16)
 
         loss_p = 1  - s_p
         loss_n = 1 - s_n

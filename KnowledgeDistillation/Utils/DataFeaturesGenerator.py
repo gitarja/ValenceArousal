@@ -3,25 +3,24 @@ import os
 import numpy as np
 import random
 from scipy import signal
-from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, classifLabelsConv, regressLabelsConv, emotionLabels
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, FS_ECG_ROAD, N_CLASS
+from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, dreamerLabelsConv, regressLabelsConv, emotionLabels
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
 
 class DataFetch:
-
-    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, multiple=False, soft=False, curriculum=False, training=True):
-        utils_path = "G:\\usr\\nishihara\\GitHub\\ValenceArousal\\Values\\"
+    def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, ECG=False, training=True, high_only=False):
+        utils_path = "D:\\usr\\nishihara\\GitHub\\ValenceArousal\\Values\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
         self.std = np.load(utils_path+"std.npy")
 
         self.KD = KD
-        self.multiple = multiple
+        self.teacher = teacher
         self.ECG_N = ECG_N
-        self.soft = soft
-        self.curriculum = curriculum
+        self.ECG = ECG
+        self.high_only = high_only
         self.w = 0
         self.j =0
         self.ecg_features = ECGFeatures(fs=FS_ECG)
@@ -44,7 +43,9 @@ class DataFetch:
             self.val_n = len(self.data_val)
 
         self.data_test = self.readData(pd.read_csv(test_file), KD)
+        self.data_val = self.readData(pd.read_csv(validation_file), KD)
         self.test_n = len(self.data_test)
+        self.val_n = len(self.data_val)
 
 
 
@@ -58,7 +59,7 @@ class DataFetch:
         if training_mode == 0:
             data_set = self.data_train
         elif training_mode == 1:
-            data_set = self.data_val
+            data_set =  self.data_val
         else:
             data_set = self.data_test
         i = 0
@@ -67,16 +68,17 @@ class DataFetch:
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
-            if self.multiple:
-                if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
-                else:
-                    yield data_i[1], data_i[2], data_i[3], data_i[4]
+            if self.teacher:
+                yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                    if self.ECG:
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5],  data_i[6]
+                    else:
+                        yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4],  data_i[6]
                 else:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4]
+                    yield data_i[1], data_i[2], data_i[3], data_i[4]
+
             i += 1
         self.j+=1
 
@@ -87,6 +89,10 @@ class DataFetch:
     def readData(self, features_list, KD, training=False):
         data_set = []
         features_list = features_list.sample(frac=1.)
+        if training:
+            val_features_neg = features_list[(features_list["Valence_convert"] < 0) & (features_list["Arousal_convert"] < 0)].sample(frac=1.2, replace=True)
+        #     val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9, replace=True)
+        #     features_list = pd.concat([val_features_neg, val_features_pos])
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
             base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
@@ -112,6 +118,7 @@ class DataFetch:
             # if np.sum(np.isinf(concat_features)) == 0 & np.sum(np.isnan(concat_features)) == 0:
             concat_features_norm = (concat_features - self.mean) / self.std
 
+            ECG_features = concat_features_norm[1137:1178]
             # print(np.max(concat_features_norm))
             # print(np.min(concat_features[575:588]))
             y_ar = features_list.iloc[i]["Arousal"]
@@ -136,7 +143,19 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg])
+                # w = features_list.iloc[i]["weight"]
+                w = 1
+
+
+                #resampling data
+                # if training:
+                #     if (y_r_ar < 0 and y_val < 0) or (y_r_ar> 0 and y_val< 0):
+                #         w = 2.
+                if self.high_only:
+                    if w == 1:
+                         data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
+                else:
+                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, ECG_features, w])
 
 
 
@@ -186,7 +205,7 @@ class DataFetchPreTrain:
         while i < len(data_set):
             # print(i)
             data_i = data_set[i]
-            yield data_i[0], data_i[1]
+            yield data_i[0], data_i[1], data_i[2]
             i += 1
 
 
@@ -194,25 +213,29 @@ class DataFetchPreTrain:
         data_set = []
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
-            base_path = DATASET_PATH + features_list.iloc[i]["Subject"][3:] + "\\" + features_list.iloc[i][
-                "Subject"]
+            base_path = DREAMER_PATH + "Subject_" + str(features_list.iloc[i]["Subject"]) + "\\"
 
-            ecg_raw = base_path + ECG_R_PATH + "ecg_raw_" + str(filename) + ".npy"
+            ecg_raw = base_path + ECG_D_R_PATH + "ecg_raw_" + str(filename) + ".npy"
 
             files = [ecg_raw]
             features = Parallel(n_jobs=2)(delayed(np.load)(files[j]) for j in range(len(files)))
             ecg = features[-1]
 
+            y_ar = features_list.iloc[i]["Arousal"]
+            y_val = features_list.iloc[i]["Valence"]
+
+            y_ar = dreamerLabelsConv(y_ar)
+            y_val = dreamerLabelsConv(y_val)
 
             if len(ecg) >= self.ECG_N:
 
                     ecg = ecg[-self.ECG_N:]
-                    label = np.zeros_like(ecg[-self.ECG_N:])
-                    label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1
+                    # label = np.zeros_like(ecg[-self.ECG_N:])
+                    # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1
 
-                    ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                    ecg = (ecg -90.78141076568373) / 59.767689226267635
 
-                    data_set.append([ecg[-self.ECG_N:], label])
+                    data_set.append([ecg[-self.ECG_N:], y_ar, y_val])
 
         return data_set
 
@@ -258,11 +281,12 @@ class DataFetchRoad:
         mask_file = pd.read_csv(self.mask_file)
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
-        ecg_data.loc[0:600000, 'ecg'] = mask_file.loc[0:600000, 'ecg']
+
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
-            end = start + (SPLIT_TIME+1)
+            end = start + (SPLIT_TIME+2)
             ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
+            print(len(ecg))
             if len(ecg) >= self.ecg_n:
                 ecg = ecg[:self.ecg_n]
 
@@ -275,6 +299,7 @@ class DataFetchRoad:
 
                 #raw ecg
                 ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                # ecg = (ecg - 2048.485947046843) / 156.5629266658633
                 # ecg = ecg / (4095 - 0)
                 # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
                 data_set.append(ecg)
