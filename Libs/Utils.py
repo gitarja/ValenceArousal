@@ -57,6 +57,16 @@ def regressLabelsConv(y):
         return 2
     return y
 
+def convertLabels(arousal, valence):
+    if arousal == 0 and valence == 0:
+        return 0
+    elif arousal == 1 and valence == 0:
+        return 1
+    elif arousal == 0 and valence == 1:
+        return 2
+    else:
+        return 3
+
 
 def convertLabels(arousal, valence):
     if arousal == 0 and valence == 0:
