@@ -21,24 +21,24 @@ for folder in glob.glob(DATASET_PATH + "*"):
         print(subject)
         try:
             # filter ecg iPhone
-            ecg = pd.read_csv(glob.glob(subject+ecg_file+"*.csv")[0])
-            ecg_filtered = ecg_features.filterECG(ecg["ecg"].values)
-            ecg["ecg"] = ecg_filtered
-            ecg.to_csv(subject+ecg_file+"filtered_ecg.csv", index=False)
-
-            # filter PPG and EDA
-            gsr = pd.read_csv(glob.glob(subject + gsr_file + "*.csv")[0],  header=[0,1])
-            time = gsr.iloc[:, 0].values
-            eda = gsr.iloc[:, 5].values
-            ppg = gsr.iloc[:, 7].values
-            filtered_eda = eda_features.filterEDA(eda)
-            filtered_ppg = ppg_features.filterPPG(ppg)
-
-            eda_final = pd.DataFrame({"time": time, "eda": filtered_eda})
-            ppg_final = pd.DataFrame({"time": time, "ppg": filtered_ppg})
-
-            eda_final.to_csv(subject + gsr_file +"filtered_eda.csv", index=False)
-            ppg_final.to_csv(subject + gsr_file +"filtered_ppg.csv", index=False)
+            # ecg = pd.read_csv(glob.glob(subject+ecg_file+"*.csv")[0])
+            # ecg_filtered = ecg_features.filterECG(ecg["ecg"].values)
+            # ecg["ecg"] = ecg_filtered
+            # ecg.to_csv(subject+ecg_file+"filtered_ecg.csv", index=False)
+            #
+            # # filter PPG and EDA
+            # gsr = pd.read_csv(glob.glob(subject + gsr_file + "*.csv")[0],  header=[0,1])
+            # time = gsr.iloc[:, 0].values
+            # eda = gsr.iloc[:, 5].values
+            # ppg = gsr.iloc[:, 7].values
+            # filtered_eda = eda_features.filterEDA(eda)
+            # filtered_ppg = ppg_features.filterPPG(ppg)
+            #
+            # eda_final = pd.DataFrame({"time": time, "eda": filtered_eda})
+            # ppg_final = pd.DataFrame({"time": time, "ppg": filtered_ppg})
+            #
+            # eda_final.to_csv(subject + gsr_file +"filtered_eda.csv", index=False)
+            # ppg_final.to_csv(subject + gsr_file +"filtered_ppg.csv", index=False)
 
             # filter ECG and Resp
             ecg_resp = pd.read_csv(glob.glob(subject + resp_file + "*.csv")[0], header=[0, 1])

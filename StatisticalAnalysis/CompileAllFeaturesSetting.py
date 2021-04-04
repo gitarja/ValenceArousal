@@ -5,68 +5,56 @@ import glob
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE, ECG_PATH
 
-for folder in glob.glob(DATASET_PATH + "2020-*"):
+
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
-            eeg_features_list = pd.read_csv(subject + "\\EEG_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            ecg_features_list = pd.read_csv(subject + "\\ECG_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            GSR_features_list = pd.read_csv(subject + "\\GSR_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
-            Resp_features_list = pd.read_csv(subject + "\\Resp_features_list_" + str(STRIDE) + ".csv").set_index('Idx')
+            eeg_features_list = pd.read_csv(subject+"\\EEG_features_list_"+str(STRIDE)+".csv").set_index('Idx')
+            ecg_features_list = pd.read_csv(subject+"\\ECG_features_list_"+str(STRIDE)+".csv").set_index('Idx')
+            GSR_features_list = pd.read_csv(subject+"\\GSR_features_list_"+str(STRIDE)+".csv").set_index('Idx')
+            Resp_features_list = pd.read_csv(subject+"\\Resp_features_list_"+str(STRIDE)+".csv").set_index('Idx')
 
-            features_list = ecg_features_list[
-                (eeg_features_list["Status"] == 1) & (GSR_features_list["Status"] == 1) & (
-                            Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
+            features_list = ecg_features_list[(eeg_features_list["Status"]==1) & (GSR_features_list["Status"]==1) & (Resp_features_list["Status"]==1) & (ecg_features_list["Status"]==1)]
             # print(str(np.sum(eeg_features_list["Status"].values)) + "," + str(len(features_list)))
             # features_list = ecg_features_list[ (GSR_features_list["Status"] == 1) & (
             #                 Resp_features_list["Status"] == 1) & (ecg_features_list["Status"] == 1)]
-            features_list.to_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
+            features_list.to_csv(subject+"\\features_list_"+str(STRIDE)+".csv")
         except:
-            print("Error: " + subject)
+            print("Error: "+ subject)
+
 
 # SPlit to train test and val
 
 all_features = []
-ecg_mean = np.load("G:\\usr\\nishihara\\GitHub\\EmotionRecognition\\Values\\ecg_mean.npy")
-for folder in glob.glob(DATASET_PATH + "2020-*"):
+for folder in glob.glob(DATASET_PATH + "*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
-        features_list = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
-        features_list_ori = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
-        video_seq = 0
-        ecg_features_all = []
-        weights = []
+        try:
+            features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
+            features_list_ori = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
 
-        for idx in features_list["Idx"].values:
-            ecg_features_all.append(np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0))
-        ecg_features_all = np.concatenate(ecg_features_all, axis=0)
-        hr_mean = np.mean(ecg_features_all[:, 6])
+            hr_all = []
 
-        ecg_features = []
-        for i, idx in enumerate(features_list["Idx"].values):
-            ecg_features.append(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"))
-            if (i + 1) < len(features_list):
-                t_delta = features_list.iloc[i + 1]["Start"] - features_list.iloc[i]["Start"]
+            w = np.ones(len(features_list.index))
+            for idx in features_list["Idx"].values:
+                hr_all.append(
+                    np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0)[0,3])
+            hr_all = np.array(hr_all)
+            hr_mean = np.mean(hr_all)
+            w[hr_all < hr_mean] = 0.5
 
-            if (t_delta >= 0) or ((i + 1) >= len(features_list)):
-                if len(ecg_features) < 10:
-                    weights.append(np.ones((len(ecg_features),)))
-                else:
-                    for f in ecg_features:
-                        if f[6] < hr_mean:
-                            weights.append(np.array([0.5]))
-                        else:
-                            weights.append(np.array([1.]))
+            features_list["weight"] = w
+            features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
+            features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
+            all_features.append(features_list)
+        except:
+            print("Error" + subject)
 
-                ecg_features = []
 
-        weights = np.concatenate(weights, axis=0)
-        features_list["Weight"] = weights
-        features_list["Valence_convert"] = features_list["Valence"].apply(arToLabels)
-        features_list["Arousal_convert"] = features_list["Arousal"].apply(valToLabels)
-        all_features.append(features_list)
+
 
 df = pd.concat(all_features, ignore_index=True)
 
-# resample
+#resample
 # df_postivie_ar = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 1) ].sample(frac=.7)
 # df_postivie_val = df[(df["Arousal_convert"].values == 1) & (df["Valence_convert"].values == 0) ].sample(frac=1.)
 #
@@ -75,7 +63,7 @@ df = pd.concat(all_features, ignore_index=True)
 # #
 # df = pd.concat([df_postivie_ar, df_postivie_val, df_negative_ar, df_negative_val])
 
-# compute label porpotion
+#compute label porpotion
 
 ar_labels = df["Arousal_convert"].values
 val_labels = df["Valence_convert"].values
@@ -95,6 +83,9 @@ val_labels = df["Valence_convert"].values
 
 y = convertLabelsReg(df["Arousal_convert"].values, df["Valence_convert"].values)
 
+
+
+
 # #Split to train and test
 skf = StratifiedKFold(n_splits=5, shuffle=True)
 fold = 1
@@ -106,7 +97,29 @@ for train_index, test_index in skf.split(df.index, y):
     val_data = df.iloc[X_val]
     test_data = df.iloc[X_test]
     #
-    training_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\training_data_" + str(fold) + ".csv", index=False)
-    val_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\validation_data_" + str(fold) + ".csv", index=False)
-    test_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\test_data_" + str(fold) + ".csv", index=False)
+    training_data.to_csv(DATASET_PATH + "training_data_"+str(fold)+".csv", index=False)
+    val_data.to_csv(DATASET_PATH + "validation_data_"+str(fold)+".csv", index=False)
+    test_data.to_csv(DATASET_PATH + "test_data_"+str(fold)+".csv", index=False)
     fold += 1
+
+# # Split to cross validation
+
+# subjects = np.unique(df["Subject"].values)
+# np.random.shuffle(subjects)
+#
+# for j in range(len(subjects) // 6):
+#     val_subjects = subjects[j * 6: (j + 1) * 6]
+#
+#     training_data = df_ori[
+#         (df["Subject"] != val_subjects[0]) & (df["Subject"] != val_subjects[1]) & (df["Subject"] != val_subjects[2]) & (
+#                     df["Subject"] != val_subjects[3]) & (df["Subject"] != val_subjects[4]) & (
+#                     df["Subject"] != val_subjects[5])]
+#     val_data = df_ori[(df["Subject"] == val_subjects[0]) | (df["Subject"] == val_subjects[1]) | (
+#             df["Subject"] == val_subjects[2])]
+#     test_data = df_ori[
+#         (df["Subject"] == val_subjects[3]) | (df["Subject"] == val_subjects[4]) | (df["Subject"] == val_subjects[5])]
+#
+#     training_data.to_csv(DATASET_PATH + "training_data_" + str(j) + ".csv", index=False)
+#     val_data.to_csv(DATASET_PATH + "validation_data_" + str(j) + ".csv", index=False)
+
+

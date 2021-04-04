@@ -10,8 +10,9 @@ from joblib import Parallel, delayed
 
 
 class DataFetch:
+
     def __init__(self, train_file=None, validation_file=None, test_file=None, ECG_N=None, KD=False, teacher=False, ECG=False, training=True, high_only=False):
-        utils_path = "D:\\usr\\nishihara\\GitHub\\ValenceArousal\\Values\\"
+        utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
         self.max = np.load(utils_path+"max.npy")
         self.mean = np.load(utils_path+"mean.npy")
         self.std = np.load(utils_path+"std.npy")
@@ -53,6 +54,7 @@ class DataFetch:
 
     def fetch(self, training_mode=0):
         '''
+
         :param training_mode: 0 = training, 1 = testing, 2 = validation
         :return:
         '''
@@ -191,6 +193,7 @@ class DataFetchPreTrain:
 
     def fetch(self, training_mode=0):
         '''
+
         :param training_mode: 0 = training, 1 = testing, 2 = validation
         :return:
         '''
@@ -305,3 +308,5 @@ class DataFetchRoad:
                 data_set.append(ecg)
             # print(ecg)
         return data_set
+
+

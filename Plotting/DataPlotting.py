@@ -1,5 +1,4 @@
 import glob
-import os
 from Conf.Settings import FS_ECG, FS_GSR, FS_RESP, SPLIT_TIME
 from ECG.ECGFeatures import ECGFeatures
 from GSR.GSRFeatures import PPGFeatures, EDAFeatures
@@ -10,14 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-data_path = "G:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\*"
+data_path = "D:\\usr\\pras\\data\\YAMAHA\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\*"
 ecg_file = "\\ECG\\filtered_ecg.csv"
 eda_file = "\\GSR\\filtered_eda.csv"
 ppg_file = "\\GSR\\filtered_ppg.csv"
 resp_file = "\\Resp\\filtered_resp.csv"
 ecg_resp_file = "\\Resp\\filtered_ecg_resp.csv"
 game_result = "\\*_gameResults.csv"
-plot_result = "\\plot_eps\\"
+plot_result = "\\plot\\"
 
 ecg_features = ECGFeatures(fs=FS_ECG)
 ppg_features = PPGFeatures(fs=FS_GSR)
@@ -70,32 +69,18 @@ for folder in glob.glob(data_path):
                 ecg_resp_split = ecg_resp[(ecg_resp.iloc[:, 0].values >= start) & (
                         ecg_resp.iloc[:, 0].values <= end)].values[:, 1]
 
-                fig = plt.figure()
-                plt.subplot(411)
-                plt.plot(np.linspace(0, SPLIT_TIME, len(ecg_split)), ecg_split)
-                plt.ylabel("Amplitude")
-                plt.tick_params(labelbottom=False)
-                # plt.subplot(512)
-                # plt.plot(ecg_resp_split)
-                plt.subplot(412)
-                plt.plot(np.linspace(0, SPLIT_TIME, len(ppg_split)), ppg_split)
-                plt.ylabel("Amplitude")
-                plt.tick_params(labelbottom=False)
-                plt.subplot(413)
-                plt.plot(np.linspace(0, SPLIT_TIME, len(eda_split)), eda_split)
-                plt.ylabel("Amplitude")
-                plt.tick_params(labelbottom=False)
-                plt.subplot(414)
-                plt.plot(np.linspace(0, SPLIT_TIME, len(resp_split)), resp_split)
-                plt.ylabel("Amplitude")
-                plt.xlabel("Time [s]")
+                plt.subplot(511)
+                plt.plot(ecg_split)
+                plt.subplot(512)
+                plt.plot(ecg_resp_split)
+                plt.subplot(513)
+                plt.plot(ppg_split)
+                plt.subplot(514)
+                plt.plot(eda_split)
+                plt.subplot(515)
+                plt.plot(resp_split)
 
-                fig.tight_layout()
-                fig.align_labels()
-                # plt.show()
-
-                os.makedirs(subject + plot_result, exist_ok=True)
-                fig.savefig(subject + plot_result + str(i) + "_" + str(idx) + "_" + str(valence) +"_"+str(arousal)+".eps")
+                plt.savefig(subject + plot_result + str(i) + "_" + str(idx) + "_" + str(valence) +"_"+str(arousal)+".png")
                 plt.close()
                 idx+=1
 
