@@ -89,10 +89,10 @@ def multipleLabels(ar, val):
 
 def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
     #labels
-    B1 = (y_ar > 0) & (y_val > 0)
-    A1 = (y_ar > 0) & (y_val < 0)
-    B3 = (y_ar < 0) & (y_val > 0)
-    A3 = (y_ar < 0) & (y_val < 0)
+    B1 = (y_ar > th) & (y_val > th)
+    A1 = (y_ar > th) & (y_val < -th)
+    B3 = (y_ar < -th) & (y_val > th)
+    A3 = (y_ar < -th) & (y_val < -th)
     A2 = (y_ar == 0) & (y_val < 0)
     B2 = (y_ar == 0) & (y_val > 0)
     C = y_val == 0

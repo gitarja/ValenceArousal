@@ -125,9 +125,9 @@ with strategy.scope():
 
     val_results = np.array(val_results)
 
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="hard")
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="soft")
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="false")
+    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="hard", th=1.)
+    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="soft", th=1.)
+    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="false", th=1.)
 
     # val positif
     a_p = (ar_results[:, 1] > 0)

@@ -132,7 +132,8 @@ with strategy.scope():
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     optimizer_pre = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    # optimizer = tfa.optimizers.RectifiedAdam(learning_rate=1e-4, total_steps=int(total_steps/2), warmup_proportion=0.1, min_lr=1e-5)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=1e-4, total_steps=int(total_steps/2), warmup_proportion=0.1, min_lr=1e-5)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
     # train
