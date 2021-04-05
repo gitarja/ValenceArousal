@@ -34,17 +34,30 @@ for folder in glob.glob(DATASET_PATH + "*"):
 
             hr_all = []
 
-            w = np.ones(len(features_list.index))
+
             for idx in features_list["Idx"].values:
                 hr_all.append(
                     np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0)[0,3])
-            hr_all = np.array(hr_all)
-            hr_mean = np.mean(hr_all)
-            w[hr_all < hr_mean] = 0.5
 
-            features_list["weight"] = w
             features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
             features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
+            a_h_v_n = (features_list["Arousal_convert"].values > 1) & (features_list["Valence_convert"].values < 0)
+            a_l_v_n = (features_list["Arousal_convert"].values < 0) & (features_list["Valence_convert"].values < 0)
+            a_h_v_p = (features_list["Arousal_convert"].values > 0) & (features_list["Valence_convert"].values > 0)
+            a_l_v_p = (features_list["Arousal_convert"].values < 0) & (features_list["Valence_convert"].values > 0)
+
+            #decide weights
+            hr_all = np.array(hr_all)
+            hr_mean = np.mean(hr_all)
+            w = np.ones(len(features_list.index)) * 0.5
+            w[(hr_all > hr_mean) & a_h_v_n ] = 1.
+            w[(hr_all < hr_mean) & a_l_v_n] = 1.
+            w[(hr_all > hr_mean) & a_h_v_p] = 1.
+            w[(hr_all < hr_mean) & a_l_v_p] = 1.
+
+
+            features_list["weight"] = w
+
             all_features.append(features_list)
         except:
             print("Error" + subject)
