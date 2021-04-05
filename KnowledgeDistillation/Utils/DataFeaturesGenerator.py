@@ -136,7 +136,8 @@ class DataFetch:
             if self.RESP:
                 resp_features = (resp_features - self.mean_resp) / self.std_resp
                 features_student.append(resp_features)
-            features_student = np.concatenate(features_student)
+            if features_student:
+                features_student = np.concatenate(features_student)
 
             # else:
             #     files = [eda_features_file, ppg_features_file, resp_features_file, ecg_resp_features_file, ecg_features_file, eeg_features_file

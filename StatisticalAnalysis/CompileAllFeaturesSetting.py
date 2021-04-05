@@ -26,7 +26,7 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
 # SPlit to train test and val
 
 all_features = []
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_"+str(STRIDE)+".csv")
@@ -97,9 +97,9 @@ for train_index, test_index in skf.split(df.index, y):
     val_data = df.iloc[X_val]
     test_data = df.iloc[X_test]
     #
-    training_data.to_csv(DATASET_PATH + "training_data_"+str(fold)+".csv", index=False)
-    val_data.to_csv(DATASET_PATH + "validation_data_"+str(fold)+".csv", index=False)
-    test_data.to_csv(DATASET_PATH + "test_data_"+str(fold)+".csv", index=False)
+    training_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\training_data_"+str(fold)+".csv", index=False)
+    val_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\validation_data_"+str(fold)+".csv", index=False)
+    test_data.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\test_data_"+str(fold)+".csv", index=False)
     fold += 1
 
 # # Split to cross validation

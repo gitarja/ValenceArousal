@@ -2,15 +2,13 @@ from ECG.ECGFeatures import ECGFeatures
 import pandas as pd
 from Libs.Utils import timeToInt, arToLabels
 import numpy as np
-from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, DATASET_PATH, RESULTS_PATH
+from Conf.Settings import SPLIT_TIME, FS_ECG, STRIDE, EXTENTION_TIME, DATASET_PATH, RESULTS_PATH, ECG_PATH, ECG_R_PATH
 from os import path
 import os
 import glob
 
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
-ECG_PATH = RESULTS_PATH + "ECG_new\\"
-ECG_R_PATH = RESULTS_PATH + "ECG_RAW_new\\"
 
 for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
@@ -88,7 +86,7 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
                     idx += 1
 
             # save to csv
-            emotionTestResult.to_csv(subject + "\\ECG_new_features_list_" + str(STRIDE) + ".csv", index=False)
+            emotionTestResult.to_csv(subject + "\\ECG_features_list_" + str(STRIDE) + ".csv", index=False)
 
         except:
             print("Error:" + subject)
