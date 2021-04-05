@@ -90,9 +90,9 @@ with strategy.scope():
     total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95, staircase=True)
-    # optimizer = tf.keras.optimizers.Adamax(learning_rate=initial_learning_rate)
-    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
-                                             warmup_proportion=0.1, min_lr=1e-5)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    # optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
+    #                                          warmup_proportion=0.1, min_lr=1e-5)
 
     # ---------------------------Loss & Metrics--------------------------#
     # loss
