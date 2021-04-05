@@ -7,21 +7,17 @@ from os import path
 import os
 import glob
 
-
-
 ecg_file = "\\ECG\\"
 game_result = "\\*_gameResults.csv"
 
-
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         print(subject)
         if not path.exists(subject + RESULTS_PATH):
             os.mkdir(subject + RESULTS_PATH)
         try:
-            data =  pd.read_csv(glob.glob(subject + ecg_file + "*.csv")[0])
+            data = pd.read_csv(subject + ecg_file + "filtered_ecg.csv")
             data_EmotionTest = pd.read_csv(glob.glob(subject + game_result)[0])
-
 
             # convert timestamp to int
             data.loc[:, 'timestamp'] = data.loc[:, 'timestamp'].apply(timeToInt)
@@ -30,7 +26,8 @@ for folder in glob.glob(DATASET_PATH + "*"):
 
             # features extractor
             featuresExct = ECGFeatures(FS_ECG)
-            emotionTestResult = pd.DataFrame(columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
+            emotionTestResult = pd.DataFrame(
+                columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
 
             idx = 0
             for i in range(len(data_EmotionTest)):
@@ -44,23 +41,21 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 bin_ar = arToLabels(arousal)
                 bin_val = arToLabels(valence)
 
-                if (bin_ar == 1) or (bin_val == 1):
-                    end_extract = 0.5 * (tdelta // SPLIT_TIME)  # use only half of the data from the mid to  the last
-                else:
-                    end_extract = 0.3 * (tdelta // SPLIT_TIME)  # use only 2/3 of the data
+                # if (bin_ar == 1) or (bin_val == 1):
+                #     end_extract = 0.5 * (tdelta // SPLIT_TIME)  # use only half of the data from the mid to the last
+                # else:
+                #     end_extract = 0.3 * (tdelta // SPLIT_TIME)  # use only 2/3 of the data
 
                 for j in np.arange(0, (tdelta // SPLIT_TIME), STRIDE):
                     # take 2.5 sec after end
                     # end = time_end - ((j - 1) * SPLIT_TIME) + EXTENTION_TIME
                     # start = time_end - (j * SPLIT_TIME)
 
-
                     end = time_end - ((j) * SPLIT_TIME)
-                    start = time_end - ((j+1) * SPLIT_TIME) - EXTENTION_TIME
+                    start = time_end - ((j + 1) * SPLIT_TIME) - EXTENTION_TIME
 
                     ecg = data[(data["timestamp"].values >= start) & (data["timestamp"].values <= end)]
                     status = 0
-
 
                     # extract ecg features
                     ecg_values = ecg['ecg'].values
@@ -85,12 +80,13 @@ for folder in glob.glob(DATASET_PATH + "*"):
                     # add object to dataframes
                     subject_name = subject.split("\\")[-1]
                     emotionTestResult = emotionTestResult.append(
-                        {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end), "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
+                        {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end),
+                         "Valence": valence, "Arousal": arousal, "Emotion": emotion, "Status": status},
                         ignore_index=True)
                     idx += 1
 
             # save to csv
-            emotionTestResult.to_csv(subject + "\\ECG_features_list_"+str(STRIDE)+".csv", index=False)
+            emotionTestResult.to_csv(subject + "\\ECG_features_list_" + str(STRIDE) + ".csv", index=False)
 
         except:
-            print("Error:"+ subject)
+            print("Error:" + subject)

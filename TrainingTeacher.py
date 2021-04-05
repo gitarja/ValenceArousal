@@ -1,6 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, TRAINING_RESULTS_PATH, N_CLASS
+from Conf.Settings import FEATURES_N, DATASET_PATH, ECG_RAW_N, CHECK_POINT_PATH, TENSORBOARD_PATH, \
+    TRAINING_RESULTS_PATH, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from KnowledgeDistillation.Utils.Metrics import PCC, SAGR, CCC, SoftF1
 import datetime
@@ -9,7 +10,7 @@ import numpy as np
 import sys
 import tensorflow_addons as tfa
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -24,7 +25,7 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
+cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=1)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
@@ -36,11 +37,10 @@ th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 15
 
-
 # setting
-fold = str(sys.argv[1])
-# fold=1
-#setting model
+# fold = str(sys.argv[1])
+fold = 1
+# setting model
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
@@ -65,7 +65,7 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(),
-    output_types=(tf.float32, tf.float32, tf.float32, tf.float32 ),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), ()))
 
 val_generator = tf.data.Dataset.from_generator(
@@ -99,39 +99,38 @@ with strategy.scope():
     loss_train = tf.keras.metrics.Mean()
     loss_test = tf.keras.metrics.Mean()
 
-    #soft f1
+    # soft f1
     softf1_train = SoftF1()
     softf1_test = SoftF1()
-    #rmse
-    #train
+    # rmse
+    # train
     rmse_ar_train = tf.keras.metrics.RootMeanSquaredError()
     rmse_val_train = tf.keras.metrics.RootMeanSquaredError()
-    #val
+    # val
     rmse_ar_test = tf.keras.metrics.RootMeanSquaredError()
     rmse_val_test = tf.keras.metrics.RootMeanSquaredError()
 
-    #pcc
-    #train
+    # pcc
+    # train
     pcc_ar_train = PCC()
     pcc_val_train = PCC()
-    #test
+    # test
     pcc_ar_test = PCC()
     pcc_val_test = PCC()
-    #ccc
-    #train
+    # ccc
+    # train
     ccc_ar_train = CCC()
     ccc_val_train = CCC()
-    #test
+    # test
     ccc_ar_test = CCC()
     ccc_val_test = CCC()
-    #sagr
-    #train
+    # sagr
+    # train
     sagr_ar_train = SAGR()
     sagr_val_train = SAGR()
-    #test
+    # test
     sagr_ar_test = SAGR()
     sagr_val_test = SAGR()
-
 
     # Manager
     checkpoint = tf.train.Checkpoint(step=tf.Variable(1), teacher_model=model)
@@ -151,7 +150,7 @@ with strategy.scope():
             z_em, z_r_ar, z_r_val, rec_X, _ = model(X, training=True)
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE)
+                                                          global_batch_size=GLOBAL_BATCH_SIZE)
             rec_loss = model.reconstructLoss(X, rec_X, global_batch_size=GLOBAL_BATCH_SIZE)
 
             final_loss = regress_loss + classific_loss + rec_loss
@@ -160,7 +159,8 @@ with strategy.scope():
         grads = tape_ar.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_train_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val],
+                             y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -174,11 +174,12 @@ with strategy.scope():
         z_em, z_r_ar, z_r_val, _, _ = model(X, training=False)
         classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
         mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                     global_batch_size=GLOBAL_BATCH_SIZE)
+                                                      global_batch_size=GLOBAL_BATCH_SIZE)
 
         final_loss = regress_loss + classific_loss
 
-        update_test_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_test_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val],
+                            y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -218,7 +219,7 @@ with strategy.scope():
         # test
         sagr_ar_test.reset_states()
         sagr_val_test.reset_states()
-        #soft f1
+        # soft f1
         softf1_train.reset_states()
         softf1_test.reset_states()
 
@@ -241,6 +242,7 @@ with strategy.scope():
         ccc_val_train(y_r_val, z_r_val)
         sagr_val_train(y_r_val, z_r_val)
 
+
     def update_test_metrics(loss, y, z):
         z_em, z_r_ar, z_r_val = z  # logit
         y_em, y_r_ar, y_r_val = y  # ground truth
@@ -261,7 +263,6 @@ with strategy.scope():
         sagr_val_test(y_r_val, z_r_val)
 
 
-
     def write_train_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_train.result(), step=epoch)
         # soft f1
@@ -277,6 +278,7 @@ with strategy.scope():
         tf.summary.scalar('CCC valence', ccc_val_train.result(), step=epoch)
         tf.summary.scalar('SAGR valence', sagr_val_train.result(), step=epoch)
 
+
     def write_test_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_test.result(), step=epoch)
         # soft f1
@@ -291,8 +293,6 @@ with strategy.scope():
         tf.summary.scalar('PCC valence', pcc_val_test.result(), step=epoch)
         tf.summary.scalar('CCC valence', ccc_val_test.result(), step=epoch)
         tf.summary.scalar('SAGR valence', sagr_val_test.result(), step=epoch)
-
-
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
@@ -346,7 +346,6 @@ with strategy.scope():
         if (wait_i == wait):
             break
 
-
     print("-------------------------------------------Testing----------------------------------------------")
     for step, test in enumerate(test_data):
         distributed_test_step(test, ALL_BATCH_SIZE)
@@ -366,4 +365,3 @@ with strategy.scope():
         np.mean(softf1_test.result().numpy())
     ))
     sys.stdout.close()
-

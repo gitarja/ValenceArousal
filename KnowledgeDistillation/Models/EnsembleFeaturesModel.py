@@ -185,15 +185,15 @@ class EnsembleSeparateModel(tf.keras.Model):
     def predictKD(self, X):
         logits = self.call(X, training=False)
 
-        ar_logit = tf.reduce_mean(logits[0], axis=0)
-        val_logit = tf.reduce_mean(logits[1], axis=0)
-        z = tf.reduce_mean(logits[3], axis=0)
+        ar_logit = tf.reduce_mean(logits[1], axis=0)
+        val_logit = tf.reduce_mean(logits[2], axis=0)
+        z = tf.reduce_mean(logits[4], axis=0)
 
         return ar_logit, val_logit, z
     @tf.function
     def train(self, X, y_em, y_ar, y_val, global_batch_size, training=True):
         # compute AR and VAL logits
-        z_em, z_ar, z_val, x = self.call(X, training)
+        z_em, z_ar, z_val, x, _ = self.call(X, training)
 
         # compute emotion loss
         losses_em = self.f1_loss(y_em, tf.sigmoid(z_em))

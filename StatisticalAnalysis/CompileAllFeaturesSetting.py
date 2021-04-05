@@ -6,7 +6,7 @@ import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE, ECG_PATH
 
 
-for folder in glob.glob(DATASET_PATH + "*"):
+for folder in glob.glob(DATASET_PATH + "2020-*"):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             eeg_features_list = pd.read_csv(subject+"\\EEG_features_list_"+str(STRIDE)+".csv").set_index('Idx')

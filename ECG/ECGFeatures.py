@@ -103,7 +103,7 @@ class ECGFeatures:
             nni = self.extractRR(x)
             sampEntro = nn.sample_entropy(nni=nni, dim=2) #change dim from 1 to 2
             lyapEx = self.lyapunov_exponent(nni=nni, emb_dim=3, matrix_dim=2)
-            pointCare = nn.poincare(nni=nni, show=False)
+            pointCare = nn.poincare(nni=nni, show=False, ellipse=False, vectors=False, legend=False)
             # hrust = nolds.hurst_rs(nni)
             corrDim = nolds.corr_dim(nni, emb_dim=3)
             # csi = get_csi_cvi_features(nni) #caused worse results
