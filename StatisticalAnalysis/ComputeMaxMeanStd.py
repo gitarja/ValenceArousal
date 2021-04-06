@@ -34,11 +34,11 @@ for folder in glob.glob(DATASET_PATH + "2020-*\\"):
             all_features.append(np.concatenate(concat_features))
 
 # eeg_features = np.concatenate(eeg_features)
-ecg_features = np.concatenate(ecg_features)
-eda_features = np.concatenate(eda_features)
-ppg_features = np.concatenate(ppg_features)
-resp_features = np.concatenate(resp_features)
-all_features = np.concatenate(all_features)
+ecg_features = np.concatenate(np.expand_dims(ecg_features, axis=0))
+eda_features = np.concatenate(np.expand_dims(eda_features, axis=0))
+ppg_features = np.concatenate(np.expand_dims(ppg_features, axis=0))
+resp_features = np.concatenate(np.expand_dims(resp_features, axis=0))
+all_features = np.concatenate(np.expand_dims(all_features, axis=0))
 
 max_value = all_features.max(axis=0)
 min_value = all_features.min(axis=0)
