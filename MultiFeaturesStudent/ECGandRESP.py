@@ -1,6 +1,6 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleModel, EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS, ECG_N, PPG_N
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS, ECG_N, Resp_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
@@ -45,12 +45,12 @@ fold=1
 prev_val_loss = 2000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
-checkpoint_prefix = result_path + "model_student_ECG_PPG_KD"
+checkpoint_prefix = result_path + "model_student_ECG_RESP_KD"
 
 # tensorboard
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-train_log_dir = result_path + "tensorboard_student_ECG_PPG_KD\\" + current_time + '/train'
-test_log_dir = result_path + "tensorboard_student_ECG_PPG_KD\\" + current_time + '/test'
+train_log_dir = result_path + "tensorboard_student_ECG_RESP_KD\\" + current_time + '/train'
+test_log_dir = result_path + "tensorboard_student_ECG_RESP_KD\\" + current_time + '/test'
 train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
@@ -61,23 +61,23 @@ validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + 
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, PPG=True, high_only=False)
+                       ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, RESP=True, high_only=False)
 generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
     output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + PPG_N]), ()))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + Resp_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=1),
     output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + PPG_N]), ()))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + Resp_N]), ()))
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
     output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + PPG_N]), ()))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + Resp_N]), ()))
 
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
@@ -378,7 +378,7 @@ with strategy.scope():
         distributed_test_step(test, ALL_BATCH_SIZE)
     template = (
         "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {}")
-    sys.stdout = open(result_path + "summary_student_ECG_PPG_KD.txt", "w")
+    sys.stdout = open(result_path + "summary_student_ECG_RESP_KD.txt", "w")
     print(template.format(
         loss_test.result().numpy(),
         rmse_ar_test.result().numpy(),

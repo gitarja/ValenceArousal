@@ -6,7 +6,7 @@ from Conf.Settings import DATASET_PATH, STRIDE
 from Libs.Utils import regressLabelsConv
 
 TH = 0.5
-distribution = pd.DataFrame(np.zeros(shape=(1, 7)), columns=["A1", "A2", "A3", "B1", "B2", "B3", "C"], dtype="int64")
+distribution = pd.DataFrame(np.zeros(shape=(1, 7)), columns=["A1", "A2", "A3", "B1", "B2", "B3", "C"], dtype="float64")
 
 for folder in glob.glob(DATASET_PATH + "2020-*\\"):
     for subject in glob.glob(folder + "*-2020-*\\"):
