@@ -140,7 +140,7 @@ def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
     teplate_2 = "{}, {}, {}"
     print("---------------Accuracy-----------------")
     print(template_1.format(B1_results, A1_results, B3_results, A3_results))
-    print("--------------Accuracy Ambgigous-----------")
+    print("--------------Accuracy Ambiguous-----------")
     print(teplate_2.format(A2_results, B2_results, C_results))
 
 

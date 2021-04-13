@@ -81,9 +81,9 @@ test_generator = tf.data.Dataset.from_generator(
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).batch(ALL_BATCH_SIZE)
 
-val_data = val_generator.batch(BATCH_SIZE)
+val_data = val_generator.batch(ALL_BATCH_SIZE)
 
-test_data = test_generator.batch(BATCH_SIZE)
+test_data = test_generator.batch(ALL_BATCH_SIZE)
 
 with strategy.scope():
     model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N)
