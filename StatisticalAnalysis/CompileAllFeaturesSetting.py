@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from Libs.Utils import arToLabels, valToLabels, convertLabels, regressLabelsConv, convertLabelsReg
 import glob
+import os
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE, ECG_PATH
 
@@ -89,6 +90,7 @@ y = convertLabelsReg(df["Arousal_convert"].values, df["Valence_convert"].values)
 # #Split to train and test
 skf = StratifiedKFold(n_splits=5, shuffle=True)
 fold = 1
+os.makedirs(DATASET_PATH + "stride=" + str(STRIDE), exist_ok=True)
 for train_index, test_index in skf.split(df.index, y):
     X_val, X_test, _, _ = train_test_split(test_index, y[test_index], test_size=0.5, random_state=0)
 

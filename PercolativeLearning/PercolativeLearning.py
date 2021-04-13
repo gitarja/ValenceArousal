@@ -44,7 +44,7 @@ for fold in range(1, 2):
     # setting model
     prev_val_loss = 1000
     wait_i = 0
-    result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+    result_path = TRAINING_RESULTS_PATH + "PercolativeLearning\\fold_" + str(fold) + "\\"
     checkpoint_prefix = result_path + "model_teacher"
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

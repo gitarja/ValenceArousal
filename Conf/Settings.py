@@ -9,8 +9,8 @@ STRIDE = 0.2
 EXTENTION_TIME = 2.5
 
 # Features
-FEATURES_N = 2280
-# FEATURES_N = 2508
+# FEATURES_N = 2280
+FEATURES_N = 2508
 # FEATURES_N = 13
 ECG_RAW_N = 11250
 # ECG_RAW_N = 11664
@@ -22,7 +22,7 @@ Resp_N = 11
 ECG_Resp_N = 13
 ECG_N = 41
 # ECG_N = 13
-EEG_N = 1102
+EEG_N = 1330
 
 # Path Const
 DATASET_PATH = "D:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\"
