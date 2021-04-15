@@ -24,10 +24,10 @@ for folder in glob.glob(DATASET_PATH + "2020-*\\"):
             eeg_features_file = subject + EEG_PATH + "eeg_" + str(filename) + ".npy"
             ecg_features_file = subject + ECG_PATH + "ecg_" + str(filename) + ".npy"
             ecg_resp_features_file = subject + ECG_RESP_PATH + "ecg_resp_" + str(filename) + ".npy"
-            files = [eda_features_file, ppg_features_file, resp_features_file, ecg_resp_features_file, eeg_features_file, ecg_features_file]
+            files = [eda_features_file, ppg_features_file, resp_features_file, ecg_resp_features_file, ecg_features_file, eeg_features_file]
             concat_features = Parallel(n_jobs=6)(delayed(np.load)(f) for f in files)
-            # eeg_features.append(concat_features[-2])
-            ecg_features.append(concat_features[-1])
+            # eeg_features.append(concat_features[-1])
+            ecg_features.append(concat_features[-2])
             eda_features.append(concat_features[0])
             ppg_features.append(concat_features[1])
             resp_features.append(concat_features[2])

@@ -149,9 +149,12 @@ with strategy.scope():
 
         with tf.GradientTape() as tape_ar:
             z_em, z_r_ar, z_r_val, rec_X, _ = model(X, training=True)
+            # Emotion classification loss
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
+            # Arousal and Valence regression loss
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                           global_batch_size=GLOBAL_BATCH_SIZE)
+            # Autoencoder loss
             rec_loss = model.reconstructLoss(X, rec_X, global_batch_size=GLOBAL_BATCH_SIZE)
 
             final_loss = regress_loss + classific_loss + rec_loss
