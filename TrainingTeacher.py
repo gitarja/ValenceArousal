@@ -38,12 +38,12 @@ wait = 15
 
 
 # setting
-fold = str(sys.argv[1])
-# fold=1
+# fold = str(sys.argv[1])
+fold=1
 #setting model
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-3)\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_teacher"
 # tensorboard
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -81,9 +81,9 @@ test_generator = tf.data.Dataset.from_generator(
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n).batch(ALL_BATCH_SIZE)
 
-val_data = val_generator.batch(BATCH_SIZE)
+val_data = val_generator.batch(ALL_BATCH_SIZE)
 
-test_data = test_generator.batch(BATCH_SIZE)
+test_data = test_generator.batch(ALL_BATCH_SIZE)
 
 with strategy.scope():
     model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N)

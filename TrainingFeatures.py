@@ -44,7 +44,7 @@ fold = str(sys.argv[1])
 # fold=1
 prev_val_loss = 2000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-3)\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_ECG_KD"
 
 # tensorboard
