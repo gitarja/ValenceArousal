@@ -30,7 +30,7 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = N_CLASS
-initial_learning_rate = 0.5e-3
+initial_learning_rate = 1e-4
 EPOCHS = 2000
 PRE_EPOCHS = 100
 BATCH_SIZE = 512
