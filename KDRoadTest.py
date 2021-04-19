@@ -4,6 +4,7 @@ from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateM
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 import datetime
+import pandas as pd
 import os
 import sys
 
@@ -51,6 +52,7 @@ result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_pre_KD"
 
 # datagenerator
+results_file_name = ROAD_ECG + "TS103_training\\20200617_141440_279_results.csv"
 ecg_data = ROAD_ECG + "TS103_training\\20200617_141440_279_HB_PW.csv"
 gps_data = ROAD_ECG + "TS103_training\\20200617_141440_279_GPS.csv"
 mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
@@ -62,7 +64,7 @@ generator = data_fetch.fetch
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(),
     output_types=(tf.float32),
-    output_shapes=(tf.TensorShape([ECG_RAW_N])))
+    output_shapes=(tf.TensorShape([ECG_N])))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -114,8 +116,12 @@ with strategy.scope():
     it = 0
 
     template = ("{}, {}")
+    data = pd.DataFrame(columns=["arousal", "valence"])
     for step, test in enumerate(test_data):
         prediction_ar, prediction_val = distributed_test_step(test, data_fetch.test_n)
-        print(template.format(convertBond(prediction_ar.numpy()[0, 0]),  convertBond(prediction_val.numpy()[0, 0])))
+        data = data.append({'arousal': prediction_ar.numpy()[0, 0], 'valence': prediction_val.numpy()[0, 0]}, ignore_index=True)
+
+    data.to_csv(results_file_name)
+        # print(template.format(convertBond(prediction_ar.numpy()[0, 0]),  convertBond(prediction_val.numpy()[0, 0])))
 
 

@@ -296,18 +296,18 @@ class DataFetchRoad:
                 ecg = ecg[:self.ecg_n]
 
                 #extract ECG features
-                # time_domain = self.featuresExct.extractTimeDomain(ecg)
-                # freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
-                # nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
-                # concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
-                # data_set.append(concatenate_features)
+                time_domain = self.featuresExct.extractTimeDomain(ecg)
+                freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
+                nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
+                concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
+                data_set.append(concatenate_features)
 
                 #raw ecg
-                ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                # ecg = (ecg - 2140.397356669409) / 370.95493558685325
                 # ecg = (ecg - 2048.485947046843) / 156.5629266658633
                 # ecg = ecg / (4095 - 0)
                 # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
-                data_set.append(ecg)
+                # data_set.append(ecg)
             # print(ecg)
         return data_set
 

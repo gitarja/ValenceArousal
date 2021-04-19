@@ -11,18 +11,22 @@ def convertLabel(ar, val, th=0.5):
     if (ar < th) and (val >= th):
         return 2
 
-def convertLabelThree(ar, val):
-    if abs(ar) <= 0.5 or abs(val) <= 0.5:
+def convertLabelThree(ar, val, th=0.5):
+    if abs(val) <= th:
         return 0
-    elif ar > 0.5:
-        if val > 0.5:
-            return 1
-        elif val < 0.5:
-            return 2
-    elif ar < -0.5:
-        if val > 0.5:
+    elif val > th:
+        if ar > th:
             return 3
-        elif val < 0.5:
+        elif abs(ar) <= th:
+            return 2
+        elif ar < -th:
+            return 1
+    elif val < -th:
+        if ar > th:
+            return 6
+        elif abs(ar) <= th:
+            return 5
+        elif ar < -th:
             return 4
 
 
