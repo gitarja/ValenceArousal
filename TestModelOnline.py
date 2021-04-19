@@ -39,7 +39,7 @@ initial_learning_rate = 1e-3
 EPOCHS = 200
 PRE_EPOCHS = 100
 BATCH_SIZE = 1
-th = 0.6
+th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 10
 
