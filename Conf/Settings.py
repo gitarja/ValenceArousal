@@ -36,6 +36,7 @@ ECG_R_PATH = RESULTS_PATH + "ECG_RAW\\"
 ECG_D_R_PATH = "\\results_stride=0.2\\" + "ECG_RAW\\"
 ECG_RR_PATH = RESULTS_PATH + "ECG_RESP_RAW\\"
 ECG_RESP_PATH = RESULTS_PATH + "ECG_resp\\"
+ALL_FEATURES_PATH = RESULTS_PATH + "all_features\\"
 TENSORBOARD_PATH = "D:\\usr\\pras\\result\\ValenceArousal\\tensorboard\\sMCL\\"
 
 #results raw

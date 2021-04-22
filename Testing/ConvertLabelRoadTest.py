@@ -1,5 +1,5 @@
 import pandas as pd
-
+import glob
 
 def convertLabel(ar, val, th=0.5):
     if (ar >= th) and (val >= th):
@@ -30,15 +30,19 @@ def convertLabelThree(ar, val, th=0.5):
             return 4
 
 
-path = "D:\\usr\\pras\\data\\driver\\TS105_training\\"
-data = pd.read_csv(path + "20200617_140847_598_reg.csv")
+path = "D:\\usr\\pras\\data\\driver\\2021-04-20\\*"
+for folder in glob.glob(path):
+    for file in glob.glob(folder + "\\*_results.csv"):
+        print(file)
+        data = pd.read_csv(file)
+        file_name = file.split("\\")[-1]
+        result_file_name = file_name.replace("_results.csv", "_results_labels.csv")
+        labels = []
+        for index, row in data.iterrows():
+            label = convertLabelThree(row["arousal"], row["valence"])
+            labels.append(label)
 
-labels = []
-for index, row in data.iterrows():
-    label = convertLabelThree(row["arousal"], row["valence"])
-    labels.append(label)
 
+        results = pd.DataFrame({"latitude":data["latitude"].values,	"longitude":data["longitude"].values, "color": labels})
 
-results = pd.DataFrame({"latitude":data["latitude"].values,	"longitude":data["longitude"].values, "color": labels})
-
-results.to_csv(path +"20200617_140847_598_reg_labels.csv", index=False)
+        results.to_csv(folder + "\\" +result_file_name, index=False)
