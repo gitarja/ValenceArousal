@@ -37,7 +37,7 @@ class UnitModel(tf.keras.layers.Layer):
 
         #activation
         self.elu = tf.keras.layers.ELU()
-        self.dropout = tf.keras.layers.Dropout(0.15)
+        self.dropout = tf.keras.layers.Dropout(0.05)
 
 
     def call(self, inputs, training=None, mask=None):
@@ -72,16 +72,24 @@ class UnitModelSingle(tf.keras.layers.Layer):
     def __init__(self, en_units=(64, 128, 256, 512), num_output=4, **kwargs):
         super(UnitModelSingle, self).__init__(**kwargs)
         self.dense1 = tf.keras.layers.Dense(units=en_units[0], activation="elu")
+
         self.dense2 = tf.keras.layers.Dense(units=en_units[1], activation="elu")
+
         #ar
         self.dense3_ar = tf.keras.layers.Dense(units=en_units[2], activation="elu")
+
         self.dense4_ar = tf.keras.layers.Dense(units=en_units[3], activation="elu")
+
         #val
         self.dense3_val = tf.keras.layers.Dense(units=en_units[2], activation="elu")
+
         self.dense4_val = tf.keras.layers.Dense(units=en_units[3], activation="elu")
+
         # em
         self.dense3_em = tf.keras.layers.Dense(units=en_units[2], activation="elu")
+
         self.dense4_em = tf.keras.layers.Dense(units=en_units[3], activation="elu")
+
 
         # logit
         self.logit_em = tf.keras.layers.Dense(units=num_output, activation=None)
@@ -92,8 +100,8 @@ class UnitModelSingle(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(0.05)
 
     def call(self, inputs, training=None, mask=None):
-        x = self.dense1(inputs)
-        z = self.dense2(x)
+        x = self.dropout(self.dense1(inputs))
+        z = self.dropout(self.dense2(x))
 
 
         z_em = self.logit_em(self.dense4_em(self.dense3_em(z)))
@@ -154,7 +162,7 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         # loss
         self.f1_loss = SoftF1Loss(reduction=tf.keras.losses.Reduction.NONE)
-        self.mae_loss = tf.losses.Huber(delta=3, reduction=tf.keras.losses.Reduction.NONE)
+        self.mae_loss = tf.losses.Huber(delta=5, reduction=tf.keras.losses.Reduction.NONE)
         self.mse_loss = tf.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
         self.pcc_loss = PCCLoss(reduction=tf.keras.losses.Reduction.NONE)
         self.ccc_loss = CCCLoss(reduction=tf.keras.losses.Reduction.NONE)
@@ -252,7 +260,7 @@ class EnsembleSeparateModel(tf.keras.Model):
             b = 0.3
             t = 0.3
 
-        mse_loss = tf.nn.compute_average_loss(self.mae_loss(y_r_ar, z_r_ar) + self.mae_loss(y_r_val, z_r_val),
+        mse_loss = tf.nn.compute_average_loss(self.mse_loss(y_r_ar, z_r_ar) + self.mse_loss(y_r_val, z_r_val),
                                               global_batch_size=global_batch_size, sample_weight=sample_weight)
         pcc_loss = tf.nn.compute_average_loss(
             1 - (0.5 * (self.pcc_loss(y_r_ar, z_r_ar) + self.pcc_loss(y_r_val, z_r_val))),

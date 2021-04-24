@@ -73,7 +73,7 @@ class DataFetch:
         elif training_mode == 1:
             data_set = self.data_val
         else:
-            data_set = self.data_test
+            data_set = self.data_test + self.data_val
         i = 0
 
         # print(len(data_set))
@@ -97,11 +97,10 @@ class DataFetch:
     def readData(self, features_list, KD, training=False):
         data_set = []
         features_list = features_list.sample(frac=1.)
-        if training:
-            val_features_neg = features_list[
-                (features_list["Valence_convert"] < 0) & (features_list["Arousal_convert"] < 0)].sample(frac=1.2,
-                                                                                                        replace=True)
-        #     val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9, replace=True)
+
+        # if training:
+        #     val_features_neg = features_list[(features_list["Valence_convert"] < 0)].sample(frac=1.1, replace=True)
+        #     val_features_pos = features_list[features_list["Valence_convert"] >= 0].sample(frac=0.9)
         #     features_list = pd.concat([val_features_neg, val_features_pos])
         for i in range(len(features_list)):
             filename = features_list.iloc[i]["Idx"]
@@ -170,10 +169,12 @@ class DataFetch:
                 ecg = (ecg - 2140.397356669409) / 370.95493558685325
                 ecg = ecg[-self.ECG_N:]
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
-                # label[self.ecg_features_file.extractRR(ecg).astype(np.int32)] = 1.
-                # ecg_features_file = (features[4] - self.ecg_mean) / self.ecg_std
-                # w = features_list.iloc[i]["weight"]
-                w = 1
+                # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
+                # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
+                w = features_list.iloc[i]["weight"]
+                # if w == 0.5:
+                #     w += 0.3
+                # w = 1
 
                 # resampling data
                 # if training:
@@ -310,19 +311,19 @@ class DataFetchRoad:
             if len(ecg) >= self.ecg_n:
                 ecg = ecg[:self.ecg_n]
 
-                # extract ECG features
-                # time_domain = self.featuresExct.extractTimeDomain(ecg)
-                # freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
-                # nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
-                # concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
-                # data_set.append(concatenate_features)
+                #extract ECG features
+                time_domain = self.featuresExct.extractTimeDomain(ecg)
+                freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
+                nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
+                concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
+                data_set.append(concatenate_features)
 
-                # raw ecg
-                ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                #raw ecg
+                # ecg = (ecg - 2140.397356669409) / 370.95493558685325
                 # ecg = (ecg - 2048.485947046843) / 156.5629266658633
                 # ecg = ecg / (4095 - 0)
                 # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
-                data_set.append(ecg)
+                # data_set.append(ecg)
             # print(ecg)
         return data_set
 

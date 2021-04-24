@@ -37,14 +37,14 @@ BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 55
-alpha = 0.5
+alpha = 0.35
 
 # setting
 # fold = str(sys.argv[1])
 fold=1
 prev_val_loss = 2000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-3)\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_ECG_KD"
 
 # tensorboard
@@ -56,9 +56,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, high_only=False)
@@ -82,9 +82,9 @@ test_generator = tf.data.Dataset.from_generator(
 # train dataset
 train_data = train_generator.shuffle(data_fetch.train_n, reshuffle_each_iteration=True).batch(ALL_BATCH_SIZE)
 
-val_data = val_generator.batch(BATCH_SIZE)
+val_data = val_generator.batch(ALL_BATCH_SIZE)
 
-test_data = test_generator.batch(BATCH_SIZE)
+test_data = test_generator.batch(ALL_BATCH_SIZE)
 
 with strategy.scope():
     # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
@@ -183,7 +183,7 @@ with strategy.scope():
         grads = tape.gradient(final_loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-        update_train_metrics(mse_loss + classific_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_train_metrics(mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -205,7 +205,7 @@ with strategy.scope():
 
         final_loss = regress_loss
 
-        update_test_metrics(classific_loss + mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_test_metrics( mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
