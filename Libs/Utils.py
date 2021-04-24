@@ -32,8 +32,6 @@ def valToLabels(y):
     else:
         return 1
 
-<<<<<<< ours
-=======
 def convertLabels(ar, val):
     labels = np.zeros_like(ar)
     labels[(ar==0) & (val==0)] = 0
@@ -50,8 +48,6 @@ def convertLabelsReg(ar, val):
     labels[(ar > 0) & (val < 0)] = 3
     labels[(ar > 0) & (val > 0)] = 4
     return labels
-
->>>>>>> theirs
 
 def classifLabelsConv(y):
     if y == 0 or y == 1 or y == 2:
