@@ -1,7 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 from Libs.Utils import calcAccuracyRegression
 import datetime
@@ -15,7 +15,7 @@ import seaborn as sns
 sns.set_style("whitegrid")
 sns.set_color_codes("dark")
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -30,7 +30,7 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
+cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=1)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
@@ -45,17 +45,17 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=5
+fold=1
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-2)\\fold_" + str(fold) + "\\"
-checkpoint_prefix = result_path + "model_student_ECG_KD_high"
-checkpoint_prefix2 = result_path + "model_student_ECG_KD"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
+# checkpoint_prefix = result_path + "model_student_ECG_KD_high"
+checkpoint_prefix2 = result_path + "model_student_ECG_PPG_KD"
 # datagenerator
-testing_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\test_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
 data_fetch = DataFetch(test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, high_only=False)
+                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, PPG=True, high_only=False)
 generator = data_fetch.fetch
 
 
@@ -65,7 +65,7 @@ test_generator = tf.data.Dataset.from_generator(
     # output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
     output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
+    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N+PPG_N]), ()))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -125,9 +125,9 @@ with strategy.scope():
 
     val_results = np.array(val_results)
 
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="hard", th=th)
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="soft", th=th)
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="false", th=th)
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="hard", th=th)
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="soft", th=th)
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="false", th=th)
 
     # val positif
     a_p = (ar_results[:, 1] > 0)

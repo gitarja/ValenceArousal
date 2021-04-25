@@ -15,7 +15,7 @@ from Libs.Utils import calcAccuracyRegression
 sns.set_style("whitegrid")
 sns.set_color_codes("dark")
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -30,7 +30,7 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=3)
+cross_tower_ops = tf.distribute.HierarchicalCopyAllReduce(num_packs=1)
 strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
@@ -124,9 +124,9 @@ with strategy.scope():
     val_results = np.array(val_results)
 
 
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="hard")
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="soft")
-    calcAccuracyRegression(ar_results[:, 1], val_results[:, 1], ar_results[:, 0], val_results[:, 0], mode="false")
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="hard")
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="soft")
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="false")
 
     # val positif
     a_p = (ar_results[:, 1] > 0)
