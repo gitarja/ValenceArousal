@@ -3,7 +3,7 @@ from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOne
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
-from Libs.Utils import calcAccuracyRegression
+from Libs.Utils import calcAccuracyRegression, calcAccuracyArValRegression
 import datetime
 import os
 import sys
@@ -128,6 +128,7 @@ with strategy.scope():
     calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="hard", th=th)
     calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="soft", th=th)
     calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="false", th=th)
+    calcAccuracyArValRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1])
 
     # val positif
     a_p = (ar_results[:, 1] > 0)

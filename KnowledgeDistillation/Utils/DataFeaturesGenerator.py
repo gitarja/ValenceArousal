@@ -73,7 +73,8 @@ class DataFetch:
         elif training_mode == 1:
             data_set = self.data_val
         else:
-            data_set = self.data_test + self.data_val
+            # data_set = self.data_test + self.data_val
+            data_set = self.data_test
         i = 0
 
         # print(len(data_set))
@@ -96,7 +97,7 @@ class DataFetch:
 
     def readData(self, features_list, KD, training=False):
         data_set = []
-        features_list = features_list.sample(frac=1.)
+        # features_list = features_list.sample(frac=1.)
 
         # if training:
         #     val_features_neg = features_list[(features_list["Valence_convert"] < 0)].sample(frac=1.1, replace=True)
@@ -171,10 +172,10 @@ class DataFetch:
                 # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
                 # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
                 # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                w = features_list.iloc[i]["weight"]
+                # w = features_list.iloc[i]["weight"]
                 # if w == 0.5:
                 #     w += 0.3
-                # w = 1
+                w = 1
 
                 # resampling data
                 # if training:

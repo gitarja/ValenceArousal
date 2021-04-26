@@ -32,13 +32,15 @@ def valToLabels(y):
     else:
         return 1
 
+
 def convertLabels(ar, val):
     labels = np.zeros_like(ar)
-    labels[(ar==0) & (val==0)] = 0
+    labels[(ar == 0) & (val == 0)] = 0
     labels[(ar == 0) & (val == 1)] = 1
     labels[(ar == 1) & (val == 0)] = 2
     labels[(ar == 1) & (val == 1)] = 3
     return labels
+
 
 def convertLabelsReg(ar, val):
     labels = np.zeros_like(ar)
@@ -48,6 +50,7 @@ def convertLabelsReg(ar, val):
     labels[(ar > 0) & (val < 0)] = 3
     labels[(ar > 0) & (val > 0)] = 4
     return labels
+
 
 def classifLabelsConv(y):
     if y == 0 or y == 1 or y == 2:
@@ -61,17 +64,18 @@ def classifLabelsConv(y):
 
 
 def regressLabelsConv(y):
-    return y - 3
-    # if y == 0 or y == 1:
-    #     return -2
-    # if y == 2:
-    #     return -1
-    # if y == 3:
-    #     return 0
-    # if y == 4:
-    #     return 1
-    # if y ==5 or y==6:
-    #     return 2
+    # return y - 3
+    if y == 0 or y == 1:
+        return -2
+    if y == 2:
+        return -1
+    if y == 3:
+        return 0
+    if y == 4:
+        return 1
+    if y == 5 or y == 6:
+        return 2
+
 
 def multipleLabels(ar, val):
     if ar == 0 or val == 0:
@@ -95,16 +99,16 @@ def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
     B2 = (t_ar == 0) & (t_val > 0)
     C = t_val == 0
     if mode == "hard":
-        B1_results = np.average((y_ar[B1] > th) & (y_val[B1] > th))
+        B1_results = np.average((y_ar[B1] > 0) & (y_val[B1] > 0))
         # ar positif and val negatif
-        A1_results = np.average((y_ar[A1] > th) & (y_val[A1] < -th))
+        A1_results = np.average((y_ar[A1] > 0) & (y_val[A1] < -0))
         # ar negatif and val positif
-        B3_results = np.average((y_ar[B3] < -th) & (y_val[B3] > th))
+        B3_results = np.average((y_ar[B3] < -0) & (y_val[B3] > 0))
         # ar negatif and val negatif
-        A3_results = np.average((y_ar[A3] < -th) & (y_val[A3] < -th))
+        A3_results = np.average((y_ar[A3] < -0) & (y_val[A3] < -0))
         # val ambiguous
-        A2_results = np.average(((y_ar[A2] <= th) & (y_ar[A2] >= -th)) & (y_val[A2] < -th))
-        B2_results = np.average(((y_ar[B2] <= th) & (y_ar[B2] >= -th)) & (y_val[B2] > th))
+        A2_results = np.average((np.abs(y_ar[A2]) <= th) & (y_val[A2] < -th))
+        B2_results = np.average((np.abs(y_ar[B2]) <= th) & (y_val[B2] > th))
         # Neutral
         C_results = np.average(np.abs(y_val[C]) <= th)
 
@@ -122,7 +126,7 @@ def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
         # val ambiguous
         A2_results = np.average((y_val[A2] < th))
         B2_results = np.average((y_val[B2] > -th))
-        ambg_prop = np.average(np.abs(t_val[A2 | B2]) <= th)
+        ambg_prop = np.average(np.abs(y_val[A2 | B2]) <= th)
         # Neutral
         C_results = np.average(np.abs(y_val[C]) <= th)
 
@@ -163,8 +167,30 @@ def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
     print(template_2.format(A2_results, B2_results, C_results))
 
 
+def calcAccuracyArValRegression(y_ar, y_val, t_ar, t_val, th=0.5):
+    B1 = (t_ar > 0) & (t_val > 0)
+    A1 = (t_ar > 0) & (t_val < 0)
+    B3 = (t_ar < 0) & (t_val > 0)
+    A3 = (t_ar < 0) & (t_val < 0)
+    A2 = (t_ar == 0) & (t_val < 0)
+    B2 = (t_ar == 0) & (t_val > 0)
+    C = t_val == 0
+
+    ar_high = np.average(y_ar[A1 | B1] >= 0)
+    ar_med = np.average(np.abs(y_ar[A2 | B2]) < th)
+    ar_low = np.average(y_ar[A3 | B3] <= 0)
+    val_positive = np.average(y_val[B1 | B2 | B3] >= 0)
+    val_neutral = np.average(np.abs(y_val[C]) < th)
+    val_negative = np.average(y_val[A1 | A2 | A3] <= 0)
+
+    template_ar = "Arousal high: {:.03%}, Arousal medium: {:.03%}, Arousal Low: {:.03%}"
+    template_val = "Valence Positive: {:.03%}, Valence Neutral: {:.03%}, Valence Negative: {:.03%}"
+    print(template_ar.format(ar_high, ar_med, ar_low))
+    print(template_val.format(val_positive, val_neutral, val_negative))
+
+
 def dreamerLabelsConv(y):
-   return y - 3
+    return y - 3
 
 
 def convertContrastiveLabels(time1, time2, sub1, sub2):
@@ -230,6 +256,7 @@ def rollingWindow(a, size=50):
         slides.append(a[(i * size):((i + 1) * size)])
 
     return np.array(slides)
+
 
 def emotionLabels(labels, N_CLASS):
     labels = labels.split("_")[0:-1]
