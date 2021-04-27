@@ -37,7 +37,7 @@ BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 55
-alpha = 0.5
+alpha = 0.35
 
 # setting
 # fold = str(sys.argv[1])
@@ -102,8 +102,8 @@ with strategy.scope():
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    # optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.3, min_lr=1e-5)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.3, min_lr=1e-5)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
     # train

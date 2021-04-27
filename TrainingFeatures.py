@@ -1,6 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleModel, EnsembleSeparateModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, N_CLASS, ECG_N
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, \
+    TRAINING_RESULTS_PATH, N_CLASS, ECG_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch
 from Libs.Utils import regressLabelsConv, classifLabelsConv
 import datetime
@@ -41,10 +42,10 @@ alpha = 0.35
 
 # setting
 # fold = str(sys.argv[1])
-fold=1
+fold = 1
 prev_val_loss = 2000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-3)\\fold_" + str(fold) + "\\"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = result_path + "model_student_ECG_KD"
 
 # tensorboard
@@ -56,9 +57,9 @@ test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
 # datagenerator
 
-training_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\training_data_" + str(fold) + ".csv"
-validation_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\validation_data_" + str(fold) + ".csv"
-testing_data = DATASET_PATH + "\\stride=0.2\\preliminary-results-data\\test_data_" + str(fold) + ".csv"
+training_data = DATASET_PATH + "\\stride=0.2\\training_data_" + str(fold) + ".csv"
+validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
+testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 
 data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                        ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, high_only=False)
@@ -66,7 +67,7 @@ generator = data_fetch.fetch
 
 train_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=0),
-    output_types=(tf.float32, tf.float32,  tf.float32, tf.float32, tf.float32, tf.float32),
+    output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
 
 val_generator = tf.data.Dataset.from_generator(
@@ -90,11 +91,11 @@ with strategy.scope():
     # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
     # load pretrained model
-    checkpoint_prefix_base = result_path + "model_teacher"
+    checkpoint_prefix_base = result_path + "Regression_normal\\model_teacher"
     teacher_model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N).loadBaseModel(
         checkpoint_prefix_base)
     # encoder model
-    checkpoint_prefix_encoder = result_path + "model_base_student"
+    # checkpoint_prefix_encoder = result_path + "model_base_student"
 
     model = EnsembleModel(num_output=num_output)
     total_steps = int((data_fetch.train_n / BATCH_SIZE) * EPOCHS)
@@ -102,13 +103,13 @@ with strategy.scope():
                                                                    decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                    staircase=True)
     # optimizer = tf.keras.optimizers.SGD(learning_rate=initial_learning_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    # optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.3, min_lr=1e-5)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps, warmup_proportion=0.3, min_lr=1e-5)
     # ---------------------------Epoch&Loss--------------------------#
     # metrics
     # train
     loss_train = tf.keras.metrics.Mean()
-    #soft f1
+    # soft f1
     softf1_train = SoftF1()
     softf1_test = SoftF1()
     # arousal
@@ -158,20 +159,22 @@ with strategy.scope():
             # using latent
             # _, latent = base_model(X)
             z_em, z_r_ar, z_r_val, z = model(X, training=True)
-            classific_loss = teacher_model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-gt
-            classific_distill_loss = teacher_model.classificationLoss(z_em, t_em, global_batch_size=GLOBAL_BATCH_SIZE) # classification student-teacher
-            mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)# regression student-gt
+            classific_loss = teacher_model.classificationLoss(z_em, y_emotion,
+                                                              global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-gt
+            classific_distill_loss = teacher_model.classificationLoss(z_em, t_em,
+                                                                      global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-teacher
+            mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,
+                                                                  shake_params=shake_params,
+                                                                  global_batch_size=GLOBAL_BATCH_SIZE,
+                                                                  sample_weight=w)  # regression student-gt
             _, regress_distill_loss, mask = teacher_model.regressionDistillLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,
                                                                                 t_r_ar, t_r_val,
                                                                                 shake_params=shake_params,
                                                                                 global_batch_size=GLOBAL_BATCH_SIZE)  # regression student-teacher
             latent_loss = teacher_model.latentLoss(z, t_z, global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=mask)
 
-
             # print(t_x)
             # print(z_x)
-
 
             classification_final_loss = classific_loss + alpha * classific_distill_loss
             regression_final_loss = regress_loss + alpha * regress_distill_loss
@@ -199,13 +202,15 @@ with strategy.scope():
 
         z_em, z_r_ar, z_r_val, _ = model(X, training=False)
         classific_loss = teacher_model.classificationLoss(z_em, y_emotion,
-                                                  global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-gt
-        mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
-                                                      global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=w)  # regression student-gt
+                                                          global_batch_size=GLOBAL_BATCH_SIZE)  # classification student-gt
+        mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,
+                                                              shake_params=shake_params,
+                                                              global_batch_size=GLOBAL_BATCH_SIZE,
+                                                              sample_weight=w)  # regression student-gt
 
         final_loss = regress_loss
 
-        update_test_metrics( mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
+        update_test_metrics(mse_loss, z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val], y=[y_emotion, y_r_ar, y_r_val])
 
         return final_loss
 
@@ -237,7 +242,7 @@ with strategy.scope():
         ccc_val_test.reset_states()
         sagr_val_test.reset_states()
 
-        #soft f1
+        # soft f1
         softf1_train.reset_states()
         softf1_test.reset_states()
 
@@ -283,7 +288,7 @@ with strategy.scope():
 
     def write_train_tensorboard(epoch):
         tf.summary.scalar('Loss', loss_train.result(), step=epoch)
-        #soft f1
+        # soft f1
         tf.summary.scalar('Soft F1', np.mean(softf1_train.result()), step=epoch)
         # arousal
         tf.summary.scalar('RMSE arousal', rmse_ar_train.result(), step=epoch)

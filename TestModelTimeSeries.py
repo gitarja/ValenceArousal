@@ -52,8 +52,8 @@ wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix_teacher = result_path + "model_teacher"
 checkpoint_prefix_student = result_path + "model_student_ECG_KD"
-date = "2020-10-29"
-subject = "E2"
+date = "2020-11-02"
+subject = "D1"
 # datagenerator
 testing_data = DATASET_PATH + date + "\\" + subject + "-" + date + "\\features_list_0.2.csv"
 # testing_data = DATASET_PATH + "\\stride=0.2\\all_data.csv"
@@ -152,15 +152,20 @@ with strategy.scope():
     ar_student_results = np.array(ar_student_results)
     val_student_results = np.array(val_student_results)
 
-    features_file = pd.read_csv(testing_data)
-    features_file["Valence_label"] = val_teacher_results[:, 1]
-    features_file["Arousal_label"] = ar_teacher_results[:, 1]
-    features_file["Valence_pred_teacher"] = val_teacher_results[:, 0]
-    features_file["Arousal_pred_teacher"] = ar_teacher_results[:, 0]
+    results = pd.DataFrame({"Valence_label": val_teacher_results[:, 1],
+                            "Arousal_label": ar_teacher_results[:, 1],
+                            "Valence_pred_teacher": val_teacher_results[:, 0],
+                            "Arousal_pred_teacher": ar_teacher_results[:, 0],
+                            "Valence_pred_student": val_student_results[:, 0],
+                            "Arousal_pred_student": ar_student_results[:, 0]})
+    # results["Valence_label"] = val_teacher_results[:, 1]
+    # results["Arousal_label"] = ar_teacher_results[:, 1]
+    # results["Valence_pred_teacher"] = val_teacher_results[:, 0]
+    # results["Arousal_pred_teacher"] = ar_teacher_results[:, 0]
     # features_file["Valence_label_student"] = val_student_results[:, 1]
     # features_file["Arousal_label_student"] = ar_student_results[:, 1]
-    features_file["Valence_pred_student"] = val_student_results[:, 0]
-    features_file["Arousal_pred_student"] = ar_student_results[:, 0]
+    # results["Valence_pred_student"] = val_student_results[:, 0]
+    # results["Arousal_pred_student"] = ar_student_results[:, 0]
 
-    features_file.to_csv(TRAINING_RESULTS_PATH + "TimeSeriesResult_" + subject + "-" + date + ".csv")
+    results.to_csv(TRAINING_RESULTS_PATH + "TimeSeriesResult_" + subject + "-" + date + ".csv", index=False)
     # features_file.to_csv(TRAINING_RESULTS_PATH + "TimeSeriesResult_all.csv")

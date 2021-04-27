@@ -1,7 +1,8 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, \
+    TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 from Libs.Utils import calcAccuracyRegression, calcAccuracyArValRegression
 import datetime
@@ -10,7 +11,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-
 
 sns.set_style("whitegrid")
 sns.set_color_codes("dark")
@@ -45,27 +45,26 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=1
+fold = 1
 prev_val_loss = 1000
 wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 # checkpoint_prefix = result_path + "model_student_ECG_KD_high"
-checkpoint_prefix2 = result_path + "model_student_ECG_PPG_KD"
+checkpoint_prefix2 = result_path + "model_student_ECG_RESP_KD"
 # datagenerator
 testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
 validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
 data_fetch = DataFetch(test_file=testing_data, validation_file=validation_data,
-                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, PPG=True, high_only=False)
+                       ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, RESP=True, high_only=False)
 generator = data_fetch.fetch
-
-
 
 test_generator = tf.data.Dataset.from_generator(
     lambda: generator(training_mode=2),
     # output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
     # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
     output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N+PPG_N]), ()))
+    output_shapes=(
+    tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N + Resp_N]), ()))
 
 test_data = test_generator.batch(BATCH_SIZE)
 
@@ -76,15 +75,9 @@ with strategy.scope():
     # model = EnsembleStudentOneDim(num_output=num_output)
     model = EnsembleModel(num_output=num_output).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
 
-
-
-
-
 predictions = []
 print("Start testing")
 with strategy.scope():
-
-
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
         # X = tf.expand_dims(inputs[4], -1)
         X = inputs[4]
@@ -93,11 +86,7 @@ with strategy.scope():
         print(X)
         _, prediction_ar, prediction_val, _ = model(X, training=False)
 
-
         return prediction_ar, prediction_val, y_r_ar, y_r_val
-
-
-
 
 with strategy.scope():
     # `experimental_run_v2` replicates the provided computation and runs it
@@ -122,12 +111,13 @@ with strategy.scope():
         val_results.append([prediction_val.numpy()[0, 0], y_r_val.numpy()[0, 0]])
 
     ar_results = np.array(ar_results)
-
     val_results = np.array(val_results)
 
+    sys.stdout = open(result_path + "accuracy_student_ECG_RESP_KD.txt", "w")
     calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="hard", th=th)
     calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="soft", th=th)
-    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="false", th=th)
+    calcAccuracyRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1], mode="false",
+                           th=th)
     calcAccuracyArValRegression(ar_results[:, 0], val_results[:, 0], ar_results[:, 1], val_results[:, 1])
 
     # val positif
@@ -136,12 +126,14 @@ with strategy.scope():
     a_p_results = np.sum(ar_results[a_p, 0] > 0)
     a_n_results = np.sum(ar_results[a_n, 0] <= 0)
     print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
-    #val positif
+    # val positif
     v_p = (val_results[:, 1] > 0)
     v_n = (val_results[:, 1] < 0)
     v_p_results = np.sum(val_results[v_p, 0] > 0)
     v_n_results = np.sum(val_results[v_n, 0] <= 0)
     print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
+    sys.stdout.close()
+
     # th = .5
     # # ambigous
     # ar_a_v_a_results = np.average(((np.abs(ar_results[:, 0]) <= th) | (np.abs(val_results[:, 0]) <= th)) & ((np.abs(ar_results[:, 1]) == 0) | (np.abs(val_results[:, 1]) == 0)))
@@ -166,7 +158,7 @@ with strategy.scope():
     #
     # print(str(ar_p_v_p_results) + "," + str(ar_p_v_n_results) + "," + str(ar_n_v_p_results) + "," + str(ar_n_v_n_results))
     # print(str(ar_a_v_a_results) + ","+ str(ar_na_v_na_results))
-    #plotting
+    # plotting
 
     # plt.figure(1)
     # plt.plot(ar_results[:, 0], '-', linewidth=1.5, label="Arousal-prediction", color="#66c2a5")
@@ -179,5 +171,3 @@ with strategy.scope():
     # plt.legend()
     # plt.savefig("valence.png")
     # plt.show()
-
-

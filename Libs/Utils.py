@@ -107,8 +107,10 @@ def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
         # ar negatif and val negatif
         A3_results = np.average((y_ar[A3] < -0) & (y_val[A3] < -0))
         # val ambiguous
-        A2_results = np.average((np.abs(y_ar[A2]) <= th) & (y_val[A2] < -th))
-        B2_results = np.average((np.abs(y_ar[B2]) <= th) & (y_val[B2] > th))
+        # A2_results = np.average((np.abs(y_ar[A2]) <= th) & (y_val[A2] < -0))
+        # B2_results = np.average((np.abs(y_ar[B2]) <= th) & (y_val[B2] > 0))
+        A2_results = np.average((y_val[A2] < -0))
+        B2_results = np.average((y_val[B2] > 0))
         # Neutral
         C_results = np.average(np.abs(y_val[C]) <= th)
 

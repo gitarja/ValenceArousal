@@ -19,13 +19,13 @@ class DataFetch:
         self.max = np.load(utils_path + "max.npy")
         self.mean = np.load(utils_path + "mean.npy")
         self.std = np.load(utils_path + "std.npy")
-        self.mean_ecg = np.load(utils_path + "ECG\\ecg_max.npy")
+        self.mean_ecg = np.load(utils_path + "ECG\\ecg_mean.npy")
         self.std_ecg = np.load(utils_path + "ECG\\ecg_std.npy")
-        self.mean_eda = np.load(utils_path + "EDA\\eda_max.npy")
+        self.mean_eda = np.load(utils_path + "EDA\\eda_mean.npy")
         self.std_eda = np.load(utils_path + "EDA\\eda_std.npy")
-        self.mean_ppg = np.load(utils_path + "PPG\\ppg_max.npy")
+        self.mean_ppg = np.load(utils_path + "PPG\\ppg_mean.npy")
         self.std_ppg = np.load(utils_path + "PPG\\ppg_std.npy")
-        self.mean_resp = np.load(utils_path + "RESP\\resp_max.npy")
+        self.mean_resp = np.load(utils_path + "RESP\\resp_mean.npy")
         self.std_resp = np.load(utils_path + "RESP\\resp_std.npy")
 
         self.KD = KD
