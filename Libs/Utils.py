@@ -185,10 +185,12 @@ def calcAccuracyArValRegression(y_ar, y_val, t_ar, t_val, th=0.5):
     val_neutral = np.average(np.abs(y_val[C]) < th)
     val_negative = np.average(y_val[A1 | A2 | A3] <= 0)
 
-    template_ar = "Arousal high: {:.03%}, Arousal medium: {:.03%}, Arousal Low: {:.03%}"
-    template_val = "Valence Positive: {:.03%}, Valence Neutral: {:.03%}, Valence Negative: {:.03%}"
-    print(template_ar.format(ar_high, ar_med, ar_low))
-    print(template_val.format(val_positive, val_neutral, val_negative))
+    # template_ar = "Arousal high: {:.03%}, Arousal medium: {:.03%}, Arousal Low: {:.03%}"
+    # template_val = "Valence Positive: {:.03%}, Valence Neutral: {:.03%}, Valence Negative: {:.03%}"
+    # print(template_ar.format(ar_high, ar_med, ar_low))
+    # print(template_val.format(val_positive, val_neutral, val_negative))
+
+    return [ar_high, ar_low, ar_med], [val_positive, val_negative, val_neutral]
 
 
 def dreamerLabelsConv(y):

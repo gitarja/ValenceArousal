@@ -339,8 +339,8 @@ for fold in range(1, 6):
                 write_test_tensorboard(epoch)
 
             template = (
-                "epoch {} | Train_loss: {:.4f} | Val_loss: {}")
-            print(template.format(epoch + 1, loss_train.result().numpy(), loss_test.result().numpy()))
+                "Fold {} | Epoch {} | Train_loss: {} | Val_loss: {}")
+            print(template.format(fold, epoch + 1, loss_train.result().numpy(), loss_test.result().numpy()))
 
             if (prev_val_loss > loss_test.result().numpy()):
                 prev_val_loss = loss_test.result().numpy()

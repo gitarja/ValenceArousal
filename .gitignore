@@ -15,4 +15,5 @@ StatisticalAnalysis/__pycache__
 StatisticalAnalysis/results
 Testing/__pycache__
 *.cpython-36.pyc
+*.cpython-37.pyc
 hoge.py

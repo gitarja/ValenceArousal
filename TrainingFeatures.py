@@ -91,7 +91,7 @@ for fold in range(1, 6):
         # model = EnsembleStudent(num_output=num_output, expected_size=EXPECTED_ECG_SIZE)
 
         # load pretrained model
-        checkpoint_prefix_base = result_path + "Regression_normal\\model_teacher"
+        checkpoint_prefix_base = result_path + "model_teacher"
         teacher_model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N).loadBaseModel(
             checkpoint_prefix_base)
         # encoder model
@@ -359,10 +359,10 @@ for fold in range(1, 6):
                 write_test_tensorboard(epoch)
 
             template = (
-                "epoch {} | Train_loss: {} | Val_loss: {}")
+                "Fold {} | Epoch {} | Train_loss: {} | Val_loss: {}")
             train_loss = loss_train.result().numpy()
             test_loss = loss_test.result().numpy()
-            print(template.format(epoch + 1, train_loss, test_loss))
+            print(template.format(fold, epoch + 1, train_loss, test_loss))
 
             # Save model
 

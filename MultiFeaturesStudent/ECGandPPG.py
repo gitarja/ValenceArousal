@@ -362,11 +362,10 @@ for fold in range(1, 6):
             with test_summary_writer.as_default():
                 write_test_tensorboard(epoch)
 
-            template = (
-                "epoch {} | Train_loss: {} | Val_loss: {}")
+            template = "Fold {} | Epoch {} | Train_loss: {} | Val_loss: {}"
             train_loss = loss_train.result().numpy()
             test_loss = loss_test.result().numpy()
-            print(template.format(epoch + 1, train_loss, test_loss))
+            print(template.format(fold, epoch + 1, train_loss, test_loss))
 
             # Save model
 
