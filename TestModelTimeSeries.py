@@ -1,8 +1,7 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, \
-    TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS, FEATURES_N
+from Conf.Settings import DATASET_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, SPLIT_TIME, STRIDE, ECG_N, N_CLASS, FEATURES_N
 from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
 import datetime
 import os
@@ -52,8 +51,8 @@ wait_i = 0
 result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix_teacher = result_path + "model_teacher"
 checkpoint_prefix_student = result_path + "model_student_ECG_KD"
-date = "2020-11-02"
-subject = "D1"
+date = "2020-10-29"
+subject = "E2"
 # datagenerator
 testing_data = DATASET_PATH + date + "\\" + subject + "-" + date + "\\features_list_0.2.csv"
 # testing_data = DATASET_PATH + "\\stride=0.2\\all_data.csv"
@@ -152,20 +151,41 @@ with strategy.scope():
     ar_student_results = np.array(ar_student_results)
     val_student_results = np.array(val_student_results)
 
-    results = pd.DataFrame({"Valence_label": val_teacher_results[:, 1],
-                            "Arousal_label": ar_teacher_results[:, 1],
-                            "Valence_pred_teacher": val_teacher_results[:, 0],
-                            "Arousal_pred_teacher": ar_teacher_results[:, 0],
-                            "Valence_pred_student": val_student_results[:, 0],
-                            "Arousal_pred_student": ar_student_results[:, 0]})
-    # results["Valence_label"] = val_teacher_results[:, 1]
-    # results["Arousal_label"] = ar_teacher_results[:, 1]
-    # results["Valence_pred_teacher"] = val_teacher_results[:, 0]
-    # results["Arousal_pred_teacher"] = ar_teacher_results[:, 0]
-    # features_file["Valence_label_student"] = val_student_results[:, 1]
-    # features_file["Arousal_label_student"] = ar_student_results[:, 1]
-    # results["Valence_pred_student"] = val_student_results[:, 0]
-    # results["Arousal_pred_student"] = ar_student_results[:, 0]
+    features_list = pd.read_csv(testing_data)
+    features_list = features_list.sort_values("Start").reset_index(drop=True)
+    time = [0]
+    for i in range(len(features_list) - 1):
+        time_delta = features_list.iloc[i+1]["Start"] - features_list.iloc[i]["Start"]
+        time.append(time[-1] + time_delta)
+    time = np.array(time)
+
+    # results = pd.DataFrame({"Time": time,
+    #                         "Valence_label": val_teacher_results[:, 1],
+    #                         "Valence_pred_teacher": val_teacher_results[:, 0],
+    #                         "Valence_pred_student": val_student_results[:, 0],
+    #                         "Arousal_label": ar_teacher_results[:, 1],
+    #                         "Arousal_pred_teacher": ar_teacher_results[:, 0],
+    #                         "Arousal_pred_student": ar_student_results[:, 0]})
+    results = pd.DataFrame(index=[], columns=["Time", "Valence_label", "Valence_pred_teacher", "Valence_pred_student", "Arousal_label", "Arousal_pred_teacher", "Arousal_pred_student"])
+    for i in range(len(time)):
+        series = pd.Series([time[i],
+                            val_teacher_results[i, 1],
+                            val_teacher_results[i, 0],
+                            val_student_results[i, 0],
+                            ar_teacher_results[i, 1],
+                            ar_teacher_results[i, 0],
+                            ar_student_results[i, 0]],
+                           index=results.columns)
+        results = results.append(series, ignore_index=True)
+        if i < len(time) - 1:
+            tdelta = time[i+1] - time[i]
+            if tdelta > SPLIT_TIME * STRIDE:
+                t_tmp = SPLIT_TIME * STRIDE
+                while t_tmp < tdelta:
+                    series = pd.Series([time[i] + t_tmp, 0, 0, 0, 0, 0, 0], index=results.columns)
+                    results = results.append(series, ignore_index=True)
+                    t_tmp += SPLIT_TIME * STRIDE
+
 
     results.to_csv(TRAINING_RESULTS_PATH + "TimeSeriesResult_" + subject + "-" + date + ".csv", index=False)
     # features_file.to_csv(TRAINING_RESULTS_PATH + "TimeSeriesResult_all.csv")

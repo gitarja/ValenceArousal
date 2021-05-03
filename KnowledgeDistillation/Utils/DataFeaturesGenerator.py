@@ -166,26 +166,35 @@ class DataFetch:
             y_r_ar = regressLabelsConv(y_ar)
             y_r_val = regressLabelsConv(y_val)
 
-            if len(ecg) >= self.ECG_N:
-                ecg = (ecg - 2140.397356669409) / 370.95493558685325
-                ecg = ecg[-self.ECG_N:]
-                # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
-                # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
-                # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
-                # w = features_list.iloc[i]["weight"]
-                # if w == 0.5:
-                #     w += 0.3
-                w = 1
+            # if len(ecg) >= self.ECG_N:
+            #     ecg = (ecg - 2140.397356669409) / 370.95493558685325
+            #     ecg = ecg[-self.ECG_N:]
+            #     # label = np.zeros_like(ecg[-self.ECG_N:]) - 1
+            #     # label[self.ecg_features.extractRR(ecg).astype(np.int32)] = 1.
+            #     # ecg_features = (features[4] - self.ecg_mean) / self.ecg_std
+            #     # w = features_list.iloc[i]["weight"]
+            #     # if w == 0.5:
+            #     #     w += 0.3
+            #     w = 1
+            #
+            #     # resampling data
+            #     # if training:
+            #     #     if (y_r_ar < 0 and y_val < 0) or (y_r_ar> 0 and y_val< 0):
+            #     #         w = 2.
+            #     if self.high_only:
+            #         if w == 1:
+            #             data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w])
+            #     else:
+            #         data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w])
 
-                # resampling data
-                # if training:
-                #     if (y_r_ar < 0 and y_val < 0) or (y_r_ar> 0 and y_val< 0):
-                #         w = 2.
-                if self.high_only:
-                    if w == 1:
-                        data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w])
-                else:
+            ecg = (ecg - 2140.397356669409) / 370.95493558685325
+            ecg = ecg[-self.ECG_N:]
+            w = 1
+            if self.high_only:
+                if w == 1:
                     data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w])
+            else:
+                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w])
 
         return data_set
 
