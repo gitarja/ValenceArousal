@@ -4,7 +4,7 @@ import numpy as np
 import random
 from scipy import signal
 from Libs.Utils import valToLabels, arToLabels, arWeight, valWeight, timeToInt, dreamerLabelsConv, regressLabelsConv, emotionLabels
-from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH
+from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH, ALL_FEATURES_PATH
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
@@ -259,14 +259,29 @@ class DataFetchRoad:
         self.featuresExct = ECGFeatures(FS_ECG)
 
         # normalization ecg features
-        self.ecg_mean = np.array([2.18785670e+02, 5.34106162e+01, 1.22772848e+01, 8.87240641e+00,
-                                  1.23045575e+01, 8.19622448e+00, 2.80084568e+02, 1.51193876e+01,
-                                  3.36927105e+01, 6.63072895e+01, 7.52327656e-01, 1.85165308e+00,
-                                  1.42787092e-01])
+        self.ecg_mean = np.array([8.69006926e+02, 5.36894839e+01, 5.13280806e+01, 3.60941889e+01,
+       5.12644394e+01, 3.50184864e+01, 7.05304536e+01, 4.00354951e+00,
+       1.93190808e+01, 2.37990616e+01, 4.74128624e+01, 1.79100193e+01,
+       3.61127269e+01, 8.89897875e+00, 1.83440847e+01, 9.47694202e-03,
+       2.99294977e-02, 8.32468992e-02, 2.66982160e-01, 1.05872866e+02,
+       8.24120855e+02, 1.61071678e+03, 2.27217251e+03, 3.79534713e+00,
+       2.62838417e+01, 3.42443566e+01, 3.56764545e+01, 3.36520073e+00,
+       5.63147720e+00, 6.03246072e+00, 6.01429266e+00, 5.03771520e+01,
+       4.96228480e+01, 1.88115762e+00, 1.67060736e+00, 1.47731287e-01,
+       3.62288239e+01, 6.01129089e+01, 2.21647750e+00, 1.17607048e+04,
+       4.32725792e-01])
 
-        self.ecg_std = np.array([28.6904681, 7.2190369, 8.96941273, 8.57895833, 13.34906982,
-                                 10.67710367, 36.68525696, 9.31097392, 21.09139643, 21.09139643,
-                                 0.88959446, 0.48770451, 0.08282199])
+        self.ecg_std = np.array([1.12849622e+02, 7.22749812e+00, 4.13239686e+01, 3.76508218e+01,
+       6.06763869e+01, 4.94652050e+01, 9.08751400e+00, 2.91083561e+00,
+       1.74801557e+01, 1.09281612e+01, 2.35429989e+01, 1.10034329e+01,
+       2.36269451e+01, 9.38428850e+00, 2.01946583e+01, 1.47242980e-03,
+       1.22646518e-02, 2.66829649e-02, 7.71102801e-02, 8.09024660e+02,
+       3.84167641e+03, 1.11956783e+04, 1.61020832e+04, 3.85171123e+00,
+       1.77196093e+01, 1.81367242e+01, 2.12639285e+01, 1.62165833e+00,
+       1.37502961e+00, 1.34862368e+00, 1.51030700e+00, 2.27359887e+01,
+       2.27359887e+01, 2.64173948e+00, 5.57174922e-01, 8.24678134e-02,
+       4.28983320e+01, 4.14642962e+01, 9.86755656e-01, 4.09682862e+04,
+       3.83966021e-01])
 
         self.data_set = self.readData()
         self.test_n = len(self.data_set)
@@ -283,15 +298,15 @@ class DataFetchRoad:
         data_set = []
         gps_data = pd.read_csv(self.gps_file)
         ecg_data = pd.read_csv(self.ecg_file)
-        mask_file = pd.read_csv(self.mask_file)
+
         ecg_data.loc[:, 'timestamp'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
         gps_data.loc[:, 'timestamp'] = gps_data.loc[:, 'timestamp'].apply(timeToInt)
 
         for j in range(1, len(gps_data)):
             start = gps_data.loc[j]["timestamp"]
-            end = start + (SPLIT_TIME+2)
+            end = start + (SPLIT_TIME+4)
             ecg = ecg_data[(ecg_data["timestamp"].values >= start) & (ecg_data["timestamp"].values <= end)]["ecg"].values
-            print(len(ecg))
+            # print(len(ecg))
             if len(ecg) >= self.ecg_n:
                 ecg = ecg[:self.ecg_n]
 
@@ -310,5 +325,72 @@ class DataFetchRoad:
                 # data_set.append(ecg)
             # print(ecg)
         return data_set
+
+
+
+class DataFetchVideo:
+    def __init__(self, features_file, ecg_only=False):
+        self.ecg_only = ecg_only
+        if ecg_only:
+            self.mean = np.array([8.69006926e+02, 5.36894839e+01, 5.13280806e+01, 3.60941889e+01,
+                                      5.12644394e+01, 3.50184864e+01, 7.05304536e+01, 4.00354951e+00,
+                                      1.93190808e+01, 2.37990616e+01, 4.74128624e+01, 1.79100193e+01,
+                                      3.61127269e+01, 8.89897875e+00, 1.83440847e+01, 9.47694202e-03,
+                                      2.99294977e-02, 8.32468992e-02, 2.66982160e-01, 1.05872866e+02,
+                                      8.24120855e+02, 1.61071678e+03, 2.27217251e+03, 3.79534713e+00,
+                                      2.62838417e+01, 3.42443566e+01, 3.56764545e+01, 3.36520073e+00,
+                                      5.63147720e+00, 6.03246072e+00, 6.01429266e+00, 5.03771520e+01,
+                                      4.96228480e+01, 1.88115762e+00, 1.67060736e+00, 1.47731287e-01,
+                                      3.62288239e+01, 6.01129089e+01, 2.21647750e+00, 1.17607048e+04,
+                                      4.32725792e-01])
+
+            self.std = np.array([1.12849622e+02, 7.22749812e+00, 4.13239686e+01, 3.76508218e+01,
+                                     6.06763869e+01, 4.94652050e+01, 9.08751400e+00, 2.91083561e+00,
+                                     1.74801557e+01, 1.09281612e+01, 2.35429989e+01, 1.10034329e+01,
+                                     2.36269451e+01, 9.38428850e+00, 2.01946583e+01, 1.47242980e-03,
+                                     1.22646518e-02, 2.66829649e-02, 7.71102801e-02, 8.09024660e+02,
+                                     3.84167641e+03, 1.11956783e+04, 1.61020832e+04, 3.85171123e+00,
+                                     1.77196093e+01, 1.81367242e+01, 2.12639285e+01, 1.62165833e+00,
+                                     1.37502961e+00, 1.34862368e+00, 1.51030700e+00, 2.27359887e+01,
+                                     2.27359887e+01, 2.64173948e+00, 5.57174922e-01, 8.24678134e-02,
+                                     4.28983320e+01, 4.14642962e+01, 9.86755656e-01, 4.09682862e+04,
+                                     3.83966021e-01])
+        else:
+            utils_path = "D:\\usr\\pras\\project\\ValenceArousal\\KnowledgeDistillation\\Utils\\"
+            self.mean = np.load(utils_path + "mean.npy")
+            self.std = np.load(utils_path + "std.npy")
+
+        self.data_set = self.readData(pd.read_csv(features_file))
+        self.test_n = len(self.data_set)
+
+
+    def fetch(self):
+        i = 0
+        while i < len(self.data_set):
+            data_i = self.data_set[i]
+            yield data_i
+            i+=1
+    def readData(self, features_list):
+        data = []
+        for _, row in features_list.iterrows():
+            idx = row["Idx"]
+            subject = row["Subject"]
+            base_path = DATASET_PATH + subject[3:] + "\\" + subject
+            try:
+                features = np.load(base_path + ALL_FEATURES_PATH + "features" + str(idx) + ".npy")
+                if self.ecg_only:
+                    features = features[1137:1178]
+                #normalize features
+                if features.shape[0] == self.mean.shape[0]:
+                    features = (features - self.mean) / self.std
+                    data.append(features)
+                else:
+                    data.append(np.zeros_like(self.mean) + np.nan)
+                    print(idx)
+            except:
+                print(idx)
+                data.append(np.zeros_like(self.mean) + np.nan)
+
+        return data
 
 

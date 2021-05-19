@@ -36,7 +36,7 @@ ecg_features_exct = ECGFeatures(FS_ECG)
 
 for folder in glob.glob(DATASET_PATH + "*"):
 
-    for subject in glob.glob(folder + "\\*-2020-*"):
+    for subject in glob.glob(folder + "\\*-2020-10-27"):
         if not path.exists(subject + ALL_FEATURES_PATH):
             os.mkdir(subject + ALL_FEATURES_PATH)
         try:
@@ -59,7 +59,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
             data_EmotionTest.loc[:, 'Time_End'] = data_EmotionTest.loc[:, 'Time_End'].apply(timeToInt)
 
             video_features_list = pd.DataFrame(
-                columns=["Idx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
+                columns=["Idx", "VideoIdx", "Start", "End", "Valence", "Arousal", "Emotion", "Status", "Subject"])
             idx = 0
 
             for i in range(len(data_EmotionTest)):
@@ -72,12 +72,13 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 eeg = pd.read_csv(subject + eeg_file + "filtered_eeg" + str(i) + ".csv")
                 print(i)
                 eeg["time"] = eeg["time"].apply(timeToInt)
-                for j in np.arange(time_start, time_end, 1.): #the window move backward
+                tdelta = time_end - time_start
+                for j in  np.arange(0, (tdelta // SPLIT_TIME), 0.1): #the window move backward
 
 
 
-                    end = time_end - ((j+1) * SPLIT_TIME)+ EXTENTION_TIME
-                    start = time_end - ((j) * SPLIT_TIME)
+                    end = time_start +  ((j+1) * SPLIT_TIME)+ EXTENTION_TIME
+                    start = time_start + ((j) * SPLIT_TIME)
 
                     #split EEG
                     eeg_split = eeg[(eeg["time"].values >= start) & (
@@ -139,7 +140,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
                         ecg_nonlinear_domain = ecg_features_exct.extractNonLinearDomain(ecg_values)
                         ecg_features = np.concatenate([ecg_time_domain, ecg_freq_domain, ecg_nonlinear_domain])
 
-                        features = [eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features]
+                        features = np.concatenate([eda_features, ppg_features, resp_features, ecg_resp_features, ecg_features, eeg_features])
 
                         np.save(subject + ALL_FEATURES_PATH + "features" + str(idx) + ".npy", features)
 
@@ -147,7 +148,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
                         # add object to dataframes
                     subject_name = subject.split("\\")[-1]
                     video_features_list = video_features_list.append(
-                            {"Idx": str(idx), "Subject": subject_name, "Start": str(start), "End": str(end),
+                            {"Idx": str(idx), "VideoIdx": str(i), "Subject": subject_name, "Start": str(start), "End": str(end),
                              "Valence": valence, "Arousal": arousal,
                              "Emotion": emotion},
                             ignore_index=True)

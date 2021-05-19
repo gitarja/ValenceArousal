@@ -69,9 +69,9 @@ X_test_val = nca_val.transform(X_test)
 # X_test_ar = X_test
 # X_test_val = X_test
 
-parameters = {"n_estimators": [150], "learning_rate": [0.95]}
-reg_ar = AdaBoostRegressor(ExtraTreeRegressor(max_depth=20,  random_state=0), random_state=0)
-reg_val = AdaBoostRegressor(ExtraTreeRegressor(max_depth=20,  random_state=0), random_state=0)
+parameters = {"n_estimators": [50, 75, 100], "learning_rate": [0.1, 0.5, 1.]}
+reg_ar = AdaBoostRegressor(ExtraTreeRegressor(max_depth=5,  random_state=0), random_state=0)
+reg_val = AdaBoostRegressor(ExtraTreeRegressor(max_depth=5,  random_state=0), random_state=0)
 
 
 clf_ar = GridSearchCV(reg_ar, parameters)
@@ -96,9 +96,9 @@ val_predict = clf_val.predict(X_test_val)
 th = 0.5
 # ambigous
 
-calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="hard", th=th)
-calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="soft", th=th)
-calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="false", th=th)
+# calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="hard", th=th)
+# calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="soft", th=th)
+# calcAccuracyRegression(ar_test, val_test, ar_predict, val_predict, mode="false", th=th)
 
 # val positif
 a_p = (ar_test > 0)

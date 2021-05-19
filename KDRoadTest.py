@@ -2,15 +2,18 @@ import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from KnowledgeDistillation.Models.EnsembleFeaturesModel import EnsembleSeparateModel, EnsembleModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS
-from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad
+from KnowledgeDistillation.Utils.DataFeaturesGenerator import DataFetch, DataFetchRoad, DataFetchVideo
 import datetime
 import pandas as pd
 import os
 import sys
+import math
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def convertBond(x):
+    if math.isnan(x):
+        return 0
     if x < -2:
         return -2
     if x > 2:
@@ -45,18 +48,34 @@ wait = 10
 
 # setting
 # fold = str(sys.argv[1])
-fold=4
+fold=5
 prev_val_loss = 1000
 wait_i = 0
-result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
-checkpoint_prefix = result_path + "model_student_pre_KD"
+result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\regression+class(-2)\\fold_" + str(fold) + "\\"
+checkpoint_prefix = result_path + "model_student_ECG_KD"
+checkpoint_prefix_teacher = result_path + "model_teacher"
 
-# datagenerator
-results_file_name = ROAD_ECG + "TS103_training\\20200617_141440_279_results.csv"
-ecg_data = ROAD_ECG + "TS103_training\\20200617_141440_279_HB_PW.csv"
-gps_data = ROAD_ECG + "TS103_training\\20200617_141440_279_GPS.csv"
-mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
-data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
+# datagenerator road test
+# results_file_name = ROAD_ECG + "E3\\20201119_140544_871_results.csv"
+# ecg_data = ROAD_ECG + "E3\\20201119_140544_871_HB_PW.csv"
+# gps_data = ROAD_ECG + "E3\\20201119_140544_871_GPS.csv"
+# mask_data = ROAD_ECG + "E5\\20201027_161000_536_HB_PW.csv"
+# data_fetch = DataFetchRoad(ecg_file=ecg_data, gps_file=gps_data, mask_file=mask_data, stride=STRIDE, ecg_n=ECG_RAW_N, split_time=SPLIT_TIME)
+# generator = data_fetch.fetch
+#
+#
+#
+# test_generator = tf.data.Dataset.from_generator(
+#     lambda: generator(),
+#     output_types=(tf.float32),
+#     output_shapes=(tf.TensorShape([ECG_N])))
+#
+# test_data = test_generator.batch(BATCH_SIZE)
+
+# datagenerator video test
+features_list_path = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\Yamaha-Experiment (2020-10-26 - 2020-11-06)\\data\\2020-10-27\\A6-2020-10-27\\"
+results_file_name = features_list_path + "video_results_ecg.csv"
+data_fetch = DataFetchVideo(features_list_path + "video_features_list_0.2.csv", ecg_only=True)
 generator = data_fetch.fetch
 
 
@@ -68,11 +87,13 @@ test_generator = tf.data.Dataset.from_generator(
 
 test_data = test_generator.batch(BATCH_SIZE)
 
+
+
 with strategy.scope():
     # load pretrained model
     # encoder model
-    checkpoint_prefix_encoder = result_path + "model_base_student"
-    model = EnsembleStudentOneDim(num_output=num_output)
+    # model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N).loadBaseModel(checkpoint_prefix_teacher)
+    model = EnsembleModel(num_output=num_output).loadBaseModel(checkpoint_prefix)
     learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                    decay_steps=EPOCHS, decay_rate=0.95,
                                                                    staircase=True)
@@ -80,20 +101,16 @@ with strategy.scope():
 
 
 
-# Manager
-checkpoint = tf.train.Checkpoint(step=tf.Variable(1), student_model=model)
-manager = tf.train.CheckpointManager(checkpoint, checkpoint_prefix, max_to_keep=3)
-checkpoint.restore(manager.latest_checkpoint)
-
 predictions = []
 print("Start testing")
 with strategy.scope():
 
 
     def test_step(inputs, GLOBAL_BATCH_SIZE=0):
-        X = tf.expand_dims(tf.expand_dims(inputs[-1], -1), 0)
+        X = tf.expand_dims(inputs[-1], 0)
         # X = tf.expand_dims(inputs[-1], 0)
-        prediction_ar, prediction_val = model.predict(X, global_batch_size=GLOBAL_BATCH_SIZE, training=False)
+        _, prediction_ar, prediction_val, _= model(X, training=False)
+        # _, prediction_ar, prediction_val, _, _ = model(X, training=False)
         # _, prediction_ar, prediction_val = model(X, training=False)
 
         return prediction_ar, prediction_val
@@ -119,9 +136,10 @@ with strategy.scope():
     data = pd.DataFrame(columns=["arousal", "valence"])
     for step, test in enumerate(test_data):
         prediction_ar, prediction_val = distributed_test_step(test, data_fetch.test_n)
-        data = data.append({'arousal': prediction_ar.numpy()[0, 0], 'valence': prediction_val.numpy()[0, 0]}, ignore_index=True)
+        data = data.append({'arousal': convertBond(prediction_ar.numpy()[0, 0]), 'valence': convertBond(prediction_val.numpy()[0, 0])}, ignore_index=True)
+        # print(template.format(convertBond(prediction_ar.numpy()[0, 0]),  convertBond(prediction_val.numpy()[0, 0])))
 
     data.to_csv(results_file_name)
-        # print(template.format(convertBond(prediction_ar.numpy()[0, 0]),  convertBond(prediction_val.numpy()[0, 0])))
+
 
 
