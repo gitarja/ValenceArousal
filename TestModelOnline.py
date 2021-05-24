@@ -57,13 +57,12 @@ for fold in range(1, 6):
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
     # checkpoint_prefix = result_path + "model_student_ECG_KD_high"
-    checkpoint_prefix2 = result_path + "model_student_ECG_KD"
+    checkpoint_prefix2 = result_path + "model_student_ECG_RESP_KD"
     # datagenerator
     testing_data = DATASET_PATH + "\\stride=0.2\\test_data_" + str(fold) + ".csv"
     validation_data = DATASET_PATH + "\\stride=0.2\\validation_data_" + str(fold) + ".csv"
     data_fetch = DataFetch(test_file=testing_data, validation_file=validation_data,
-                           ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True,
-                           high_only=False)
+                           ECG_N=ECG_RAW_N, KD=True, training=False, teacher=False, ECG=True, RESP=True, high_only=False)
     generator = data_fetch.fetch
 
     test_generator = tf.data.Dataset.from_generator(
@@ -72,7 +71,7 @@ for fold in range(1, 6):
         # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
         output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
         output_shapes=(
-            tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), ()))
+            tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N+Resp_N]), ()))
 
     test_data = test_generator.batch(data_fetch.test_n)
 
@@ -192,4 +191,4 @@ for fold in range(1, 6):
                                    index=results.columns)
         results = results.append(results_series, ignore_index=True)
 
-results.to_csv(TRAINING_RESULTS_PATH + "Binary_ECG\\AllResultsSummaryStudent_ECG.csv", index=False)
+results.to_csv(TRAINING_RESULTS_PATH + "Binary_ECG\\AllResultsSummaryStudent_ECG_RESP.csv", index=False)

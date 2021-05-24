@@ -182,5 +182,18 @@ for fold in range(1, 6):
                                    index=results.columns)
         results = results.append(results_series, ignore_index=True)
 
+        # val positif
+        a_p = (ar_pred_label[:, 0] > 0)
+        a_n = (ar_pred_label[:, 0] < 0)
+        a_p_results = np.sum(ar_pred_label[:, 1][a_p] > 0)
+        a_n_results = np.sum(ar_pred_label[:, 1][a_n] <= 0)
+        print((a_p_results + a_n_results) / (np.sum(a_p) + np.sum(a_n)))
+        # val positif
+        v_p = (val_pred_label[:, 0] > 0)
+        v_n = (val_pred_label[:, 0] < 0)
+        v_p_results = np.sum(val_pred_label[:, 1][v_p] > 0)
+        v_n_results = np.sum(val_pred_label[:, 1][v_n] <= 0)
+        print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
+
 results.to_csv(TRAINING_RESULTS_PATH + "Binary_ECG\\AllResultsSummaryTeacher.csv", index=False)
 

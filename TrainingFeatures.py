@@ -38,7 +38,7 @@ BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
 wait = 55
-alpha = 0.35
+alpha = 0.0
 
 # setting
 # fold = str(sys.argv[1])
@@ -46,12 +46,12 @@ for fold in range(1, 6):
     prev_val_loss = 2000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
-    checkpoint_prefix = result_path + "model_student_ECG_KD"
+    checkpoint_prefix = result_path + "model_student_ECG_NotKD"
 
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = result_path + "tensorboard_student_ECG_KD\\" + current_time + '/train'
-    test_log_dir = result_path + "tensorboard_student_ECG_KD\\" + current_time + '/test'
+    train_log_dir = result_path + "tensorboard_student_ECG_NotKD\\" + current_time + '/train'
+    test_log_dir = result_path + "tensorboard_student_ECG_NotKD\\" + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
@@ -384,7 +384,7 @@ for fold in range(1, 6):
             distributed_test_step(test, ALL_BATCH_SIZE)
         template = (
             "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {}")
-        sys.stdout = open(result_path + "summary_student_ECG_KD.txt", "w")
+        sys.stdout = open(result_path + "summary_student_ECG_NotKD.txt", "w")
         print(template.format(
             loss_test.result().numpy(),
             rmse_ar_test.result().numpy(),
