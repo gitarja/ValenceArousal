@@ -269,3 +269,8 @@ def emotionLabels(labels, N_CLASS):
         label_en[int(l)] = 1
 
     return label_en
+
+def subjectLabel(label, n_class):
+    label_en = np.zeros(n_class)
+    label_en[int(label)] = 1
+    return label_en
