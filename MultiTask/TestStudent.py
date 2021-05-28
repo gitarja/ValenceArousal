@@ -5,10 +5,7 @@ from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOAR
 from MultiTask.DataGenerator import DataFetch
 from Libs.Utils import calcAccuracyRegression, calcAccuracyArValRegression
 from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR, SoftF1
-import datetime
 import os
-import sys
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns

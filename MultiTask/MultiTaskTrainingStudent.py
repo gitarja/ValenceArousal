@@ -42,7 +42,7 @@ alpha = 0.35
 
 # setting
 # fold = str(sys.argv[1])
-for fold in range(1, 2):
+for fold in range(1, 6):
     prev_val_loss = 2000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
@@ -416,7 +416,7 @@ for fold in range(1, 2):
             distributed_test_step(test, ALL_BATCH_SIZE)
         template = (
             "Test: loss: {}, rmse_ar: {}, ccc_ar: {}, pcc_ar: {}, sagr_ar: {} | rmse_val: {}, ccc_val: {},  pcc_val: {}, sagr_val: {}, softf1_val: {} | subject_acc: {}, gender_acc: {}")
-        sys.stdout = open(result_path + "summary_student_ECG_NotKD.txt", "w")
+        sys.stdout = open(result_path + "summary_student_ECG_KD.txt", "w")
         print(template.format(
             loss_test.result().numpy(),
             rmse_ar_test.result().numpy(),
