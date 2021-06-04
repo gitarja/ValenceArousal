@@ -90,6 +90,23 @@ def multipleLabels(ar, val):
         return 4
 
 
+def regressLabelRoad(ar, val, th=0.5):
+    if (val <= th) & (val >= -th):
+        return 0    # ambiguous
+    if (val > th) & (ar > th):
+        return 3    # exciting
+    if (val > th) & ((ar <= th) & (ar >= -th)):
+        return 2    # happy
+    if (val > th) & (ar < -th):
+        return 1    # relaxed
+    if (val < -th) & (ar < -th):
+        return -1    # bored
+    if (val < -th) & ((ar <= th) & (ar >= -th)):
+        return -2    # frustrated
+    if (val < -th) & (ar > th):
+        return -3    # angry
+
+
 def calcAccuracyRegression(y_ar, y_val, t_ar, t_val, th=0.5, mode="hard"):
     B1 = (t_ar > 0) & (t_val > 0)
     A1 = (t_ar > 0) & (t_val < 0)

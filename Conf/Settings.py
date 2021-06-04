@@ -56,7 +56,8 @@ CHECK_POINT_PATH = "D:\\usr\\nishihara\\result\\ValenceArousal\\model\\sMCL\\"
 TRAINING_RESULTS_PATH = "D:\\usr\\nishihara\\result\\ValenceArousal\\"
 
 #road test
-ROAD_ECG = "D:\\usr\\pras\\data\\Yamaha-Experiment-Filtered\\road_test\\"
+ROAD_ECG = "D:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\RoadTest\\"
+TRAINING_ECG = "D:\\usr\\nishihara\\data\\Yamaha-Experiment\\data\\Training\\"
 
 #proportion
 HIGH_PROP = 0.5

@@ -321,14 +321,99 @@ class DataFetchRoad:
             if len(ecg) >= self.ecg_n:
                 ecg = ecg[:self.ecg_n]
 
-                #extract ECG features
+                # extract ECG features
                 time_domain = self.featuresExct.extractTimeDomain(ecg)
-                freq_domain =  self.featuresExct.extractFrequencyDomain(ecg)
-                nonlinear_domain =  self.featuresExct.extractNonLinearDomain(ecg)
-                concatenate_features = (np.concatenate([time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
+                freq_domain = self.featuresExct.extractFrequencyDomain(ecg)
+                nonlinear_domain = self.featuresExct.extractNonLinearDomain(ecg)
+                concatenate_features = (np.concatenate(
+                    [time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
                 data_set.append(concatenate_features)
 
-                #raw ecg
+                # raw ecg
+                # ecg = (ecg - 2140.397356669409) / 370.95493558685325
+                # ecg = (ecg - 2048.485947046843) / 156.5629266658633
+                # ecg = ecg / (4095 - 0)
+                # ecg = signal.resample(ecg, 200 * SPLIT_TIME)
+                # data_set.append(ecg)
+            # print(ecg)
+        return data_set
+
+
+class DataFetchRoadTimeSeries:
+
+    def __init__(self, ecg_file, ecg_n=11250, split_time=45, stride=0.2):
+
+        self.ecg_file = ecg_file
+        self.ecg_n = ecg_n
+        self.stride = stride
+        self.split_time = split_time
+
+        self.featuresExct = ECGFeatures(FS_ECG)
+
+        # normalization ecg features
+        self.ecg_mean = np.array([8.69006926e+02, 5.36894839e+01, 5.13280806e+01, 3.60941889e+01,
+                                  5.12644394e+01, 3.50184864e+01, 7.05304536e+01, 4.00354951e+00,
+                                  1.93190808e+01, 2.37990616e+01, 4.74128624e+01, 1.79100193e+01,
+                                  3.61127269e+01, 8.89897875e+00, 1.83440847e+01, 9.47694202e-03,
+                                  2.99294977e-02, 8.32468992e-02, 2.66982160e-01, 1.05872866e+02,
+                                  8.24120855e+02, 1.61071678e+03, 2.27217251e+03, 3.79534713e+00,
+                                  2.62838417e+01, 3.42443566e+01, 3.56764545e+01, 3.36520073e+00,
+                                  5.63147720e+00, 6.03246072e+00, 6.01429266e+00, 5.03771520e+01,
+                                  4.96228480e+01, 1.88115762e+00, 1.67060736e+00, 1.47731287e-01,
+                                  3.62288239e+01, 6.01129089e+01, 2.21647750e+00, 1.17607048e+04,
+                                  4.32725792e-01])
+
+        self.ecg_std = np.array([1.12849622e+02, 7.22749812e+00, 4.13239686e+01, 3.76508218e+01,
+                                 6.06763869e+01, 4.94652050e+01, 9.08751400e+00, 2.91083561e+00,
+                                 1.74801557e+01, 1.09281612e+01, 2.35429989e+01, 1.10034329e+01,
+                                 2.36269451e+01, 9.38428850e+00, 2.01946583e+01, 1.47242980e-03,
+                                 1.22646518e-02, 2.66829649e-02, 7.71102801e-02, 8.09024660e+02,
+                                 3.84167641e+03, 1.11956783e+04, 1.61020832e+04, 3.85171123e+00,
+                                 1.77196093e+01, 1.81367242e+01, 2.12639285e+01, 1.62165833e+00,
+                                 1.37502961e+00, 1.34862368e+00, 1.51030700e+00, 2.27359887e+01,
+                                 2.27359887e+01, 2.64173948e+00, 5.57174922e-01, 8.24678134e-02,
+                                 4.28983320e+01, 4.14642962e+01, 9.86755656e-01, 4.09682862e+04,
+                                 3.83966021e-01])
+
+        self.data_set = self.readData()
+        self.test_n = len(self.data_set)
+
+    def fetch(self):
+        i = 0
+        while i < len(self.data_set):
+            data_i = self.data_set[i]
+            yield data_i[0], data_i[1], data_i[2]
+            i += 1
+
+    def readData(self):
+        data_set = []
+        ecg_data = pd.read_csv(self.ecg_file)
+        ecg_data.loc[:, 'time'] = ecg_data.loc[:, 'timestamp'].apply(timeToInt)
+        tdelta = ecg_data.iloc[-1]["time"] - ecg_data.iloc[0]["time"]
+        time_start = ecg_data.iloc[0]["time"]
+
+        for j in np.arange(0, (tdelta // self.split_time), self.stride):
+            start = time_start + (j * self.split_time)
+            end = time_start + ((j + 1) * self.split_time)
+            ecg = ecg_data[(ecg_data["time"].values >= start) & (ecg_data["time"].values <= end)]["ecg"].values
+            idx = int(np.median(np.where((ecg_data["time"].values >= start) & (ecg_data["time"].values <= end))[0]))
+            timestamp = ecg_data.iloc[idx]["timestamp"]
+            time = ecg_data.iloc[idx]["time"]
+            # print(len(ecg))
+            if len(ecg) >= self.ecg_n:
+                ecg = ecg[:self.ecg_n]
+
+                # extract ECG features
+                time_domain = self.featuresExct.extractTimeDomain(ecg)
+                freq_domain = self.featuresExct.extractFrequencyDomain(ecg)
+                nonlinear_domain = self.featuresExct.extractNonLinearDomain(ecg)
+                if time_domain.shape[0] != 0 and freq_domain.shape[0] != 0 and nonlinear_domain.shape[0] != 0:
+                    concatenate_features = (np.concatenate(
+                        [time_domain, freq_domain, nonlinear_domain]) - self.ecg_mean) / self.ecg_std
+                    if np.sum(np.isinf(concatenate_features)) == 0 & np.sum(np.isinf(concatenate_features)) == 0:
+                        data_set.append([timestamp, time, concatenate_features])
+
+                # raw ecg
                 # ecg = (ecg - 2140.397356669409) / 370.95493558685325
                 # ecg = (ecg - 2048.485947046843) / 156.5629266658633
                 # ecg = ecg / (4095 - 0)

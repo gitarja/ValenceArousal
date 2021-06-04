@@ -56,8 +56,7 @@ results = pd.DataFrame(index=[], columns=["Fold",
 
 # setting
 # fold = str(sys.argv[1])
-fold=1
-for fold in range(1, 2):
+for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"

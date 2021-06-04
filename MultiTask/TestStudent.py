@@ -49,7 +49,7 @@ results = pd.DataFrame(index=[], columns=["Fold",
                                           "Ar_high", "Ar_low", "Ar_med",
                                           "Val_positive", "Val_negative", "Val_neutral",
                                           "Acc_subject", "Acc_gender"])
-for fold in range(1, 2):
+for fold in range(1, 6):
     prev_val_loss = 1000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
