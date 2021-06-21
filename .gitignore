@@ -15,5 +15,12 @@ StatisticalAnalysis/__pycache__
 StatisticalAnalysis/results
 Testing/__pycache__
 *.cpython-36.pyc
-*.cpython-37.pyc
+KnowledgeDistillation/Utils/__pycache__
+KnowledgeDistillation/Models/__pycache__
+KnowledgeDistillation/Layers/__pycache__
 hoge.py
+VideoDemonstration/Videos
+VideoDemonstration/Training/Videos
+VideoDemonstration/__pycache__
+VideoDemonstration/Training/__pycache__
+MultiTask/__pycache__

@@ -396,11 +396,11 @@ class DataFetchRoadTimeSeries:
             start = time_start + (j * self.split_time)
             end = time_start + ((j + 1) * self.split_time)
             ecg = ecg_data[(ecg_data["time"].values >= start) & (ecg_data["time"].values <= end)]["ecg"].values
-            idx = int(np.median(np.where((ecg_data["time"].values >= start) & (ecg_data["time"].values <= end))[0]))
-            timestamp = ecg_data.iloc[idx]["timestamp"]
-            time = ecg_data.iloc[idx]["time"]
-            # print(len(ecg))
             if len(ecg) >= self.ecg_n:
+                idx = int(np.median(np.where((ecg_data["time"].values >= start) & (ecg_data["time"].values <= end))[0]))
+                timestamp = ecg_data.iloc[idx]["timestamp"]
+                time = ecg_data.iloc[idx]["time"]
+                # print(len(ecg))
                 ecg = ecg[:self.ecg_n]
 
                 # extract ECG features
