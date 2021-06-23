@@ -30,20 +30,20 @@ strategy = tf.distribute.MirroredStrategy(cross_device_ops=cross_tower_ops)
 
 # setting
 num_output = N_CLASS
-initial_learning_rate = 1e-3
-EPOCHS = 3000
+initial_learning_rate = 1e-4
+EPOCHS = 1000
 BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 15
+wait = 100
 
 # setting
 # fold = str(sys.argv[1])
-for fold in range(1, 6):
+for fold in range(1, 2):
     # setting model
     prev_val_loss = 1000
     wait_i = 0
-    result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
+    result_path = TRAINING_RESULTS_PATH + "MultiTask\\SubjectCV\\fold_" + str(fold) + "\\"
     checkpoint_prefix = result_path + "model_teacher"
     # tensorboard
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -54,9 +54,9 @@ for fold in range(1, 6):
 
     # datagenerator
 
-    training_data = DATASET_PATH + "\\stride=0.2_multitask\\training_data_" + str(fold) + ".csv"
-    validation_data = DATASET_PATH + "\\stride=0.2_multitask\\validation_data_" + str(fold) + ".csv"
-    testing_data = DATASET_PATH + "\\stride=0.2_multitask\\test_data_" + str(fold) + ".csv"
+    training_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\training_data_" + str(fold) + ".csv"
+    validation_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\validation_data_" + str(fold) + ".csv"
+    testing_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\test_data_" + str(fold) + ".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                            ECG_N=ECG_RAW_N, teacher=True, KD=False, high_only=False, multi_task=True)
@@ -163,18 +163,22 @@ for fold in range(1, 6):
                                                               global_batch_size=GLOBAL_BATCH_SIZE)
                 # Multi task loss
                 multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
-                                                               global_batch_size=GLOBAL_BATCH_SIZE)
+                                                               global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
 
                 # Autoencoder loss
                 rec_loss = model.reconstructLoss(X, rec_X, global_batch_size=GLOBAL_BATCH_SIZE)
 
-                final_loss = regress_loss + multi_task_loss + classific_loss + rec_loss
+                # final_loss = regress_loss + multi_task_loss + classific_loss + rec_loss
+                final_loss = multi_task_loss
 
             # update gradient
             grads = tape_ar.gradient(final_loss, model.trainable_variables)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
-            update_train_metrics(mse_loss + multi_task_loss + classific_loss,
+            # update_train_metrics(mse_loss + multi_task_loss + classific_loss,
+            #                      z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
+            #                      y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+            update_train_metrics(final_loss,
                                  z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
                                  y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
 
@@ -194,11 +198,15 @@ for fold in range(1, 6):
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                           global_batch_size=GLOBAL_BATCH_SIZE)
             multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
-                                                           global_batch_size=GLOBAL_BATCH_SIZE)
+                                                           global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
 
-            final_loss = regress_loss + multi_task_loss + classific_loss
+            # final_loss = regress_loss + multi_task_loss + classific_loss
+            final_loss = multi_task_loss
 
-            update_test_metrics(mse_loss + multi_task_loss + classific_loss,
+            # update_test_metrics(mse_loss + multi_task_loss + classific_loss,
+            #                     z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
+            #                     y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+            update_test_metrics(final_loss,
                                 z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
                                 y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
 

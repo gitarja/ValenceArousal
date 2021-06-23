@@ -52,7 +52,7 @@ result_path = TRAINING_RESULTS_PATH + "Binary_ECG\\fold_" + str(fold) + "\\"
 checkpoint_prefix = "D:\\usr\\nishihara\\result\\ValenceArousal\\Binary_ECG\\fromPras\\model_student_ECG_KD\\"
 
 # datagenerator
-for subject_path in glob.glob(TRAINING_ECG + "*\\"):
+for subject_path in glob.glob(TRAINING_ECG + "A2_TS102_20200617_141444_642\\"):
     print(subject_path)
     ecg = glob.glob(subject_path + "*_HB_PW.csv")
     if len(ecg) > 0:

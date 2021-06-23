@@ -274,10 +274,10 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return final_loss
 
-    def multiTaskClassificLoss(self, z_sub, z_gen, y_sub, y_gen, global_batch_size):
+    def multiTaskClassificLoss(self, z_sub, z_gen, y_sub, y_gen, global_batch_size, alpha=0.5):
         sub_loss = tf.nn.compute_average_loss(self.cross_loss(y_sub, tf.nn.softmax(z_sub)), global_batch_size=global_batch_size)
         gen_loss = tf.nn.compute_average_loss(self.binary_cross_loss(y_gen, tf.nn.sigmoid(z_gen)), global_batch_size=global_batch_size)
-        return sub_loss + gen_loss
+        return alpha * sub_loss + (1 - alpha) * gen_loss
 
     def reconstructLoss(self, z, y, global_batch_size):
         rec_loss = tf.nn.compute_average_loss(

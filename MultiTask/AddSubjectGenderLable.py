@@ -3,10 +3,11 @@ import pandas as pd
 from Conf.Settings import DATASET_PATH
 import os
 
-path = DATASET_PATH + "stride=0.2\\"
-path_result = DATASET_PATH + "stride=0.2_multitask\\"
+path = DATASET_PATH + "stride=0.2\\SubjectCV\\"
+path_result = DATASET_PATH + "stride=0.2_multitask\\SubjectCV\\"
 os.makedirs(path_result, exist_ok=True)
-for fold in range(1, 6):
+
+for fold in range(1, 2):
     df_train = pd.read_csv(path + "training_data_" + str(fold) + ".csv")
     df_val = pd.read_csv(path + "validation_data_" + str(fold) + ".csv")
     df_test = pd.read_csv(path + "test_data_" + str(fold) + ".csv")

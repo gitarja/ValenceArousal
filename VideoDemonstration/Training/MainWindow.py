@@ -45,7 +45,11 @@ class VideoPlayer(QThread):
 
             time_elapsed = time.time() - prev
             time_elapsed_result = time.time() - prev_result
-            time_delta = self.time[result_idx+1] - self.time[result_idx]
+            if result_idx == 0:
+                time_delta = 9
+            else:
+                time_delta = self.time[result_idx] - self.time[result_idx - 1]
+
             if time_elapsed_result > time_delta:
                 prev_result = time.time()
                 self.changeEmotion.emit(self.valence[result_idx], self.arousal[result_idx])
