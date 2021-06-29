@@ -88,11 +88,11 @@ for fold in range(1, 2):
         model = EnsembleSeparateModel(num_output=num_output, features_length=FEATURES_N)
         total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
-                                                                       decay_steps=EPOCHS, decay_rate=0.95,
+                                                                       decay_steps=EPOCHS/2, decay_rate=0.95,
                                                                        staircase=True)
-        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-        # optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
-        #                                          warmup_proportion=0.1, min_lr=1e-5)
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        optimizer = tfa.optimizers.RectifiedAdam(learning_rate=initial_learning_rate, total_steps=total_steps,
+                                                 warmup_proportion=0.3, min_lr=1e-5)
 
         # ---------------------------Loss & Metrics--------------------------#
         # loss
@@ -163,7 +163,7 @@ for fold in range(1, 2):
                                                               global_batch_size=GLOBAL_BATCH_SIZE)
                 # Multi task loss
                 multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
-                                                               global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
+                                                               global_batch_size=GLOBAL_BATCH_SIZE)
 
                 # Autoencoder loss
                 rec_loss = model.reconstructLoss(X, rec_X, global_batch_size=GLOBAL_BATCH_SIZE)
@@ -198,7 +198,7 @@ for fold in range(1, 2):
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                           global_batch_size=GLOBAL_BATCH_SIZE)
             multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
-                                                           global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
+                                                           global_batch_size=GLOBAL_BATCH_SIZE)
 
             # final_loss = regress_loss + multi_task_loss + classific_loss
             final_loss = multi_task_loss

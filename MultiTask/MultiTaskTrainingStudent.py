@@ -37,15 +37,15 @@ PRE_EPOCHS = 100
 BATCH_SIZE = 512
 th = 0.5
 ALL_BATCH_SIZE = BATCH_SIZE * strategy.num_replicas_in_sync
-wait = 55
+wait = 100
 alpha = 0.35
 
 # setting
 # fold = str(sys.argv[1])
-for fold in range(1, 6):
+for fold in range(1, 2):
     prev_val_loss = 2000
     wait_i = 0
-    result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
+    result_path = TRAINING_RESULTS_PATH + "MultiTask\\SubjectCV\\fold_" + str(fold) + "\\"
     checkpoint_prefix = result_path + "model_student_ECG_KD"
 
     # tensorboard
@@ -57,9 +57,9 @@ for fold in range(1, 6):
 
     # datagenerator
 
-    training_data = DATASET_PATH + "\\stride=0.2_multitask\\training_data_" + str(fold) + ".csv"
-    validation_data = DATASET_PATH + "\\stride=0.2_multitask\\validation_data_" + str(fold) + ".csv"
-    testing_data = DATASET_PATH + "\\stride=0.2_multitask\\test_data_" + str(fold) + ".csv"
+    training_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\training_data_" + str(fold) + ".csv"
+    validation_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\validation_data_" + str(fold) + ".csv"
+    testing_data = DATASET_PATH + "\\stride=0.2_multitask\\SubjectCV\\test_data_" + str(fold) + ".csv"
 
     data_fetch = DataFetch(train_file=training_data, test_file=testing_data, validation_file=validation_data,
                            ECG_N=ECG_RAW_N, KD=True, teacher=False, ECG=True, high_only=False, multi_task=True)
@@ -98,7 +98,7 @@ for fold in range(1, 6):
         # checkpoint_prefix_encoder = result_path + "model_base_student"
 
         model = EnsembleModel(num_output=num_output)
-        total_steps = int((data_fetch.train_n / BATCH_SIZE) * EPOCHS)
+        total_steps = int((data_fetch.train_n / ALL_BATCH_SIZE) * EPOCHS)
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=initial_learning_rate,
                                                                        decay_steps=(EPOCHS / 2), decay_rate=0.95,
                                                                        staircase=True)
@@ -182,7 +182,7 @@ for fold in range(1, 6):
                                                                                     global_batch_size=GLOBAL_BATCH_SIZE)  # regression student-teacher
                 # latent_loss = teacher_model.latentLoss(z, t_z, global_batch_size=GLOBAL_BATCH_SIZE, sample_weight=mask)
                 multi_task_loss = teacher_model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
-                                                                       global_batch_size=GLOBAL_BATCH_SIZE)
+                                                                       global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
 
                 # print(t_x)
                 # print(z_x)
@@ -191,13 +191,17 @@ for fold in range(1, 6):
                 regression_final_loss = regress_loss + alpha * regress_distill_loss
                 # classification_final_loss = classific_loss
                 # regression_final_loss = regress_loss
-                final_loss = classification_final_loss + regression_final_loss + multi_task_loss
+                # final_loss = classification_final_loss + regression_final_loss + multi_task_loss
+                final_loss = multi_task_loss
 
             # update gradient
             grads = tape.gradient(final_loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-            update_train_metrics(mse_loss,
+            # update_train_metrics(mse_loss,
+            #                      z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
+            #                      y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+            update_train_metrics(final_loss,
                                  z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
                                  y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
 
@@ -220,10 +224,16 @@ for fold in range(1, 6):
                                                                   shake_params=shake_params,
                                                                   global_batch_size=GLOBAL_BATCH_SIZE,
                                                                   sample_weight=w)  # regression student-gt
+            multi_task_loss = teacher_model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
+                                                                   global_batch_size=GLOBAL_BATCH_SIZE, alpha=0)
 
-            final_loss = regress_loss
+            # final_loss = regress_loss
+            final_loss = multi_task_loss
 
-            update_test_metrics(mse_loss,
+            # update_test_metrics(mse_loss,
+            #                     z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
+            #                     y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+            update_test_metrics(final_loss,
                                 z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
                                 y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
 
