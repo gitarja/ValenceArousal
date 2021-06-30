@@ -7,6 +7,7 @@ class UnitModel(tf.keras.layers.Layer):
                  en_units=(32, 32, 16, 16),
                  num_output=4,
                  num_subjects=28,
+                 num_video_genre=4,
                  features_length=2480,
                  decoder=True,
                  embedding_n=32,
@@ -49,6 +50,10 @@ class UnitModel(tf.keras.layers.Layer):
         self.embed_gender = tf.keras.layers.Dense(units=embedding_n, activation="elu")
         self.logit_gender = tf.keras.layers.Dense(units=1, activation=None)
 
+        # Video genre classification
+        self.embed_video = tf.keras.layers.Dense(units=embedding_n, activation="elu")
+        self.logit_video = tf.keras.layers.Dense(units=num_video_genre, activation=None)
+
         # activation
         self.elu = tf.keras.layers.ELU()
         self.dropout = tf.keras.layers.Dropout(0.05)
@@ -82,14 +87,18 @@ class UnitModel(tf.keras.layers.Layer):
         z_embed = self.embed_gender(self.dropout(z, training=training))
         z_gender = self.logit_gender(z_embed)
 
+        # Video genre classification
+        z_embed = self.embed_video(self.dropout(z, training=training))
+        z_video = self.logit_video(z_embed)
+
         if self.decoder:
-            return z_em, z_ar, z_val, x, z, z_subject, z_gender
-        return z_em, z_ar, z_val, None, z, z_subject, z_gender
+            return z_em, z_ar, z_val, x, z, z_subject, z_gender, z_video
+        return z_em, z_ar, z_val, None, z, z_subject, z_gender, z_video
 
 
 class UnitModelSingle(tf.keras.layers.Layer):
 
-    def __init__(self, en_units=(64, 128, 256, 512), num_output=4, num_subject=28, **kwargs):
+    def __init__(self, en_units=(64, 128, 256, 512), num_output=4, num_subject=28, num_video_genre=4, **kwargs):
         super(UnitModelSingle, self).__init__(**kwargs)
         self.dense1 = tf.keras.layers.Dense(units=en_units[0], activation="elu")
 
@@ -118,12 +127,17 @@ class UnitModelSingle(tf.keras.layers.Layer):
         self.dense3_gen = tf.keras.layers.Dense(units=en_units[2], activation="elu")
         self.dense4_gen = tf.keras.layers.Dense(units=en_units[3], activation="elu")
 
+        # Video genre
+        self.dense3_video = tf.keras.layers.Dense(units=en_units[2], activation="elu")
+        self.dense4_video = tf.keras.layers.Dense(units=en_units[3], activation="elu")
+
         # logit
         self.logit_em = tf.keras.layers.Dense(units=num_output, activation=None)
         self.logit_ar = tf.keras.layers.Dense(units=1, activation=None)
         self.logit_val = tf.keras.layers.Dense(units=1, activation=None)
         self.logit_sub = tf.keras.layers.Dense(units=num_subject, activation=None)
         self.logit_gen = tf.keras.layers.Dense(units=1, activation=None)
+        self.logit_video = tf.keras.layers.Dense(units=num_video_genre, activation=None)
 
         # dropout
         self.dropout = tf.keras.layers.Dropout(0.05)
@@ -137,38 +151,40 @@ class UnitModelSingle(tf.keras.layers.Layer):
         z_val = self.logit_val(self.dense4_val(self.dense3_val(z)))
         z_sub = self.logit_sub(self.dense4_sub(self.dense3_sub(z)))
         z_gen = self.logit_gen(self.dense4_gen(self.dense3_gen(z)))
+        z_video = self.logit_video(self.dense4_video(self.dense3_video(z)))
 
-        return z_em, z_ar, z_val, z_sub, z_gen, z
+        return z_em, z_ar, z_val, z_sub, z_gen, z_video, z
 
 
 class EnsembleModel(tf.keras.Model):
-    def __init__(self, num_output=4):
+    def __init__(self, num_output=4, num_subject=28, num_video_genre=4):
         super(EnsembleModel, self).__init__(self)
-        self.unit_small = UnitModelSingle(en_units=(16, 32, 64, 128), num_output=num_output,
-                                          name="unit_small")
-        self.unit_medium = UnitModelSingle(en_units=(32, 32, 64, 128), num_output=num_output,
-                                           name="unit_medium")
-        self.unit_large = UnitModelSingle(en_units=(32, 32, 128, 256), num_output=num_output,
-                                          name="unit_large")
+        self.unit_small = UnitModelSingle(en_units=(16, 32, 64, 128), num_output=num_output, num_subject=num_subject,
+                                          num_video_genre=num_video_genre, name="unit_small")
+        self.unit_medium = UnitModelSingle(en_units=(32, 32, 64, 128), num_output=num_output, num_subject=num_subject,
+                                          num_video_genre=num_video_genre, name="unit_medium")
+        self.unit_large = UnitModelSingle(en_units=(32, 32, 128, 256), num_output=num_output, num_subject=num_subject,
+                                          num_video_genre=num_video_genre, name="unit_large")
 
         # avg
         self.avg = tf.keras.layers.Average()
 
     def call(self, inputs, training=None, mask=None):
         # small
-        z_em_s, z_ar_s, z_val_s, z_sub_s, z_gen_s, z_s = self.unit_small(inputs, training=training)
+        z_em_s, z_ar_s, z_val_s, z_sub_s, z_gen_s, z_video_s, z_s = self.unit_small(inputs, training=training)
         # medium
-        z_em_m, z_ar_m, z_val_m, z_sub_m, z_gen_m, z_m = self.unit_medium(inputs, training=training)
+        z_em_m, z_ar_m, z_val_m, z_sub_m, z_gen_m, z_video_m, z_m = self.unit_medium(inputs, training=training)
         # large
-        z_em_l, z_ar_l, z_val_l, z_sub_l, z_gen_l, z_l = self.unit_large(inputs, training=training)
+        z_em_l, z_ar_l, z_val_l, z_sub_l, z_gen_l, z_video_l, z_l = self.unit_large(inputs, training=training)
 
         z_em = self.avg([z_em_s, z_em_m, z_em_l])
         z_ar = self.avg([z_ar_s, z_ar_m, z_ar_l])
         z_val = self.avg([z_val_s, z_val_m, z_val_l])
         z_sub = self.avg([z_sub_s, z_sub_m, z_sub_l])
         z_gen = self.avg([z_gen_s, z_gen_m, z_gen_l])
+        z_video = self.avg([z_video_s, z_video_m, z_video_l])
         z = self.avg([z_s, z_m, z_l])
-        return z_em, z_ar, z_val, z, z_sub, z_gen
+        return z_em, z_ar, z_val, z, z_sub, z_gen, z_video
 
     def loadBaseModel(self, checkpoint_prefix):
         model = self
@@ -181,17 +197,20 @@ class EnsembleModel(tf.keras.Model):
 
 class EnsembleSeparateModel(tf.keras.Model):
 
-    def __init__(self, num_output=4, num_subject=28, features_length=2480, decoder=True):
+    def __init__(self, num_output=4, num_subject=28, num_video_genre=4, features_length=2480, decoder=True):
         super(EnsembleSeparateModel, self).__init__(self)
         self.decoder = decoder
         # DNN unit
 
-        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, num_subjects=num_subject, embedding_n=32,
-                                    features_length=features_length, name="unit_small", decoder=decoder)
-        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, num_subjects=num_subject, embedding_n=32,
-                                     features_length=features_length, name="unit_medium", decoder=decoder)
-        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, num_subjects=num_subject, embedding_n=32,
-                                    features_length=features_length, name="unit_large", decoder=decoder)
+        self.unit_small = UnitModel(en_units=(32, 32, 16, 16), num_output=num_output, num_subjects=num_subject,
+                                    num_video_genre=num_video_genre, embedding_n=32, features_length=features_length,
+                                    name="unit_small", decoder=decoder)
+        self.unit_medium = UnitModel(en_units=(64, 32, 16, 16), num_output=num_output, num_subjects=num_subject,
+                                     num_video_genre=num_video_genre, embedding_n=32, features_length=features_length,
+                                     name="unit_medium", decoder=decoder)
+        self.unit_large = UnitModel(en_units=(64, 64, 32, 16), num_output=num_output, num_subjects=num_subject,
+                                    num_video_genre=num_video_genre, embedding_n=32, features_length=features_length,
+                                    name="unit_large", decoder=decoder)
         # avg
         self.avg = tf.keras.layers.Average()
 
@@ -210,11 +229,11 @@ class EnsembleSeparateModel(tf.keras.Model):
 
     def call(self, inputs, training=None, mask=None):
         # small
-        z_em_s, z_ar_s, z_val_s, x_s, z_s, z_sub_s, z_gen_s = self.unit_small(inputs, training=training)
+        z_em_s, z_ar_s, z_val_s, x_s, z_s, z_sub_s, z_gen_s, z_video_s = self.unit_small(inputs, training=training)
         # medium
-        z_em_m, z_ar_m, z_val_m, x_m, z_m, z_sub_m, z_gen_m = self.unit_medium(inputs, training=training)
+        z_em_m, z_ar_m, z_val_m, x_m, z_m, z_sub_m, z_gen_m, z_video_m = self.unit_medium(inputs, training=training)
         # large
-        z_em_l, z_ar_l, z_val_l, x_l, z_l, z_sub_l, z_gen_l = self.unit_large(inputs, training=training)
+        z_em_l, z_ar_l, z_val_l, x_l, z_l, z_sub_l, z_gen_l, z_video_l = self.unit_large(inputs, training=training)
 
         z_em = self.avg([z_em_s, z_em_m, z_em_l])
         z_ar = self.avg([z_ar_s, z_ar_m, z_ar_l])
@@ -222,10 +241,11 @@ class EnsembleSeparateModel(tf.keras.Model):
         z = self.avg([z_s, z_m, z_l])
         z_sub = self.avg([z_sub_s, z_sub_m, z_sub_l])
         z_gen = self.avg([z_gen_s, z_gen_m, z_gen_l])
+        z_video = self.avg([z_video_s, z_video_m, z_video_l])
         if self.decoder:
             x = self.avg([x_s, x_m, x_l])
-            return z_em, z_ar, z_val, x, z, z_sub, z_gen
-        return z_em, z_ar, z_val, None, z, z_sub, z_gen
+            return z_em, z_ar, z_val, x, z, z_sub, z_gen, z_video
+        return z_em, z_ar, z_val, None, z, z_sub, z_gen, z_video
 
     def predictKD(self, X):
         logits = self.call(X, training=False)
@@ -274,10 +294,16 @@ class EnsembleSeparateModel(tf.keras.Model):
 
         return final_loss
 
-    def multiTaskClassificLoss(self, z_sub, z_gen, y_sub, y_gen, global_batch_size, alpha=0.5):
+    def multiTaskClassificLoss(self,
+                               z_sub, z_gen, z_video,
+                               y_sub, y_gen, y_video,
+                               global_batch_size,
+                               alpha_sub=1, alpha_gen=1, alpha_video=1):
         sub_loss = tf.nn.compute_average_loss(self.cross_loss(y_sub, tf.nn.softmax(z_sub)), global_batch_size=global_batch_size)
         gen_loss = tf.nn.compute_average_loss(self.binary_cross_loss(y_gen, tf.nn.sigmoid(z_gen)), global_batch_size=global_batch_size)
-        return alpha * sub_loss + (1 - alpha) * gen_loss
+        video_loss = tf.nn.compute_average_loss(self.cross_loss(y_video, tf.nn.softmax(z_video)), global_batch_size=global_batch_size)
+        alpha_sum = alpha_sub + alpha_gen + alpha_video
+        return (alpha_sub / alpha_sum) * sub_loss + (alpha_gen / alpha_sum) * gen_loss + (alpha_video / alpha_sum) * video_loss
 
     def reconstructLoss(self, z, y, global_batch_size):
         rec_loss = tf.nn.compute_average_loss(

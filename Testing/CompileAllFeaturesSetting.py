@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from Libs.Utils import arToLabels, valToLabels, convertLabels, regressLabelsConv, convertLabelsReg
+from Libs.Utils import arToLabels, valToLabels, convertLabels, regressLabelsConv, convertLabelsReg, timeToInt
 import glob
 import numpy as np
 from Conf.Settings import DATASET_PATH, STRIDE, ECG_PATH
@@ -26,11 +26,14 @@ for folder in glob.glob(DATASET_PATH + "2020-*"):
 # SPlit to train test and val
 
 all_features = []
-for folder in glob.glob(DATASET_PATH + "*"):
+for day, folder in enumerate(glob.glob(DATASET_PATH + "2020-*")):
     for subject in glob.glob(folder + "\\*-2020-*"):
         try:
             features_list = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
             features_list_ori = pd.read_csv(subject + "\\features_list_" + str(STRIDE) + ".csv")
+            emotion_test_result = pd.read_csv(glob.glob(subject + "\\*_gameResults.csv")[0])
+            emotion_test_result["Time_Start"] = emotion_test_result["Time_Start"].apply(timeToInt)
+            emotion_test_result["Time_End"] = emotion_test_result["Time_End"].apply(timeToInt)
 
             hr_all = []
 
@@ -38,6 +41,22 @@ for folder in glob.glob(DATASET_PATH + "*"):
                 hr_all.append(
                     np.expand_dims(np.load(subject + ECG_PATH + "ecg_" + str(idx) + ".npy"), axis=0)[0, 3])
 
+            video = np.full_like(features_list["Idx"].values, -1)
+            for video_idx in range(len(emotion_test_result)):
+                start = emotion_test_result.iloc[video_idx]["Time_Start"]
+                end = emotion_test_result.iloc[video_idx]["Time_End"]
+                mask = (features_list["Start"].values >= start) & (features_list["End"].values <= end)
+                if day == 0:
+                    video[mask] = video_idx
+                else:
+                    if video_idx <= 10:
+                        video[mask] = video_idx
+                    elif video_idx == 11:
+                        video[mask] = 12
+                    elif video_idx == 12:
+                        video[mask] = 11
+
+            features_list["Video_Idx"] = video
             features_list["Valence_convert"] = features_list["Valence"].apply(regressLabelsConv)
             features_list["Arousal_convert"] = features_list["Arousal"].apply(regressLabelsConv)
             a_h_v_n = (features_list["Arousal_convert"].values > 1) & (features_list["Valence_convert"].values < 0)
@@ -61,6 +80,7 @@ for folder in glob.glob(DATASET_PATH + "*"):
             print("Error" + subject)
 
 df = pd.concat(all_features, ignore_index=True)
+# df = df.drop(index=np.where(df["Video_Idx"] == -1)[0])
 df.to_csv(DATASET_PATH + "stride=" + str(STRIDE) + "\\all_data.csv", index=False)
 
 # resample

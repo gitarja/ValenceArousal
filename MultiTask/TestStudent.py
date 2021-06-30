@@ -1,7 +1,7 @@
 import tensorflow as tf
 from MultiTask.MultiTaskModel import EnsembleSeparateModel, EnsembleModel
 from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, \
-    TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS, N_SUBJECT
+    TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, PPG_N, EDA_N, Resp_N, N_CLASS, N_SUBJECT, N_VIDEO_GENRE
 from MultiTask.DataGenerator import DataFetch
 from Libs.Utils import calcAccuracyRegression, calcAccuracyArValRegression
 from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR, SoftF1
@@ -48,8 +48,8 @@ results = pd.DataFrame(index=[], columns=["Fold",
                                           "RMSE_val", "PCC_val", "CCC_val", "SAGR_val",
                                           "Ar_high", "Ar_low", "Ar_med",
                                           "Val_positive", "Val_negative", "Val_neutral",
-                                          "Acc_subject", "Acc_gender"])
-for fold in range(1, 6):
+                                          "Acc_subject", "Acc_gender", "Acc_video_genre"])
+for fold in range(1, 2):
     prev_val_loss = 1000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
@@ -67,9 +67,9 @@ for fold in range(1, 6):
         lambda: generator(training_mode=2),
         # output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
         # output_shapes=(tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_RAW_N]), ()))
-        output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+        output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
         output_shapes=(
-            tf.TensorShape([FEATURES_N]), (tf.TensorShape([N_CLASS])), (), (), tf.TensorShape([ECG_N]), (), tf.TensorShape([N_SUBJECT]), ()))
+            tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), (), tf.TensorShape([ECG_N]), (), tf.TensorShape([N_SUBJECT]), (), tf.TensorShape([N_VIDEO_GENRE])))
 
     test_data = test_generator.batch(data_fetch.test_n)
 
@@ -79,9 +79,9 @@ for fold in range(1, 6):
 
         # model = EnsembleStudentOneDim(num_output=num_output)
         checkpoint_prefix_base = result_path + "model_teacher"
-        teacher_model = EnsembleSeparateModel(num_output=num_output, num_subject=N_SUBJECT, features_length=FEATURES_N).loadBaseModel(
+        teacher_model = EnsembleSeparateModel(num_output=num_output, num_subject=N_SUBJECT, num_video_genre=N_VIDEO_GENRE, features_length=FEATURES_N).loadBaseModel(
             checkpoint_prefix_base)
-        model = EnsembleModel(num_output=num_output).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
+        model = EnsembleModel(num_output=num_output, num_subject=N_SUBJECT, num_video_genre=N_VIDEO_GENRE).loadBaseModel(checkpoint_prefix=checkpoint_prefix2)
 
         # test
         loss_test = tf.keras.metrics.Mean()
@@ -99,6 +99,7 @@ for fold in range(1, 6):
         # Sub-task accuracy
         subject_acc_test = tf.keras.metrics.CategoricalAccuracy()
         gender_acc_test = tf.keras.metrics.BinaryAccuracy()
+        video_acc_test = tf.keras.metrics.CategoricalAccuracy()
 
     predictions = []
     print("Start testing: Fold", fold)
@@ -111,9 +112,10 @@ for fold in range(1, 6):
 
             y_r_ar = tf.expand_dims(inputs[2], -1)
             y_r_val = tf.expand_dims(inputs[3], -1)
-            y_sub = inputs[-2]
-            y_gen = tf.expand_dims(inputs[-1], -1)
-            z_em, z_r_ar, z_r_val, _, z_sub, z_gen = model(X, training=False)
+            y_sub = inputs[6]
+            y_gen = tf.expand_dims(inputs[7], -1)
+            y_video = inputs[8]
+            z_em, z_r_ar, z_r_val, _, z_sub, z_gen, z_video = model(X, training=False)
 
             mse_loss, regress_loss = teacher_model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val,
                                                                   shake_params=shake_params,
@@ -121,14 +123,14 @@ for fold in range(1, 6):
                                                                   sample_weight=w)  # regression student-gt
 
             update_test_metrics(mse_loss,
-                                z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
-                                y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+                                z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen), tf.nn.softmax(z_video)],
+                                y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen, y_video])
 
             return z_r_ar, z_r_val, y_r_ar, y_r_val
 
         def update_test_metrics(loss, y, z):
-            z_em, z_r_ar, z_r_val, z_sub, z_gen = z  # logits
-            y_em, y_r_ar, y_r_val, y_sub, y_gen = y  # ground truth
+            z_em, z_r_ar, z_r_val, z_sub, z_gen, z_video = z  # logits
+            y_em, y_r_ar, y_r_val, y_sub, y_gen, y_video = y  # ground truth
             # train
             loss_test(loss)
             # arousal
@@ -147,6 +149,7 @@ for fold in range(1, 6):
             # Sub-task
             subject_acc_test(y_sub, z_sub)
             gender_acc_test(y_gen, z_gen)
+            video_acc_test(y_video, z_video)
 
     with strategy.scope():
         # `experimental_run_v2` replicates the provided computation and runs it
@@ -197,8 +200,9 @@ for fold in range(1, 6):
                                     accuracy_ar[0], accuracy_ar[1], accuracy_ar[2],
                                     accuracy_val[0], accuracy_val[1], accuracy_val[2],
                                     subject_acc_test.result().numpy(),
-                                    gender_acc_test.result().numpy()],
+                                    gender_acc_test.result().numpy(),
+                                    video_acc_test.result().numpy()],
                                    index=results.columns)
         results = results.append(results_series, ignore_index=True)
 
-results.to_csv(TRAINING_RESULTS_PATH + "MultiTask\\AllResultsSummaryStudent_ECG.csv", index=False)
+results.to_csv(TRAINING_RESULTS_PATH + "MultiTask\\AllResultsSummaryStudent_ECG_3tasks.csv", index=False)

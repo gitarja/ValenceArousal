@@ -287,7 +287,19 @@ def emotionLabels(labels, N_CLASS):
 
     return label_en
 
-def subjectLabel(label, n_class):
+def convertOneHotLabel(label, n_class):
     label_en = np.zeros(n_class)
     label_en[int(label)] = 1
     return label_en
+
+
+def videoGenreLabel(idx):
+    if idx in [0, 11, 13]:
+        label = 0
+    elif idx in [1, 4, 7]:
+        label = 1
+    elif idx in [2, 5, 8, 12]:
+        label = 2
+    else:
+        label = 3
+    return label

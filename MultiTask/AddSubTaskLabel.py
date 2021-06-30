@@ -1,13 +1,14 @@
 import numpy as np
 import pandas as pd
 from Conf.Settings import DATASET_PATH
+from Libs.Utils import videoGenreLabel
 import os
 
-path = DATASET_PATH + "stride=0.2\\SubjectCV\\"
-path_result = DATASET_PATH + "stride=0.2_multitask\\SubjectCV\\"
+path = DATASET_PATH + "stride=0.2\\"
+path_result = DATASET_PATH + "stride=0.2_multitask\\"
 os.makedirs(path_result, exist_ok=True)
 
-for fold in range(1, 2):
+for fold in range(1, 6):
     df_train = pd.read_csv(path + "training_data_" + str(fold) + ".csv")
     df_val = pd.read_csv(path + "validation_data_" + str(fold) + ".csv")
     df_test = pd.read_csv(path + "test_data_" + str(fold) + ".csv")
@@ -33,6 +34,10 @@ for fold in range(1, 2):
     df_train["Gender_label"] = gender_label_train
     df_val["Gender_label"] = gender_label_val
     df_test["Gender_label"] = gender_label_test
+
+    df_train["Video_genre"] = df_train["Video_Idx"].apply(videoGenreLabel)
+    df_val["Video_genre"] = df_val["Video_Idx"].apply(videoGenreLabel)
+    df_test["Video_genre"] = df_test["Video_Idx"].apply(videoGenreLabel)
 
     df_train.to_csv(path_result + "training_data_" + str(fold) + ".csv", index=False)
     df_val.to_csv(path_result + "validation_data_" + str(fold) + ".csv", index=False)

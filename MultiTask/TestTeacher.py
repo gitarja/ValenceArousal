@@ -1,7 +1,8 @@
 import tensorflow as tf
 from KnowledgeDistillation.Models.EnsembleDistillModel import EnsembleStudentOneDim
 from MultiTask.MultiTaskModel import EnsembleSeparateModel, EnsembleModel
-from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS, FEATURES_N, N_SUBJECT
+from Conf.Settings import FEATURES_N, DATASET_PATH, CHECK_POINT_PATH, TENSORBOARD_PATH, ECG_RAW_N, \
+    TRAINING_RESULTS_PATH, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_N, N_CLASS, FEATURES_N, N_SUBJECT, N_VIDEO_GENRE
 from MultiTask.DataGenerator import DataFetch
 from KnowledgeDistillation.Utils.Metrics import PCC, CCC, SAGR, SoftF1
 import datetime
@@ -52,11 +53,11 @@ results = pd.DataFrame(index=[], columns=["Fold",
                                           "RMSE_val", "PCC_val", "CCC_val", "SAGR_val",
                                           "Ar_high", "Ar_low", "Ar_med",
                                           "Val_positive", "Val_negative", "Val_neutral",
-                                          "Acc_subject", "Acc_gender"])
+                                          "Acc_subject", "Acc_gender", "Acc_video_genre"])
 
 # setting
 # fold = str(sys.argv[1])
-for fold in range(1, 6):
+for fold in range(1, 2):
     prev_val_loss = 1000
     wait_i = 0
     result_path = TRAINING_RESULTS_PATH + "MultiTask\\fold_" + str(fold) + "\\"
@@ -72,8 +73,9 @@ for fold in range(1, 6):
 
     test_generator = tf.data.Dataset.from_generator(
         lambda: generator(training_mode=2),
-        output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), (), tf.TensorShape([N_SUBJECT]), ()))
+        output_types=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([FEATURES_N]), tf.TensorShape([N_CLASS]), (), (),
+                       tf.TensorShape([N_SUBJECT]), (), tf.TensorShape([N_VIDEO_GENRE])))
 
     test_data = test_generator.batch(data_fetch.test_n)
 
@@ -82,7 +84,7 @@ for fold in range(1, 6):
         # encoder model
 
         # model = EnsembleStudentOneDim(num_output=num_output)
-        model = EnsembleSeparateModel(num_output=num_output, num_subject=N_SUBJECT, features_length=FEATURES_N).loadBaseModel(
+        model = EnsembleSeparateModel(num_output=num_output, num_subject=N_SUBJECT, num_video_genre=N_VIDEO_GENRE, features_length=FEATURES_N).loadBaseModel(
             checkpoint_prefix=checkpoint_prefix2)
 
         # test
@@ -101,6 +103,7 @@ for fold in range(1, 6):
         # Sub-task accuracy
         subject_acc_test = tf.keras.metrics.CategoricalAccuracy()
         gender_acc_test = tf.keras.metrics.BinaryAccuracy()
+        video_acc_test = tf.keras.metrics.CategoricalAccuracy()
 
     predictions = []
     print("Start testing: Fold", fold)
@@ -112,25 +115,27 @@ for fold in range(1, 6):
             y_emotion = inputs[1]
             y_r_ar = tf.expand_dims(inputs[2], -1)
             y_r_val = tf.expand_dims(inputs[3], -1)
-            y_sub = inputs[-2]
-            y_gen = tf.expand_dims(inputs[-1], -1)
-            z_em, z_r_ar, z_r_val, _, _, z_sub, z_gen = model(X, training=False)
+            y_sub = inputs[4]
+            y_gen = tf.expand_dims(inputs[5], -1)
+            y_video = inputs[6]
+            z_em, z_r_ar, z_r_val, _, _, z_sub, z_gen, z_video = model(X, training=False)
             classific_loss = model.classificationLoss(z_em, y_emotion, global_batch_size=GLOBAL_BATCH_SIZE)
             mse_loss, regress_loss = model.regressionLoss(z_r_ar, z_r_val, y_r_ar, y_r_val, shake_params=shake_params,
                                                           global_batch_size=GLOBAL_BATCH_SIZE)
-            multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, y_sub, y_gen,
+            multi_task_loss = model.multiTaskClassificLoss(z_sub, z_gen, z_video,
+                                                           y_sub, y_gen, y_video,
                                                            global_batch_size=GLOBAL_BATCH_SIZE)
 
             update_test_metrics(mse_loss + multi_task_loss + classific_loss,
-                                z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen)],
-                                y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen])
+                                z=[tf.nn.sigmoid(z_em), z_r_ar, z_r_val, tf.nn.softmax(z_sub), tf.nn.sigmoid(z_gen), tf.nn.softmax(z_video)],
+                                y=[y_emotion, y_r_ar, y_r_val, y_sub, y_gen, y_video])
             # print(X)
 
             return z_r_ar, z_r_val, y_r_ar, y_r_val
 
         def update_test_metrics(loss, y, z):
-            z_em, z_r_ar, z_r_val, z_sub, z_gen = z  # logits
-            y_em, y_r_ar, y_r_val, y_sub, y_gen = y  # ground truth
+            z_em, z_r_ar, z_r_val, z_sub, z_gen, z_video = z  # logits
+            y_em, y_r_ar, y_r_val, y_sub, y_gen, y_video = y  # ground truth
             # train
             loss_test(loss)
             # arousal
@@ -148,6 +153,7 @@ for fold in range(1, 6):
             # Sub-task
             subject_acc_test(y_sub, z_sub)
             gender_acc_test(y_gen, z_gen)
+            video_acc_test(y_video, z_video)
 
     with strategy.scope():
         # `experimental_run_v2` replicates the provided computation and runs it
@@ -192,7 +198,8 @@ for fold in range(1, 6):
                                     accuracy_ar[0], accuracy_ar[1], accuracy_ar[2],
                                     accuracy_val[0], accuracy_val[1], accuracy_val[2],
                                     subject_acc_test.result().numpy(),
-                                    gender_acc_test.result().numpy()],
+                                    gender_acc_test.result().numpy(),
+                                    video_acc_test.result().numpy()],
                                    index=results.columns)
         results = results.append(results_series, ignore_index=True)
 
@@ -209,5 +216,5 @@ for fold in range(1, 6):
         v_n_results = np.sum(val_pred_label[:, 1][v_n] <= 0)
         print((v_p_results + v_n_results) / (np.sum(v_p) + np.sum(v_n)))
 
-results.to_csv(TRAINING_RESULTS_PATH + "MultiTask\\AllResultsSummaryTeacher.csv", index=False)
+results.to_csv(TRAINING_RESULTS_PATH + "MultiTask\\AllResultsSummaryTeacher_3tasks.csv", index=False)
 

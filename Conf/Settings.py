@@ -66,3 +66,4 @@ LOW_PROP = 0.3
 #classification
 N_CLASS = 12
 N_SUBJECT = 28
+N_VIDEO_GENRE = 4

@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from Libs.Utils import timeToInt, dreamerLabelsConv, regressLabelsConv, emotionLabels, subjectLabel
+from Libs.Utils import timeToInt, dreamerLabelsConv, regressLabelsConv, emotionLabels, convertOneHotLabel
 from Conf.Settings import ECG_PATH, RESP_PATH, EEG_PATH, ECG_RESP_PATH, EDA_PATH, PPG_PATH, DATASET_PATH, ECG_R_PATH, \
-    ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH, N_SUBJECT
+    ECG_RR_PATH, FS_ECG, ROAD_ECG, SPLIT_TIME, STRIDE, ECG_D_R_PATH, N_CLASS, DREAMER_PATH, N_SUBJECT, N_VIDEO_GENRE
 from ECG.ECGFeatures import ECGFeatures
 from joblib import Parallel, delayed
 
@@ -78,19 +78,19 @@ class DataFetch:
             data_i = data_set[i]
             if self.teacher:
                 if self.multi_task:
-                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[7], data_i[8]
+                    yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[7], data_i[8], data_i[9]
                 else:
                     yield data_i[0], data_i[1], data_i[2], data_i[3]
             else:
                 if self.KD:
                     if self.ECG | self.EDA | self.PPG | self.RESP:
                         if self.multi_task:
-                            yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5], data_i[6], data_i[7], data_i[8]
+                            yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5], data_i[6], data_i[7], data_i[8], data_i[9]
                         else:
                             yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[5], data_i[6]
                     else:
                         if self.multi_task:
-                            yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[6], data_i[7], data_i[8]
+                            yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[6], data_i[7], data_i[8], data_i[9]
                         else:
                             yield data_i[0], data_i[1], data_i[2], data_i[3], data_i[4], data_i[6]
                 else:
@@ -160,6 +160,7 @@ class DataFetch:
             emotions = features_list.iloc[i]["Emotion"]
             subject = features_list.iloc[i]["Subject_label"]
             gender = features_list.iloc[i]["Gender_label"]
+            video = features_list.iloc[i]["Video_genre"]
 
             # convert the label either to binary class or three class
 
@@ -171,7 +172,8 @@ class DataFetch:
             y_emotions = emotionLabels(emotions, N_CLASS)
             y_r_ar = regressLabelsConv(y_ar)
             y_r_val = regressLabelsConv(y_val)
-            y_subject = subjectLabel(subject, N_SUBJECT)
+            y_subject = convertOneHotLabel(subject, N_SUBJECT)
+            y_video = convertOneHotLabel(video, N_VIDEO_GENRE)
 
             # if len(ecg) >= self.ECG_N:
             #     ecg = (ecg - 2140.397356669409) / 370.95493558685325
@@ -199,9 +201,9 @@ class DataFetch:
             w = 1
             if self.high_only:
                 if w == 1:
-                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w, y_subject, gender])
+                    data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w, y_subject, gender, y_video])
             else:
-                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w, y_subject, gender])
+                data_set.append([concat_features_norm, y_emotions, y_r_ar, y_r_val, ecg, features_student, w, y_subject, gender, y_video])
 
         return data_set
 
